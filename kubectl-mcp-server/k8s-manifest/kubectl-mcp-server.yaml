@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kubectl-mcp-server
-  namespace: default
+  namespace: kubectl-mcp-server
   labels:
     app: kubectl-mcp-server
     version: v1
@@ -34,25 +34,11 @@ spec:
           value: "8000"
         resources:
           requests:
-            memory: "128Mi"
-            cpu: "100m"
+            memory: "12Mi"
+            cpu: "10m"
           limits:
-            memory: "512Mi"
-            cpu: "500m"
-        livenessProbe:
-          tcpSocket:
-            port: 8000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
-        readinessProbe:
-          tcpSocket:
-            port: 8000
-          initialDelaySeconds: 5
-          periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 3
+            memory: "200Mi"
+            cpu: "200m"
         volumeMounts:
         - name: kubeconfig
           mountPath: /root/.kube
@@ -70,7 +56,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: kubectl-mcp-server-service
-  namespace: default
+  namespace: kubectl-mcp-server
   labels:
     app: kubectl-mcp-server
 spec:
@@ -88,7 +74,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: kubectl-mcp-server
-  namespace: default
+  namespace: kubectl-mcp-server
   labels:
     app: kubectl-mcp-server
 
@@ -143,7 +129,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kubectl-mcp-server
-  namespace: default
+  namespace: kubectl-mcp-server
 
 ---
 # ConfigMap for additional configuration if needed
@@ -151,7 +137,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kubectl-mcp-server-config
-  namespace: default
+  namespace: kubectl-mcp-server
   labels:
     app: kubectl-mcp-server
 data:
@@ -165,7 +151,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: kubectl-mcp-server-hpa
-  namespace: default
+  namespace: kubectl-mcp-server
   labels:
     app: kubectl-mcp-server
 spec:
@@ -174,7 +160,7 @@ spec:
     kind: Deployment
     name: kubectl-mcp-server
   minReplicas: 1
-  maxReplicas: 5
+  maxReplicas: 1
   metrics:
   - type: Resource
     resource:
