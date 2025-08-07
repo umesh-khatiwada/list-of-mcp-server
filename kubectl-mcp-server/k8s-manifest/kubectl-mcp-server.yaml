@@ -25,12 +25,18 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
-          name: http
+          name: mcp-port
           protocol: TCP
         env:
         - name: TRANSPORT
           value: "sse"
         - name: PORT
+          value: "8000"
+        - name: HOST
+          value: "0.0.0.0"
+        - name: UVICORN_HOST
+          value: "0.0.0.0"
+        - name: UVICORN_PORT
           value: "8000"
         resources:
           requests:
@@ -43,11 +49,30 @@ spec:
         - name: kubeconfig
           mountPath: /root/.kube
           readOnly: true
+      - name: nginx-proxy
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        resources:
+          requests:
+            memory: "8Mi"
+            cpu: "5m"
+          limits:
+            memory: "32Mi"
+            cpu: "50m"
       volumes:
       - name: kubeconfig
         secret:
           secretName: kubectl-mcp-server-kubeconfig
           defaultMode: 0600
+      - name: nginx-config
+        configMap:
+          name: nginx-proxy-config
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
 
@@ -63,7 +88,7 @@ spec:
   type: ClusterIP
   ports:
   - port: 80
-    targetPort: 8000
+    targetPort: 80
     protocol: TCP
     name: http
   selector:
@@ -130,6 +155,56 @@ subjects:
 - kind: ServiceAccount
   name: kubectl-mcp-server
   namespace: kubectl-mcp-server
+
+---
+# ConfigMap for nginx proxy configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-proxy-config
+  namespace: kubectl-mcp-server
+  labels:
+    app: kubectl-mcp-server
+data:
+  default.conf: |
+    upstream mcp_backend {
+        server 127.0.0.1:8000;
+    }
+    
+    server {
+        listen 80;
+        server_name _;
+        
+        # Enable keepalive for SSE
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # SSE specific headers
+        proxy_set_header Cache-Control "no-cache";
+        proxy_set_header X-Accel-Buffering "no";
+        
+        # Timeout settings for SSE
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 86400s;  # 24 hours for long-lived SSE connections
+        
+        location / {
+            proxy_pass http://mcp_backend;
+        }
+        
+        # Health check endpoint
+        location /health {
+            access_log off;
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+    }
 
 ---
 # ConfigMap for additional configuration if needed
