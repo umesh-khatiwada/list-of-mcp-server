@@ -5,7 +5,7 @@ from llama_index.core.workflow import Context
 from llama_index.llms.ollama import Ollama
 from llama_index.core import Settings
 
-llm = Ollama(model="llama3.2:1b", request_timeout=120.0,host="ollama.do.umeshkhatiwada.com.np")
+llm = Ollama(model="llama3.2:1b", request_timeout=120.0)
 Settings.llm = llm
 
 
