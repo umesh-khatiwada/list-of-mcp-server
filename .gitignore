@@ -1,1 +1,3 @@
 mcp-local-sql-client/myenv
+todo-automation/.venv
+*.venv
