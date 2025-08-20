@@ -30,3 +30,6 @@ touch weather.py
 }
 
 uv --directory /ABSOLUTE/PATH/TO/PARENT/FOLDER/weather run weather.py
+
+
+uv run python -c "import weather; print('Weather module loaded successfully')"
