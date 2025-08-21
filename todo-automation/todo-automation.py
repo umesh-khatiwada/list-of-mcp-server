@@ -1,9 +1,13 @@
 from typing import Any
 import httpx
 from mcp.server.fastmcp import FastMCP
+# from fastmcp.client.auth import OAuth
 
 # Initialize FastMCP server
 mcp = FastMCP("todo-automation")
+# oauth = OAuth(mcp_url="https://fastmcp.cloud/mcp")
+
+
 
 # Constants
 NWS_API_BASE = "https://task-manager-api.do.umeshkhatiwada.com.np/api"

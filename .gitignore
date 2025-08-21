@@ -1,3 +1,4 @@
-mcp-local-sql-client/myenv
-todo-automation/.venv
-*.venv
+*.env
+__pycache__/
+*.pyc
+*.pyo
