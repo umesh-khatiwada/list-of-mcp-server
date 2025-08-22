@@ -8,7 +8,7 @@ auth_provider = GoogleProvider(
     client_secret=os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_SECRET") or "",  # Your Google OAuth Client Secret
     base_url="http://localhost:8000",                  # Must match your OAuth configuration
     required_scopes=["openid", "email", "profile"],    # Request user information
-    # redirect_path="/auth/callback"                  # Default value, customize if needed
+    redirect_path="/callback"                  # Default value, customize if needed
 )
 
 mcp = FastMCP(name="Google Secured App", auth=auth_provider)
