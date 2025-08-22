@@ -32,14 +32,6 @@ def echo(message: str) -> str:
     """Echo the provided message."""
     return message
 
-@mcp.tool
-def echo1(message: str) -> str:
-    """Echo the provided message."""
-    return message
-@mcp.tool
-def echo2(message: str) -> str:
-    """Echo the provided message."""
-    return message
 
 if __name__ == "__main__":
-    mcp.run(transport="http", port=9000)
+    mcp.run(transport="http", port=8000)
