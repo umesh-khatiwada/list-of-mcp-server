@@ -4,18 +4,24 @@ import httpx
 
 async def main():
     try:
-        # The client will automatically handle Google OAuth
-        async with Client("http://127.0.0.1:8000/mcp/", auth="oauth") as client:
-            # First-time connection will open Google login in your browser
+        async with Client("http://localhost:8000/mcp", auth="oauth") as client:
             print("✓ Authenticated with Google!")
-            # Test the protected tool
+
+            # List available tools
+            tools = await client.list_tools()
+            print("Available tools:", [t['name'] for t in tools])
+
+            # Call the protected tool
             result = await client.call_tool("get_user_info")
-            print(f"Google user: {result['email']}")
-            print(f"Name: {result['name']}")
+            print("Google user:", result.get("email"))
+            print("Name:", result.get("name"))
+
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 401:
-            print("ERROR: 401 Unauthorized. Is the server running in HTTP mode?")
-            print("Try: python server.py --http")
+            print("❌ 401 Unauthorized – check that:")
+            print("   • Server base_url uses localhost (not localhost)")
+            print("   • Client URL matches exactly (http://localhost:8000/mcp)")
+            print("   • Google OAuth credentials are correct")
         else:
             print(f"HTTP error: {e}")
         exit(1)

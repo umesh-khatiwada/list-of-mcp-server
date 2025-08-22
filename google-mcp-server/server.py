@@ -3,15 +3,15 @@ from fastmcp import FastMCP
 from fastmcp.server.auth.providers.google import GoogleProvider
 
 # The GoogleProvider handles Google's token format and validation
-auth_provider = GoogleProvider(
-    client_id=os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID") or "",  # Your Google OAuth Client ID
-    client_secret=os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_SECRET") or "",  # Your Google OAuth Client Secret
-    base_url="http://localhost:8000",                  # Must match your OAuth configuration
-    required_scopes=["openid", "email", "profile"],    # Request user information
-    redirect_path="/callback"                  # Default value, customize if needed
+auth = GoogleProvider(
+    client_id=os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID") or "",
+    client_secret=os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_SECRET") or "",
+    base_url="http://localhost:8000",   # 🔑 not 127.0.0.1
+    required_scopes=["openid", "email", "profile"],
+    redirect_path="/callback"
 )
 
-mcp = FastMCP(name="Google Secured App", auth=auth_provider)
+mcp = FastMCP(name="Google Secured App", auth=auth)
 
 # Add a protected tool to test authentication
 @mcp.tool
