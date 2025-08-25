@@ -219,7 +219,7 @@ Use the appropriate tool and follow these rules based on the HTTP method:
   * `x-user-token` header with the exact token from Redis.
 ---
 ### Step 4: Return a Human-Readable Response
-* **show return raw JSON**.
+* **Dont show and  return raw JSON**.
 ---
 ### Step 5: If No Match Found
 If no relevant information is found in `RSS Read`, respond with:
@@ -322,10 +322,9 @@ I cannot find the answer in the available resources.
                 response_text += f"**Status Code:** {api_data.get('status_code')}\n"
                 response_text += f"**Endpoint:** {best_match['path']}\n\n"
                 
-                response_text += f"**Raw API Response:**\n```json\n{json.dumps(api_data.get('data'), indent=2)}\n```\n\n"
-                
+                # Only show human-readable format, not raw JSON
                 formatted_response = self._format_response_for_human(api_data.get('data', {}))
-                response_text += f"**Human-Readable Result:**\n{formatted_response}\n\n"
+                response_text += f"**Result:**\n{formatted_response}\n\n"
                 response_text += f"**Suggestion:** You can ask about other endpoints or request specific actions."
                 return response_text
             else:
@@ -339,19 +338,63 @@ I cannot find the answer in the available resources.
         if isinstance(data, dict):
             if not data:
                 return "No data found."
-            formatted = "Here's the information I found:\n"
+            
+            # Check if it's a standard API response with status and data
+            if data.get("status") == "success" and "data" in data:
+                return self._format_response_for_human(data["data"])
+            
+            # Format dictionary nicely
+            formatted = ""
             for k, v in data.items():
-                formatted += f"• {k}: {json.dumps(v, indent=2)}\n"
+                if k == "meta":
+                    # Format pagination info nicely
+                    formatted += f"📊 **Pagination:** Page {v.get('page', 'N/A')} of {v.get('total_pages', 'N/A')} (Total: {v.get('total', 'N/A')} items)\n\n"
+                elif isinstance(v, (dict, list)):
+                    formatted += f"**{k.title()}:**\n{self._format_response_for_human(v)}\n"
+                else:
+                    formatted += f"**{k.title()}:** {v}\n"
             return formatted
+            
         elif isinstance(data, list):
             if not data:
                 return "No items found."
-            formatted = f"Found {len(data)} items:\n"
+            
+            # Check if it's notifications
+            if len(data) > 0 and isinstance(data[0], dict) and "title" in data[0]:
+                formatted = f"📋 **Found {len(data)} notifications:**\n\n"
+                for i, notification in enumerate(data, 1):
+                    status_icon = "🔔" if not notification.get("seen", False) else "✅"
+                    formatted += f"{status_icon} **{i}. {notification.get('title', 'No title')}**\n"
+                    formatted += f"   📝 {notification.get('body', 'No description')}\n"
+                    formatted += f"   📅 {notification.get('created_at', 'No date')[:10]}\n"
+                    formatted += f"   🏷️  Type: {notification.get('type', 'Unknown')} | Level: {notification.get('notication_level', 'Unknown')}\n"
+                    if notification.get('url'):
+                        formatted += f"   🔗 URL: {notification.get('url')}\n"
+                    formatted += "\n"
+                return formatted
+            
+            # Generic list formatting
+            formatted = f"Found {len(data)} items:\n\n"
             for i, item in enumerate(data[:5], 1):
-                formatted += f"{i}. {json.dumps(item, indent=2)}\n"
+                if isinstance(item, dict):
+                    # Show key fields only
+                    if "name" in item:
+                        formatted += f"{i}. **{item['name']}**"
+                    elif "title" in item:
+                        formatted += f"{i}. **{item['title']}**"
+                    else:
+                        formatted += f"{i}. Item {i}"
+                    
+                    if "id" in item:
+                        formatted += f" (ID: {item['id'][:8]}...)"
+                    formatted += "\n"
+                else:
+                    formatted += f"{i}. {item}\n"
+            
             if len(data) > 5:
-                formatted += f"... and {len(data) - 5} more items."
+                formatted += f"\n... and {len(data) - 5} more items."
             return formatted
+            
         return str(data)
 
 
