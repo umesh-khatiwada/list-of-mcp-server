@@ -300,6 +300,7 @@ async def perizer_data_curl_put(url: str, parameters4_Value: str, JSON: dict) ->
         }
         
         response = await http_client.put(url, headers=headers, json=JSON)
+        print("response",response)
         response.raise_for_status()
         
         return json.dumps({
@@ -310,6 +311,124 @@ async def perizer_data_curl_put(url: str, parameters4_Value: str, JSON: dict) ->
         
     except Exception as e:
         return json.dumps({"error": str(e), "url": url})
+
+@mcp.tool()
+async def ai_agent_process(user_message: str, session_id: str) -> str:
+    """AI Agent tool that processes user messages and executes appropriate API calls"""
+    try:
+        # Step 1: Get token from Redis
+        token = await redis_client.get(session_id)
+        if not token:
+            return json.dumps({"error": "Token not found", "session_id": session_id})
+
+        # Step 2: Load RSS endpoints
+        endpoints = await session_manager.load_rss_endpoints()
+        if not endpoints:
+            return json.dumps({"error": "No RSS endpoints available"})
+
+        # Step 3: Match user message to best endpoint
+        best_match = session_manager.match_message_to_endpoint(user_message)
+
+        if not best_match:
+            return json.dumps({
+                "error": "No matching endpoint found",
+                "message": "I cannot find the answer in the available resources.",
+                "suggestion": "Try asking about users, notifications, messages, or other available API endpoints."
+            })
+
+        # Step 4: Execute the appropriate API call using existing tools
+        BASE_URL = "https://api.test.computesphere.com"
+        
+        # Check if path already includes /api/v1, if so don't add it again
+        if best_match.path.startswith('/api/v1'):
+            full_url = BASE_URL + best_match.path
+        else:
+            full_url = f"{BASE_URL}/api/v1{best_match.path}"
+
+        try:
+            if best_match.method == 'GET':
+                # Call the existing perizer_data_curl_get tool internally
+                api_response_str = await perizer_data_curl_get(full_url, token)
+                api_response = json.loads(api_response_str)
+                
+            elif best_match.method == 'POST':
+                # Call the existing perizer_data_curl_post tool internally
+                api_response_str = await perizer_data_curl_post(full_url, token)
+                api_response = json.loads(api_response_str)
+                
+            elif best_match.method == 'PUT':
+                # Call the existing perizer_data_curl_put tool internally
+                api_response_str = await perizer_data_curl_put(full_url, token, {})
+                api_response = json.loads(api_response_str)
+            else:
+                return json.dumps({"error": f"Unsupported HTTP method: {best_match.method}"})
+
+            # Step 5: Format the response for humans
+            if api_response.get("success"):
+                formatted_response = _format_api_response_for_human(api_response.get("data", {}))
+                
+                return json.dumps({
+                    "success": True,
+                    "method": best_match.method,
+                    "url": full_url,
+                    "status_code": api_response.get("status_code"),
+                    "matched_endpoint": {
+                        "path": best_match.path,
+                        "keywords": best_match.keywords[:5],
+                        "description": best_match.description
+                    },
+                    "raw_response": api_response.get("data", {}),
+                    "formatted_response": formatted_response,
+                    "suggestion": "You can ask about other endpoints or request specific actions like creating, updating, or deleting items."
+                })
+            else:
+                return json.dumps({
+                    "error": f"API request failed: {api_response.get('error', 'Unknown error')}",
+                    "url": full_url,
+                    "method": best_match.method,
+                    "suggestion": "Please check your session token or try a different request."
+                })
+                
+        except Exception as e:
+            return json.dumps({
+                "error": f"API call execution failed: {str(e)}",
+                "url": full_url,
+                "method": best_match.method
+            })
+            
+    except Exception as e:
+        return json.dumps({"error": f"Agent processing failed: {str(e)}"})
+
+def _format_api_response_for_human(data: Any) -> str:
+    """Convert API response data to human-readable format"""
+    if isinstance(data, dict):
+        if not data:
+            return "No data found."
+        
+        formatted = "Here's the information I found:\n"
+        for k, v in data.items():
+            if isinstance(v, (dict, list)):
+                formatted += f"• {k}: {json.dumps(v, indent=2)}\n"
+            else:
+                formatted += f"• {k}: {v}\n"
+        return formatted
+        
+    elif isinstance(data, list):
+        if not data:
+            return "No items found."
+        
+        formatted = f"Found {len(data)} items:\n"
+        for i, item in enumerate(data[:5], 1):
+            if isinstance(item, dict):
+                formatted += f"{i}. {json.dumps(item, indent=2)}\n"
+            else:
+                formatted += f"{i}. {item}\n"
+        
+        if len(data) > 5:
+            formatted += f"... and {len(data) - 5} more items."
+        return formatted
+        
+    return str(data)
 
 if __name__ == "__main__":
     print("Starting MCP Server on http://localhost:8000")

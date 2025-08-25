@@ -76,13 +76,25 @@ async def test_mcp_tools():
         print("\n=== Testing perizer_data_curl_get ===")
         try:
             result = await client.call_tool("perizer_data_curl_get", {
-                "url": "https://api.test.computesphere.com/api/v1/users",
-                "parameters2_Value": "fake_token_123"
+                "url": "https://api.test.computesphere.com/api/v1/notifications/settings",
+                "parameters2_Value": "zO-mHaYBwoU4PORXrvZbmQjWkbcQiJEa"
             })
             data = extract_result_data(result)
             print(f"API GET result: {json.dumps(data, indent=2)}")
         except Exception as e:
             print(f"Error calling perizer_data_curl_get: {e}")
+        
+        # Test ai_agent_process (the new intelligent agent tool)
+        print("\n=== Testing ai_agent_process ===")
+        try:
+            result = await client.call_tool("ai_agent_process", {
+                "user_message": "get me notification settings",
+                "session_id": "111"
+            })
+            data = extract_result_data(result)
+            print(f"AI Agent Process result: {json.dumps(data, indent=2)}")
+        except Exception as e:
+            print(f"Error calling ai_agent_process: {e}")
 
 if __name__ == "__main__":
     asyncio.run(test_mcp_tools())
