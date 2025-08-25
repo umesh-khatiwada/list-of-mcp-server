@@ -39,8 +39,8 @@ class SessionManager:
         text_to_search = f"{title} {description} {link}".lower()
         import re
         api_patterns = [
-            r'/api/v\d+/[a-zA-Z0-9/_-]+',  # /api/v1/users, /api/v2/notifications
-            r'/v\d+/[a-zA-Z0-9/_-]+',      # /v1/users
+            r'/api/v\d+/[a-zA-Z0-9/_-]+',
+            r'/v\d+/[a-zA-Z0-9/_-]+',    
             r'/[a-zA-Z]+(?:/[a-zA-Z0-9_-]+)*'  # /users, /notifications/list
         ]
         
@@ -69,6 +69,7 @@ class SessionManager:
         description = entry.get('description', '').lower()
         link = entry.get('link', '').lower()
         all_text = f"{title} {description} {link}"
+        
         keywords = []
         api_keywords = [
             'get', 'post', 'put', 'delete', 'patch',
@@ -77,9 +78,11 @@ class SessionManager:
             'profile', 'settings', 'data', 'list', 'create',
             'update', 'remove', 'fetch', 'send', 'receive'
         ]
+        
         for keyword in api_keywords:
             if keyword in all_text:
                 keywords.append(keyword)
+        
         words = all_text.split()
         common_words = {'the', 'and', 'for', 'are', 'with', 'this', 'that', 'from', 'they', 'have', 'will', 'been', 'said'}
         
@@ -88,7 +91,7 @@ class SessionManager:
             if len(clean_word) > 3 and clean_word not in common_words and clean_word not in keywords:
                 keywords.append(clean_word)
         
-        return list(set(keywords))
+        return keywords[:10]  # Limit to 10 keywords to avoid too long lists
 
     async def load_rss_endpoints(self) -> List[APIEndpoint]:
         """Load API endpoints from RSS feed"""
@@ -162,82 +165,6 @@ class SessionManager:
         
         return best_match if highest_score > 0 else None
 session_manager = SessionManager()
-SYSTEM_PROMPT = os.getenv('SYSTEM_PROMPT', """
----
-You are a helpful AI assistant designed to answer user questions based on requests.
-Your responsibilities are:
----
-###  Step 1: Retrieve Authorization Token
-* Always begin fetching the **x-user-token** from **Redis**.
-* Fetch the "x-user-token" token from **Redis**, using:
-  ```text
-  key = {{ $json.sessionId }}
-  ```
-* The Redis output will contain the  token (e.g., `abc123...`).
-* Extract this token and use it in all subsequent HTTP requests as:
-  ```http
-  x-user-token: <token>
-  ```
- Important:
-    The  x-user-token received from Redis must be used exactly as returned when sent in the header for API requests . 
-
-    Extract the full  token string (e.g., abc123...).
-    Store in window buffer memory as:
-    {{ $json.sessionId }} =  abc123...
----
-###  Step 2: Match Message with RSS Read
-* Always check if the **chat message matches any path in RSS Read**.
-* If found, identify the corresponding HTTP method: `GET`, `POST`, or `PUT`.
----
-###  Step 3: Make the API Request
-Use the appropriate tool and follow these rules based on the HTTP method:
-#### If `GET`:
-* Use the `perizer_data_curl_get` tool.
-* Construct the full URL:
-  ```text
-  https://api.test.computesphere.com/api/v1 + path from `RSS Read`
-  ```
-* Include:
-  * All required path and query parameters.
-  * `Authorization` header with the exact token from Redis..
-####  If `POST`:
-* Use the `perizer_data_curl_post` tool.
-* Construct the full URL the same way.
-* Include:
-  * Required path parameters.
-  * JSON request body (as defined in the docs).
-  * `Authorization` header with the exact token from Redis.
-
-####  If `PUT`:
-* Use the `perizer_data_curl_put` tool.
-* Construct the full URL the same way.
-* Include:
-  * Required path parameters.
-  * JSON request body (as defined in the docs).
-  * `x-user-token` header with the exact token from Redis.
----
-### Step 4: Return a Human-Readable Response
-* Convert **all HTTP responses** into **simple, clear, human-readable output**.
-* **Do not return raw JSON**.
----
-### Step 5: If No Match Found
-If no relevant information is found in `RSS Read`, respond with:
-```text
-I cannot find the answer in the available resources.
-```
----
-###  Always Apply Logic on Every Query
-* This process should be repeated for **every chat message**, including follow-up messages.
-* Always fetch the **latest method** and **match from `RSS Read`**, even if the query seems repetitive.
-* `x-user-token:` dont include text in token and also Bearer. 
-* Always Give suggestion after every request
----
-""")
-
-@mcp.tool()
-async def get_system_prompt() -> str:
-    """Get the current system prompt"""
-    return json.dumps({"system_prompt": SYSTEM_PROMPT})
 
 @mcp.tool()
 async def health_check() -> str:
