@@ -1,4 +1,3 @@
-# mcp_server.py - The MCP Server (replaces your second n8n workflow)
 import asyncio
 import json
 import redis.asyncio as redis
@@ -11,18 +10,10 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-
-# Initialize FastMCP server
 mcp = FastMCP("AI Agent Tools Server")
-
-# Redis client
 redis_url = os.getenv('REDIS_URL', '')
 redis_client = redis.from_url(redis_url, decode_responses=True)
-
-# HTTP client
 http_client = httpx.AsyncClient()
-
-# Base API URL
 BASE_API_URL = os.getenv('API_BASE_URL', "https://api.test.computesphere.com/api/v1")
 ACCOUNT_ID = os.getenv('ACCOUNT_ID', "ed95ae9d-05ca-4c41-b233-0891e53316d4")
 RSS_FEED_URL = os.getenv('RSS_FEED_URL', "https://umeshkhatiwada.com.np/assets/file/cm.rss")
@@ -45,14 +36,8 @@ class SessionManager:
         title = entry.get('title', '')
         description = entry.get('description', '')
         link = entry.get('link', '')
-        
-        # Look for API paths in title, description, or link
         text_to_search = f"{title} {description} {link}".lower()
-        
-        # Common API path patterns
         import re
-        
-        # Look for explicit API paths
         api_patterns = [
             r'/api/v\d+/[a-zA-Z0-9/_-]+',  # /api/v1/users, /api/v2/notifications
             r'/v\d+/[a-zA-Z0-9/_-]+',      # /v1/users
@@ -62,12 +47,9 @@ class SessionManager:
         for pattern in api_patterns:
             matches = re.findall(pattern, text_to_search)
             if matches:
-                # Return the first valid-looking path
                 for match in matches:
-                    if len(match) > 3:  # Ensure it's a meaningful path
+                    if len(match) > 3:
                         return match
-        
-        # If no explicit path found, try to infer from keywords
         if 'user' in text_to_search:
             return '/users'
         elif 'notification' in text_to_search:
@@ -86,14 +68,8 @@ class SessionManager:
         title = entry.get('title', '').lower()
         description = entry.get('description', '').lower()
         link = entry.get('link', '').lower()
-        
-        # Combine all text sources
         all_text = f"{title} {description} {link}"
-        
-        # Extract meaningful keywords
         keywords = []
-        
-        # Common API-related keywords
         api_keywords = [
             'get', 'post', 'put', 'delete', 'patch',
             'user', 'users', 'notification', 'notifications',
@@ -101,13 +77,9 @@ class SessionManager:
             'profile', 'settings', 'data', 'list', 'create',
             'update', 'remove', 'fetch', 'send', 'receive'
         ]
-        
-        # Add API keywords that are found
         for keyword in api_keywords:
             if keyword in all_text:
                 keywords.append(keyword)
-        
-        # Extract other meaningful words (length > 3, not common words)
         words = all_text.split()
         common_words = {'the', 'and', 'for', 'are', 'with', 'this', 'that', 'from', 'they', 'have', 'will', 'been', 'said'}
         
@@ -116,7 +88,7 @@ class SessionManager:
             if len(clean_word) > 3 and clean_word not in common_words and clean_word not in keywords:
                 keywords.append(clean_word)
         
-        return list(set(keywords))  # Remove duplicates
+        return list(set(keywords))
 
     async def load_rss_endpoints(self) -> List[APIEndpoint]:
         """Load API endpoints from RSS feed"""
@@ -149,18 +121,13 @@ class SessionManager:
                 elif any(word in text_to_check for word in ['delete', 'remove']):
                     method = 'DELETE'
                 else:
-                    # Default to GET if no method is clearly indicated
                     method = 'GET'
-                
-                # Extract path and keywords
                 path = self._extract_path_from_entry(entry)
                 keywords = self._extract_keywords_from_entry(entry)
                 
                 print(f"  -> Method: {method}, Path: '{path}', Keywords: {keywords[:3]}")
-                
-                # Always add the endpoint, even if path is empty (we'll use a default)
                 if not path:
-                    path = '/api/v1/default'  # Default path if none found
+                    path = '/api/v1/default'
                 
                 endpoints.append(APIEndpoint(
                     method=method,
@@ -194,11 +161,7 @@ class SessionManager:
                 best_match = endpoint
         
         return best_match if highest_score > 0 else None
-
-# Initialize session manager
 session_manager = SessionManager()
-
-# Add this near the top with other environment variables
 SYSTEM_PROMPT = os.getenv('SYSTEM_PROMPT', """
 ---
 You are a helpful AI assistant designed to answer user questions based on requests.
@@ -394,17 +357,12 @@ async def perizer_data_curl_put(url: str, parameters4_Value: str, JSON: dict) ->
 async def ai_agent_process(user_message: str, session_id: str) -> str:
     """AI Agent tool that processes user messages and executes appropriate API calls"""
     try:
-        # Step 1: Get token from Redis
         token = await redis_client.get(session_id)
         if not token:
             return json.dumps({"error": "Token not found", "session_id": session_id})
-
-        # Step 2: Load RSS endpoints
         endpoints = await session_manager.load_rss_endpoints()
         if not endpoints:
             return json.dumps({"error": "No RSS endpoints available"})
-
-        # Step 3: Match user message to best endpoint
         best_match = session_manager.match_message_to_endpoint(user_message)
 
         if not best_match:
@@ -414,7 +372,6 @@ async def ai_agent_process(user_message: str, session_id: str) -> str:
                 "suggestion": "Try asking about users, notifications, messages, or other available API endpoints."
             })
 
-        # Step 4: Execute the appropriate API call using existing tools
         BASE_URL = "https://api.test.computesphere.com"
         
         # Check if path already includes /api/v1, if so don't add it again
