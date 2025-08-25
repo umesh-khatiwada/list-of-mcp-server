@@ -242,11 +242,11 @@ I cannot find the answer in the available resources.
             token_data = json.loads(token_response)
 
             if "error" in token_data:
-                return f"❌ **Authentication Error**\n\nError retrieving authentication token: {token_data['error']}\n\nPlease make sure your session ID '{session_id}' is valid and has a token stored in Redis."
+                return f" **Authentication Error**\n\nError retrieving authentication token: {token_data['error']}\n\nPlease make sure your session ID '{session_id}' is valid and has a token stored in Redis."
 
             token = token_data.get("token")
             if not token:
-                return "❌ **Authentication Error**\n\nAuthentication token not found. Please check your session."
+                return " **Authentication Error**\n\nAuthentication token not found. Please check your session."
 
             print(f"✅ Token retrieved: {token}")
 
@@ -358,15 +358,14 @@ I cannot find the answer in the available resources.
             if not data:
                 return "No items found."
             
-            # Check if it's notifications
             if len(data) > 0 and isinstance(data[0], dict) and "title" in data[0]:
                 formatted = f"📋 **Found {len(data)} notifications:**\n\n"
                 for i, notification in enumerate(data, 1):
                     status_icon = "🔔" if not notification.get("seen", False) else "✅"
                     formatted += f"{status_icon} **{i}. {notification.get('title', 'No title')}**\n"
-                    formatted += f"   📝 {notification.get('body', 'No description')}\n"
-                    formatted += f"   📅 {notification.get('created_at', 'No date')[:10]}\n"
-                    formatted += f"   🏷️  Type: {notification.get('type', 'Unknown')} | Level: {notification.get('notication_level', 'Unknown')}\n"
+                    formatted += f"    {notification.get('body', 'No description')}\n"
+                    formatted += f"    {notification.get('created_at', 'No date')[:10]}\n"
+                    formatted += f"  Type: {notification.get('type', 'Unknown')} | Level: {notification.get('notication_level', 'Unknown')}\n"
                     if notification.get('url'):
                         formatted += f"   🔗 URL: {notification.get('url')}\n"
                     formatted += "\n"
@@ -466,7 +465,6 @@ class ChatInterface:
 
 
 if __name__ == "__main__":
-    # Replace with your actual API key
     genai.configure(api_key=os.getenv("GENAI_API_KEY"))
     interface = ChatInterface()
     asyncio.run(interface.start_chat())
