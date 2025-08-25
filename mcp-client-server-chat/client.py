@@ -1,7 +1,3 @@
-# ====================================
-# ai_agent_client.py - Full AI Agent with HTTP MCP client
-# ====================================
-
 import asyncio
 import json
 import os
@@ -19,12 +15,10 @@ class MCPClient:
     def __init__(self, server_url: str = "http://127.0.0.1:8000/mcp"):
         self.client: Client | None = None
         self.server_url = server_url
-        # Prepare Basic Auth header
         credentials = "admin:admin"
         self.basic_auth_header = "Basic " + base64.b64encode(credentials.encode("utf-8")).decode("utf-8")
 
     async def __aenter__(self):
-        # Use HTTP transport to connect to the server
         max_retries = 3
         retry_delay = 2
 
@@ -53,6 +47,7 @@ class MCPClient:
         if not self.client:
             raise RuntimeError("MCP client not started. Use `async with MCPClient()`.")
         try:
+            kwargs["Authorization"] = self.basic_auth_header
             result = await self.client.call_tool(tool_name, kwargs)
             # Extract content from CallToolResult object
             if hasattr(result, 'content'):

@@ -226,6 +226,7 @@ async def auth_middleware(func, *args, **kwargs) -> str:
 def with_auth_middleware(tool_func):
     @wraps(tool_func)
     async def wrapper(*args, **kwargs):
+        # Ensure Authorization is present in kwargs
         return await auth_middleware(tool_func, *args, **kwargs)
     return wrapper
 
@@ -235,8 +236,8 @@ async def health_check() -> str:
     return json.dumps({"status": "healthy", "message": "Server is running"})
 
 @mcp.tool()
-# @with_auth_middleware
-async def redis_get_token(key: str) -> str:
+@with_auth_middleware
+async def redis_get_token(key: str, Authorization: str) -> str:
     """Get authentication token from Redis"""
     try:
         token = await redis_client.get(key)
@@ -247,8 +248,8 @@ async def redis_get_token(key: str) -> str:
         return json.dumps({"error": str(e), "key": key})
 
 @mcp.tool()
-# @with_auth_middleware
-async def rss_feed_read() -> str:
+@with_auth_middleware
+async def rss_feed_read(Authorization: str) -> str:
     """Read RSS feed and load API endpoints"""
     try:
         endpoints = await session_manager.load_rss_endpoints()
@@ -261,8 +262,8 @@ async def rss_feed_read() -> str:
         return json.dumps({"error": str(e)})
 
 @mcp.tool()
-# @with_auth_middleware
-async def perizer_data_curl_get(url: str, parameters2_Value: str) -> str:
+@with_auth_middleware
+async def perizer_data_curl_get(url: str, parameters2_Value: str, Authorization: str) -> str:
     """Make HTTP GET request"""
     try:
         headers = {
@@ -287,8 +288,16 @@ async def perizer_data_curl_get(url: str, parameters2_Value: str) -> str:
         return json.dumps({"error": str(e), "url": url})
 
 @mcp.tool()
-# @with_auth_middleware
-async def perizer_data_curl_post(url: str, parameters4_Value: str, parameters0_Name: str = "", parameters0_Value: str = "", parameters1_Name: str = "", parameters1_Value: str = "") -> str:
+@with_auth_middleware
+async def perizer_data_curl_post(
+    url: str,
+    parameters4_Value: str,
+    Authorization: str,
+    parameters0_Name: str = "",
+    parameters0_Value: str = "",
+    parameters1_Name: str = "",
+    parameters1_Value: str = ""
+) -> str:
     """Make HTTP POST request"""
     try:
         headers = {
@@ -321,8 +330,8 @@ async def perizer_data_curl_post(url: str, parameters4_Value: str, parameters0_N
         return json.dumps({"error": str(e), "url": url})
 
 @mcp.tool()
-# @with_auth_middleware
-async def perizer_data_curl_put(url: str, parameters4_Value: str, JSON: dict) -> str:
+@with_auth_middleware
+async def perizer_data_curl_put(url: str, parameters4_Value: str, JSON: dict, Authorization: str) -> str:
     """Make HTTP PUT request"""
     try:
         headers = {
@@ -331,7 +340,7 @@ async def perizer_data_curl_put(url: str, parameters4_Value: str, JSON: dict) ->
             "Content-Type": "application/json",
             "x-user-token": parameters4_Value,
             "x-account-id": ACCOUNT_ID,
-            "Origin": "https://console.test.computesphere.com",
+            "Origin": "https://console.test.comcomputesphere.com",
             "Referer": "https://console.test.computesphere.com/"
         }
         
@@ -349,7 +358,8 @@ async def perizer_data_curl_put(url: str, parameters4_Value: str, JSON: dict) ->
         return json.dumps({"error": str(e), "url": url})
 
 @mcp.tool()
-async def ai_agent_process(user_message: str, session_id: str) -> str:
+@with_auth_middleware
+async def ai_agent_process(user_message: str, session_id: str, Authorization: str) -> str:
     """AI Agent tool that processes user messages and executes appropriate API calls"""
     try:
         token = await redis_client.get(session_id)
