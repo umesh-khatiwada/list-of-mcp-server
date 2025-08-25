@@ -8,6 +8,7 @@ from fastmcp import FastMCP
 from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
+from functools import wraps
 
 load_dotenv()
 mcp = FastMCP("AI Agent Tools Server")
@@ -41,7 +42,7 @@ class SessionManager:
         api_patterns = [
             r'/api/v\d+/[a-zA-Z0-9/_-]+',
             r'/v\d+/[a-zA-Z0-9/_-]+',    
-            r'/[a-zA-Z]+(?:/[a-zA-Z0-9_-]+)*'  # /users, /notifications/list
+            r'/[a-zA-Z]+(?:/[a-zA-Z0-9_-]+)*'
         ]
         
         for pattern in api_patterns:
@@ -91,7 +92,7 @@ class SessionManager:
             if len(clean_word) > 3 and clean_word not in common_words and clean_word not in keywords:
                 keywords.append(clean_word)
         
-        return keywords[:10]  # Limit to 10 keywords to avoid too long lists
+        return keywords[:10]
 
     async def load_rss_endpoints(self) -> List[APIEndpoint]:
         """Load API endpoints from RSS feed"""
@@ -166,12 +167,62 @@ class SessionManager:
         return best_match if highest_score > 0 else None
 session_manager = SessionManager()
 
+# Authentication Middleware
+async def auth_middleware(func, *args, **kwargs) -> str:
+    """Middleware to check authentication for all MCP tool calls"""
+    try:
+        session_id = (
+            kwargs.get("session_id") or kwargs.get("key") or args[0] if args else None
+        )
+        if not session_id:
+            return json.dumps(
+                {
+                    "error": "Authentication failed: session_id is missing",
+                    "suggestion": "Please provide a valid session_id in the request.",
+                }
+            )
+        token = await redis_client.get(session_id)
+        if not token:
+            return json.dumps(
+                {
+                    "error": f"Authentication failed: No token found for session_id '{session_id}'",
+                    "suggestion": "Please log in to generate a valid session token.",
+                }
+            )
+
+        if not isinstance(token, str) or len(token) < 10:  # Example validation
+            return json.dumps(
+                {
+                    "error": f"Authentication failed: Invalid token for session_id '{session_id}'",
+                    "suggestion": "Please ensure a valid token is stored in Redis.",
+                }
+            )
+        kwargs["auth_token"] = token
+        result = await func(*args, **kwargs)
+        return result
+
+    except Exception as e:
+        return json.dumps(
+            {
+                "error": f"Authentication middleware error: {str(e)}",
+                "suggestion": "Please check Redis connectivity or session_id validity.",
+            }
+        )
+
+# Decorator to apply middleware to MCP tools
+def with_auth_middleware(tool_func):
+    @wraps(tool_func)
+    async def wrapper(*args, **kwargs):
+        return await auth_middleware(tool_func, *args, **kwargs)
+    return wrapper
+
 @mcp.tool()
 async def health_check() -> str:
     """Health check endpoint"""
     return json.dumps({"status": "healthy", "message": "Server is running"})
 
 @mcp.tool()
+@with_auth_middleware
 async def redis_get_token(key: str) -> str:
     """Get authentication token from Redis"""
     try:
@@ -309,23 +360,18 @@ async def ai_agent_process(user_message: str, session_id: str) -> str:
 
         try:
             if best_match.method == 'GET':
-                # Call the existing perizer_data_curl_get tool internally
                 api_response_str = await perizer_data_curl_get(full_url, token)
                 api_response = json.loads(api_response_str)
                 
             elif best_match.method == 'POST':
-                # Call the existing perizer_data_curl_post tool internally
                 api_response_str = await perizer_data_curl_post(full_url, token)
                 api_response = json.loads(api_response_str)
                 
             elif best_match.method == 'PUT':
-                # Call the existing perizer_data_curl_put tool internally
                 api_response_str = await perizer_data_curl_put(full_url, token, {})
                 api_response = json.loads(api_response_str)
             else:
                 return json.dumps({"error": f"Unsupported HTTP method: {best_match.method}"})
-
-            # Step 5: Format the response for humans
             if api_response.get("success"):
                 formatted_response = _format_api_response_for_human(api_response.get("data", {}))
                 
