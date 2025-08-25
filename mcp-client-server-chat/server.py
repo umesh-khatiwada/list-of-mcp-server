@@ -16,7 +16,7 @@ load_dotenv()
 mcp = FastMCP("AI Agent Tools Server")
 
 # Redis client
-redis_url = os.getenv('REDIS_URL', 'redis://default:')
+redis_url = os.getenv('REDIS_URL', '')
 redis_client = redis.from_url(redis_url, decode_responses=True)
 
 # HTTP client
@@ -40,71 +40,142 @@ class SessionManager:
         self.rss_endpoints = []
         self.rss_last_updated = None
     
+    def _extract_path_from_entry(self, entry) -> str:
+        """Extract API path from RSS entry - customize this"""
+        title = entry.get('title', '')
+        description = entry.get('description', '')
+        link = entry.get('link', '')
+        
+        # Look for API paths in title, description, or link
+        text_to_search = f"{title} {description} {link}".lower()
+        
+        # Common API path patterns
+        import re
+        
+        # Look for explicit API paths
+        api_patterns = [
+            r'/api/v\d+/[a-zA-Z0-9/_-]+',  # /api/v1/users, /api/v2/notifications
+            r'/v\d+/[a-zA-Z0-9/_-]+',      # /v1/users
+            r'/[a-zA-Z]+(?:/[a-zA-Z0-9_-]+)*'  # /users, /notifications/list
+        ]
+        
+        for pattern in api_patterns:
+            matches = re.findall(pattern, text_to_search)
+            if matches:
+                # Return the first valid-looking path
+                for match in matches:
+                    if len(match) > 3:  # Ensure it's a meaningful path
+                        return match
+        
+        # If no explicit path found, try to infer from keywords
+        if 'user' in text_to_search:
+            return '/users'
+        elif 'notification' in text_to_search:
+            return '/notifications'
+        elif 'message' in text_to_search:
+            return '/messages'
+        elif 'auth' in text_to_search or 'login' in text_to_search:
+            return '/auth'
+        elif 'profile' in text_to_search:
+            return '/profile'
+        
+        return ''
+
+    def _extract_keywords_from_entry(self, entry) -> List[str]:
+        """Extract keywords from RSS entry - customize this"""
+        title = entry.get('title', '').lower()
+        description = entry.get('description', '').lower()
+        link = entry.get('link', '').lower()
+        
+        # Combine all text sources
+        all_text = f"{title} {description} {link}"
+        
+        # Extract meaningful keywords
+        keywords = []
+        
+        # Common API-related keywords
+        api_keywords = [
+            'get', 'post', 'put', 'delete', 'patch',
+            'user', 'users', 'notification', 'notifications',
+            'message', 'messages', 'auth', 'login', 'logout',
+            'profile', 'settings', 'data', 'list', 'create',
+            'update', 'remove', 'fetch', 'send', 'receive'
+        ]
+        
+        # Add API keywords that are found
+        for keyword in api_keywords:
+            if keyword in all_text:
+                keywords.append(keyword)
+        
+        # Extract other meaningful words (length > 3, not common words)
+        words = all_text.split()
+        common_words = {'the', 'and', 'for', 'are', 'with', 'this', 'that', 'from', 'they', 'have', 'will', 'been', 'said'}
+        
+        for word in words:
+            clean_word = word.strip('.,!?()[]{}":;')
+            if len(clean_word) > 3 and clean_word not in common_words and clean_word not in keywords:
+                keywords.append(clean_word)
+        
+        return list(set(keywords))  # Remove duplicates
+
     async def load_rss_endpoints(self) -> List[APIEndpoint]:
         """Load API endpoints from RSS feed"""
         try:
+            print(f"Loading RSS feed from: {RSS_FEED_URL}")
             response = await http_client.get(RSS_FEED_URL)
             response.raise_for_status()
             
             feed = feedparser.parse(response.text)
             endpoints = []
             
-            for entry in feed.entries:
-                # Parse RSS entry to extract API information
-                # You'll need to customize this based on your RSS structure
+            print(f"Found {len(feed.entries)} RSS entries")
+            
+            for i, entry in enumerate(feed.entries):
                 title = entry.get('title', '')
                 description = entry.get('description', '')
                 
-                # Example parsing - customize based on your RSS format
-                if 'GET' in title or 'get' in description.lower():
-                    method = 'GET'
-                elif 'POST' in title or 'post' in description.lower():
-                    method = 'POST'
-                elif 'PUT' in title or 'put' in description.lower():
-                    method = 'PUT'
-                else:
-                    continue
+                print(f"Entry {i+1}: Title='{title}', Description='{description[:100]}...'")
                 
-                # Extract path and keywords - customize this logic
+                # Determine HTTP method - be more flexible
+                method = None
+                text_to_check = f"{title} {description}".lower()
+                
+                if any(word in text_to_check for word in ['get', 'fetch', 'retrieve', 'list', 'show']):
+                    method = 'GET'
+                elif any(word in text_to_check for word in ['post', 'create', 'add', 'send']):
+                    method = 'POST'
+                elif any(word in text_to_check for word in ['put', 'update', 'modify', 'edit']):
+                    method = 'PUT'
+                elif any(word in text_to_check for word in ['delete', 'remove']):
+                    method = 'DELETE'
+                else:
+                    # Default to GET if no method is clearly indicated
+                    method = 'GET'
+                
+                # Extract path and keywords
                 path = self._extract_path_from_entry(entry)
                 keywords = self._extract_keywords_from_entry(entry)
                 
-                if path:
-                    endpoints.append(APIEndpoint(
-                        method=method,
-                        path=path,
-                        keywords=keywords,
-                        description=description
-                    ))
+                print(f"  -> Method: {method}, Path: '{path}', Keywords: {keywords[:3]}")
+                
+                # Always add the endpoint, even if path is empty (we'll use a default)
+                if not path:
+                    path = '/api/v1/default'  # Default path if none found
+                
+                endpoints.append(APIEndpoint(
+                    method=method,
+                    path=path,
+                    keywords=keywords,
+                    description=description or title
+                ))
             
             self.rss_endpoints = endpoints
+            print(f"Successfully loaded {len(endpoints)} API endpoints")
             return endpoints
             
         except Exception as e:
             print(f"Error loading RSS endpoints: {e}")
             return []
-    
-    def _extract_path_from_entry(self, entry) -> str:
-        """Extract API path from RSS entry - customize this"""
-        # Example implementation - you'll need to adapt this
-        description = entry.get('description', '')
-        # Look for path patterns in the description
-        if '/api/' in description:
-            # Extract path using regex or string parsing
-            return '/users'  # Placeholder
-        return ''
-    
-    def _extract_keywords_from_entry(self, entry) -> List[str]:
-        """Extract keywords from RSS entry - customize this"""
-        title = entry.get('title', '').lower()
-        description = entry.get('description', '').lower()
-        
-        # Extract keywords from title and description
-        keywords = []
-        words = (title + ' ' + description).split()
-        keywords.extend([word.strip('.,!?') for word in words if len(word) > 3])
-        
-        return list(set(keywords))  # Remove duplicates
     
     def match_message_to_endpoint(self, message: str) -> Optional[APIEndpoint]:
         """Match user message to API endpoint"""

@@ -9,6 +9,7 @@ from typing import Any
 import google.generativeai as genai
 from fastmcp.client import Client
 import time
+import httpx
 
 
 class MCPClient:
@@ -65,6 +66,93 @@ class MCPClient:
                 return str(result)
         except Exception as e:
             return json.dumps({"error": f"MCP tool call failed: {str(e)}"})
+
+    async def list_tools(self) -> str:
+        """List available MCP tools"""
+        if not self.client:
+            raise RuntimeError("MCP client not started. Use `async with MCPClient()`.")
+        try:
+            tools = await self.client.list_tools()
+            tool_list = []
+            for tool in tools.tools:
+                tool_info = {
+                    "name": tool.name,
+                    "description": tool.description or "No description available",
+                    "input_schema": tool.inputSchema.model_dump() if hasattr(tool, 'inputSchema') else "No schema"
+                }
+                tool_list.append(tool_info)
+            return json.dumps({"tools": tool_list}, indent=2)
+        except Exception as e:
+            return json.dumps({"error": f"Failed to list tools: {str(e)}"})
+
+    async def list_tools_curl(self) -> str:
+        """List available MCP tools using direct HTTP/curl request"""
+        try:
+            async with httpx.AsyncClient() as client:
+                # First, try to initialize the session
+                init_payload = {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {},
+                        "clientInfo": {
+                            "name": "test-client",
+                            "version": "1.0.0"
+                        }
+                    }
+                }
+                
+                # Initialize session
+                init_response = await client.post(
+                    "http://127.0.0.1:8000/mcp",
+                    json=init_payload,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Accept": "application/json,text/event-stream"
+                    }
+                )
+                
+                if init_response.status_code != 200:
+                    return json.dumps({"error": f"Failed to initialize: HTTP {init_response.status_code}: {init_response.text}"})
+                
+                # Now list tools
+                tools_payload = {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "tools/list",
+                    "params": {}
+                }
+                
+                response = await client.post(
+                    "http://127.0.0.1:8000/mcp",
+                    json=tools_payload,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Accept": "application/json,text/event-stream"
+                    }
+                )
+
+                if response.status_code == 200:
+                    result = response.json()
+                    if "result" in result and "tools" in result["result"]:
+                        tools = result["result"]["tools"]
+                        formatted_tools = []
+                        for tool in tools:
+                            formatted_tools.append({
+                                "name": tool.get("name", "Unknown"),
+                                "description": tool.get("description", "No description"),
+                                "input_schema": tool.get("inputSchema", {})
+                            })
+                        return json.dumps({"tools": formatted_tools}, indent=2)
+                    else:
+                        return json.dumps({"error": "No tools found in response", "response": result})
+                else:
+                    return json.dumps({"error": f"HTTP {response.status_code}: {response.text}"})
+
+        except Exception as e:
+            return json.dumps({"error": f"Failed to list tools via curl: {str(e)}"})
 
 
 class AIAgent:
@@ -227,6 +315,7 @@ class ChatInterface:
     async def start_chat(self):
         print("AI Agent Chat Interface")
         print("Type 'quit' to exit, 'health' to check system status")
+        print("Type 'tools' to list available tools, 'curl-tools' to list via curl")
         print("-" * 50)
         print("Note: Make sure the MCP server is running (python3 server.py)")
         print("-" * 50)
@@ -247,6 +336,26 @@ class ChatInterface:
                             health_status = await mcp.call_tool("health_check")
                             print(f"System Status: {health_status}")
                             continue
+                        elif user_input.lower() == "tools":
+                            tools_list = await mcp.list_tools()
+                            tools_data = json.loads(tools_list)
+                            print("Available MCP Tools:")
+                            if "tools" in tools_data:
+                                for tool in tools_data["tools"]:
+                                    print(f"  • {tool['name']}: {tool['description']}")
+                            else:
+                                print(f"  Error: {tools_data}")
+                            continue
+                        elif user_input.lower() == "curl-tools":
+                            tools_list = await mcp.list_tools_curl()
+                            tools_data = json.loads(tools_list)
+                            print("Available MCP Tools (via curl):")
+                            if "tools" in tools_data:
+                                for tool in tools_data["tools"]:
+                                    print(f"  • {tool['name']}: {tool['description']}")
+                            else:
+                                print(f"  Error: {tools_data}")
+                            continue
                         elif not user_input:
                             continue
 
@@ -266,6 +375,6 @@ class ChatInterface:
 
 if __name__ == "__main__":
     # Replace with your actual API key
-    genai.configure(api_key=os.getenv("GENAI_API_KEY", "AIzaSyDCcZ0Akpzd7ReDoEg"))
+    genai.configure(api_key=os.getenv("GENAI_API_KEY", "AIzaSyDCcZ0Akpzd7ReDoEgFrdQjAqxtqZ0z344"))
     interface = ChatInterface()
     asyncio.run(interface.start_chat())
