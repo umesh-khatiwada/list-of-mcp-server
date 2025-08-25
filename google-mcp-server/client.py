@@ -1,79 +1,30 @@
-"""OAuth client example for connecting to FastMCP servers.
-
-This example demonstrates how to connect to an OAuth-protected FastMCP server.
-
-Usage:
-    python client.py login
-    python client.py list-tools
-    python client.py logout
-"""
-
+from fastmcp import Client
 import asyncio
-import sys
-from fastmcp.client import Client
-
-SERVER_URL = "http://127.0.0.1:8000/mcp"
-client: Client | None = None
-
-
-async def login():
-    """Authenticate and connect to the FastMCP server."""
-    global client
-    try:
-        client = Client(SERVER_URL, auth="oauth")
-        await client.__aenter__()  # manually enter async context
-
-        if not await client.ping():
-            raise Exception("Ping failed after login.")
-
-        print("✅ Successfully logged in!")
-    except Exception as e:
-        print(f"❌ Login failed: {e}")
-        raise
-
-
-async def logout():
-    """Logout and close the client connection."""
-    global client
-    if client is not None:
-        await client.__aexit__(None, None, None)
-        print("👋 Logged out successfully.")
-        client = None
-    else:
-        print("⚠️ No active session to logout.")
-
-
-async def list_tools():
-    """Fetch and display available tools."""
-    global client
-    if client is None:
-        print("⚠️ Not logged in. Please login first.")
-        return
-
-    tools = await client.list_tools()
-    print(f"🔧 Available tools ({len(tools)}):")
-    for tool in tools:
-        print(f"   - {tool.name}: {tool.description}")
-
+import httpx
 
 async def main():
-    if len(sys.argv) < 2:
-        print("❌ Missing command. Use one of: login, list-tools, logout")
-        return
+    try:
+        async with Client("http://localhost:8000/mcp", auth="oauth") as client:
+            print("✓ Authenticated with Google!")
 
-    command = sys.argv[1]
+            # List available tools
+            tools = await client.list_tools()
+            print("Available tools:", [t['name'] for t in tools])
 
-    if command == "login":
-        await login()
-    elif command == "list-tools":
-        await login()   # auto-login if not already
-        await list_tools()
-        await logout()
-    elif command == "logout":
-        await logout()
-    else:
-        print(f"❌ Unknown command: {command}")
+            # Call the protected tool
+            result = await client.call_tool("get_user_info")
+            print("Google user:", result.get("email"))
+            print("Name:", result.get("name"))
 
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 401:
+            print("❌ 401 Unauthorized – check that:")
+            print("   • Server base_url uses localhost (not localhost)")
+            print("   • Client URL matches exactly (http://localhost:8000/mcp)")
+            print("   • Google OAuth credentials are correct")
+        else:
+            print(f"HTTP error: {e}")
+        exit(1)
 
 if __name__ == "__main__":
     asyncio.run(main())
