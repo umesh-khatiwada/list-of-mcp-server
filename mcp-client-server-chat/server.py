@@ -9,6 +9,7 @@ from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
 from functools import wraps
+import base64
 
 load_dotenv()
 mcp = FastMCP("AI Agent Tools Server")
@@ -169,35 +170,47 @@ session_manager = SessionManager()
 
 # Authentication Middleware
 async def auth_middleware(func, *args, **kwargs) -> str:
-    """Middleware to check authentication for all MCP tool calls"""
+    """Middleware to check HTTP Basic Auth for all MCP tool calls"""
     try:
-        session_id = (
-            kwargs.get("session_id") or kwargs.get("key") or args[0] if args else None
-        )
-        if not session_id:
+        # Expect 'Authorization' header in kwargs
+        auth_header = kwargs.get("Authorization") or kwargs.get("authorization")
+        if not auth_header:
             return json.dumps(
                 {
-                    "error": "Authentication failed: session_id is missing",
-                    "suggestion": "Please provide a valid session_id in the request.",
+                    "error": "Authentication failed: Authorization header is missing",
+                    "suggestion": "Please provide HTTP Basic Auth credentials."
                 }
             )
-        token = await redis_client.get(session_id)
-        if not token:
+        # Check for Basic prefix
+        if not auth_header.startswith("Basic "):
             return json.dumps(
                 {
-                    "error": f"Authentication failed: No token found for session_id '{session_id}'",
-                    "suggestion": "Please log in to generate a valid session token.",
+                    "error": "Authentication failed: Authorization header must start with 'Basic '",
+                    "suggestion": "Use HTTP Basic Auth with username and password."
                 }
             )
-
-        if not isinstance(token, str) or len(token) < 10:  # Example validation
+        # Decode base64 credentials
+        try:
+            encoded_credentials = auth_header.split(" ", 1)[1]
+            decoded_bytes = base64.b64decode(encoded_credentials)
+            decoded_credentials = decoded_bytes.decode("utf-8")
+            username, password = decoded_credentials.split(":", 1)
+        except Exception:
             return json.dumps(
                 {
-                    "error": f"Authentication failed: Invalid token for session_id '{session_id}'",
-                    "suggestion": "Please ensure a valid token is stored in Redis.",
+                    "error": "Authentication failed: Invalid Basic Auth encoding",
+                    "suggestion": "Ensure credentials are base64 encoded as 'username:password'."
                 }
             )
-        kwargs["auth_token"] = token
+        # Validate credentials
+        if username != "admin" or password != "admin":
+            return json.dumps(
+                {
+                    "error": "Authentication failed: Invalid username or password",
+                    "suggestion": "Use username 'admin' and password 'admin'."
+                }
+            )
+        # Auth successful, call the tool
         result = await func(*args, **kwargs)
         return result
 
@@ -205,7 +218,7 @@ async def auth_middleware(func, *args, **kwargs) -> str:
         return json.dumps(
             {
                 "error": f"Authentication middleware error: {str(e)}",
-                "suggestion": "Please check Redis connectivity or session_id validity.",
+                "suggestion": "Please check Basic Auth header format and credentials."
             }
         )
 
@@ -222,7 +235,7 @@ async def health_check() -> str:
     return json.dumps({"status": "healthy", "message": "Server is running"})
 
 @mcp.tool()
-@with_auth_middleware
+# @with_auth_middleware
 async def redis_get_token(key: str) -> str:
     """Get authentication token from Redis"""
     try:
@@ -234,6 +247,7 @@ async def redis_get_token(key: str) -> str:
         return json.dumps({"error": str(e), "key": key})
 
 @mcp.tool()
+# @with_auth_middleware
 async def rss_feed_read() -> str:
     """Read RSS feed and load API endpoints"""
     try:
@@ -247,6 +261,7 @@ async def rss_feed_read() -> str:
         return json.dumps({"error": str(e)})
 
 @mcp.tool()
+# @with_auth_middleware
 async def perizer_data_curl_get(url: str, parameters2_Value: str) -> str:
     """Make HTTP GET request"""
     try:
@@ -272,6 +287,7 @@ async def perizer_data_curl_get(url: str, parameters2_Value: str) -> str:
         return json.dumps({"error": str(e), "url": url})
 
 @mcp.tool()
+# @with_auth_middleware
 async def perizer_data_curl_post(url: str, parameters4_Value: str, parameters0_Name: str = "", parameters0_Value: str = "", parameters1_Name: str = "", parameters1_Value: str = "") -> str:
     """Make HTTP POST request"""
     try:
@@ -305,6 +321,7 @@ async def perizer_data_curl_post(url: str, parameters4_Value: str, parameters0_N
         return json.dumps({"error": str(e), "url": url})
 
 @mcp.tool()
+# @with_auth_middleware
 async def perizer_data_curl_put(url: str, parameters4_Value: str, JSON: dict) -> str:
     """Make HTTP PUT request"""
     try:

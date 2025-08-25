@@ -10,6 +10,7 @@ import google.generativeai as genai
 from fastmcp.client import Client
 import time
 import httpx
+import base64
 
 
 class MCPClient:
@@ -18,6 +19,9 @@ class MCPClient:
     def __init__(self, server_url: str = "http://127.0.0.1:8000/mcp"):
         self.client: Client | None = None
         self.server_url = server_url
+        # Prepare Basic Auth header
+        credentials = "admin:admin"
+        self.basic_auth_header = "Basic " + base64.b64encode(credentials.encode("utf-8")).decode("utf-8")
 
     async def __aenter__(self):
         # Use HTTP transport to connect to the server
@@ -89,6 +93,12 @@ class MCPClient:
         """List available MCP tools using direct HTTP/curl request"""
         try:
             async with httpx.AsyncClient() as client:
+                # Prepare Basic Auth header
+                headers = {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json,text/event-stream",
+      
+                }
                 # First, try to initialize the session
                 init_payload = {
                     "jsonrpc": "2.0",
@@ -108,10 +118,7 @@ class MCPClient:
                 init_response = await client.post(
                     "http://127.0.0.1:8000/mcp",
                     json=init_payload,
-                    headers={
-                        "Content-Type": "application/json",
-                        "Accept": "application/json,text/event-stream"
-                    }
+                    headers=headers
                 )
                 
                 if init_response.status_code != 200:
@@ -128,10 +135,7 @@ class MCPClient:
                 response = await client.post(
                     "http://127.0.0.1:8000/mcp",
                     json=tools_payload,
-                    headers={
-                        "Content-Type": "application/json",
-                        "Accept": "application/json,text/event-stream"
-                    }
+                    headers=headers
                 )
 
                 if response.status_code == 200:
@@ -469,5 +473,7 @@ class ChatInterface:
 if __name__ == "__main__":
     # Replace with your actual API key
     genai.configure(api_key=os.getenv("GENAI_API_KEY"))
+    interface = ChatInterface()
+    asyncio.run(interface.start_chat())
     interface = ChatInterface()
     asyncio.run(interface.start_chat())
