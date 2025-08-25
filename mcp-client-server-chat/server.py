@@ -16,7 +16,7 @@ load_dotenv()
 mcp = FastMCP("AI Agent Tools Server")
 
 # Redis client
-redis_url = os.getenv('REDIS_URL', 'redis://default:PLv1OZClyuXv51XM3UTpwBQZPOWANzYM@redis-12825.c302.asia-northeast1-1.gce.cloud.redislabs.com:12825')
+redis_url = os.getenv('REDIS_URL', 'redis://default:')
 redis_client = redis.from_url(redis_url, decode_responses=True)
 
 # HTTP client
@@ -241,6 +241,12 @@ async def perizer_data_curl_put(url: str, parameters4_Value: str, JSON: dict) ->
         return json.dumps({"error": str(e), "url": url})
 
 if __name__ == "__main__":
-    mcp.run(port=8000)
+    print("Starting MCP Server on http://localhost:8000")
+    print("Make sure to start this server before running the client")
+    try:
+        mcp.run()
+    except Exception as e:
+        print(f"Server failed to start: {e}")
+        print("Check if port 8000 is available")
 
 
