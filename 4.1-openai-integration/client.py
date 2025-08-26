@@ -153,19 +153,25 @@ class MCPOpenAIClient:
 
 
 async def main():
-    """Main entry point for the client."""
     client = MCPOpenAIClient()
     try:
         await client.connect_to_server("server.py")
 
-        # Example: Ask about company vacation policy
-        query = "What is our remote work policy?"
-        print(f"\nQuery: {query}")
+        print("\n✅ Connected! Type your questions (or 'exit' to quit)\n")
 
-        response = await client.process_query(query)
-        print(f"\nResponse: {response}")
+        while True:
+            query = input("You: ")
+            if query.strip().lower() in {"exit", "quit"}:
+                break
+
+            try:
+                response = await client.process_query(query)
+                print(f"\nAssistant: {response}\n")
+            except Exception as e:
+                print(f"⚠️ Error: {e}")
     finally:
         await client.cleanup()
+
 
 if __name__ == "__main__":
     try:
