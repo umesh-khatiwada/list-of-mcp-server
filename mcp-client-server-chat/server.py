@@ -168,11 +168,31 @@ class SessionManager:
         return best_match if highest_score > 0 else None
 session_manager = SessionManager()
 
+
+def build_headers(
+    token: str,
+    content_type: Optional[str] = None,
+    extra_headers: Optional[Dict[str, str]] = None
+) -> Dict[str, str]:
+    """Build standard headers for API requests"""
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:141.0) Gecko/20100101 Firefox/141.0",
+        "Accept": "application/json, text/plain, */*",
+        "x-user-token": token,
+        "x-account-id": ACCOUNT_ID,
+        "Origin": "https://console.test.computesphere.com",
+        "Referer": "https://console.test.computesphere.com/",
+    }
+    if content_type:
+        headers["Content-Type"] = content_type
+    if extra_headers:
+        headers.update(extra_headers)
+    return headers
+
 # Authentication Middleware
 async def auth_middleware(func, *args, **kwargs) -> str:
     """Middleware to check HTTP Basic Auth for all MCP tool calls"""
     try:
-        # Expect 'Authorization' header in kwargs
         auth_header = kwargs.get("Authorization") or kwargs.get("authorization")
         if not auth_header:
             return json.dumps(
@@ -181,7 +201,6 @@ async def auth_middleware(func, *args, **kwargs) -> str:
                     "suggestion": "Please provide HTTP Basic Auth credentials."
                 }
             )
-        # Check for Basic prefix
         if not auth_header.startswith("Basic "):
             return json.dumps(
                 {
@@ -189,7 +208,6 @@ async def auth_middleware(func, *args, **kwargs) -> str:
                     "suggestion": "Use HTTP Basic Auth with username and password."
                 }
             )
-        # Decode base64 credentials
         try:
             encoded_credentials = auth_header.split(" ", 1)[1]
             decoded_bytes = base64.b64decode(encoded_credentials)
@@ -202,7 +220,6 @@ async def auth_middleware(func, *args, **kwargs) -> str:
                     "suggestion": "Ensure credentials are base64 encoded as 'username:password'."
                 }
             )
-        # Validate credentials
         if username != "admin" or password != "admin":
             return json.dumps(
                 {
@@ -210,7 +227,6 @@ async def auth_middleware(func, *args, **kwargs) -> str:
                     "suggestion": "Use username 'admin' and password 'admin'."
                 }
             )
-        # Auth successful, call the tool
         result = await func(*args, **kwargs)
         return result
 
@@ -222,7 +238,6 @@ async def auth_middleware(func, *args, **kwargs) -> str:
             }
         )
 
-# Decorator to apply middleware to MCP tools
 def with_auth_middleware(tool_func):
     @wraps(tool_func)
     async def wrapper(*args, **kwargs):
@@ -266,14 +281,7 @@ async def rss_feed_read(Authorization: str) -> str:
 async def perizer_data_curl_get(url: str, parameters2_Value: str, Authorization: str) -> str:
     """Make HTTP GET request"""
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:141.0) Gecko/20100101 Firefox/141.0",
-            "Accept": "application/json, text/plain, */*",
-            "x-user-token": parameters2_Value,
-            "x-account-id": ACCOUNT_ID,
-            "Origin": "https://console.test.computesphere.com",
-            "Referer": "https://console.test.computesphere.com/"
-        }
+        headers = build_headers(parameters2_Value)
         
         response = await http_client.get(url, headers=headers)
         response.raise_for_status()
@@ -300,16 +308,7 @@ async def perizer_data_curl_post(
 ) -> str:
     """Make HTTP POST request"""
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:141.0) Gecko/20100101 Firefox/141.0",
-            "Accept": "application/json, text/plain, */*",
-            "Content-Type": "application/json",
-            "x-user-token": parameters4_Value,
-            "x-account-id": ACCOUNT_ID,
-            "Origin": "https://console.test.computesphere.com",
-            "Referer": "https://console.test.computesphere.com/"
-        }
-        
+        headers = build_headers(parameters4_Value, content_type="application/json")
         # Build request body
         body = {}
         if parameters0_Name and parameters0_Value:
@@ -334,16 +333,7 @@ async def perizer_data_curl_post(
 async def perizer_data_curl_put(url: str, parameters4_Value: str, JSON: dict, Authorization: str) -> str:
     """Make HTTP PUT request"""
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:141.0) Gecko/20100101 Firefox/141.0",
-            "Accept": "application/json, text/plain, */*",
-            "Content-Type": "application/json",
-            "x-user-token": parameters4_Value,
-            "x-account-id": ACCOUNT_ID,
-            "Origin": "https://console.test.comcomputesphere.com",
-            "Referer": "https://console.test.computesphere.com/"
-        }
-        
+        headers = build_headers(parameters4_Value, content_type="application/json")
         response = await http_client.put(url, headers=headers, json=JSON)
         print("response",response)
         response.raise_for_status()
