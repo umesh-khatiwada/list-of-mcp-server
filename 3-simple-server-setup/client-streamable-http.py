@@ -3,7 +3,7 @@ import nest_asyncio
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
-nest_asyncio.apply()  # Needed to run interactive python
+# nest_asyncio.apply()  # Needed to run interactive python
 
 """
 Make sure:
