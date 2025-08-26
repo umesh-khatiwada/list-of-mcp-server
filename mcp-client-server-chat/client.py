@@ -4,15 +4,14 @@ import os
 from typing import Any
 import google.generativeai as genai
 from fastmcp.client import Client
-import time
-import httpx
 import base64
 
 BASE_API_URL = "https://api.test.computesphere.com"
+MCP_SERVER_URL = "http://127.0.0.1:8000/mcp"
 class MCPClient:
     """Client to communicate with MCP server tools via HTTP."""
 
-    def __init__(self, server_url: str = "http://127.0.0.1:8000/mcp"):
+    def __init__(self, server_url: str = MCP_SERVER_URL):
         self.client: Client | None = None
         self.server_url = server_url
         credentials = "admin:admin"
@@ -92,9 +91,7 @@ class MCPClient:
                 headers = {
                     "Content-Type": "application/json",
                     "Accept": "application/json,text/event-stream",
-      
                 }
-                # First, try to initialize the session
                 init_payload = {
                     "jsonrpc": "2.0",
                     "id": 1,
@@ -108,14 +105,12 @@ class MCPClient:
                         }
                     }
                 }
-                
                 # Initialize session
                 init_response = await client.post(
-                    "http://127.0.0.1:8000/mcp",
+                    f"{MCP_SERVER_URL}",
                     json=init_payload,
                     headers=headers
                 )
-                
                 if init_response.status_code != 200:
                     return json.dumps({"error": f"Failed to initialize: HTTP {init_response.status_code}: {init_response.text}"})
                 
@@ -128,7 +123,7 @@ class MCPClient:
                 }
                 
                 response = await client.post(
-                    "http://127.0.0.1:8000/mcp",
+                    f"{MCP_SERVER_URL}",
                     json=tools_payload,
                     headers=headers
                 )
@@ -152,8 +147,6 @@ class MCPClient:
 
         except Exception as e:
             return json.dumps({"error": f"Failed to list tools via curl: {str(e)}"})
-
-
 class AIAgent:
     """AI Agent that processes chat messages using MCP tools."""
 
@@ -164,76 +157,76 @@ class AIAgent:
 
         # Full system prompt with instructions
         self.system_prompt = """
----
-You are a helpful AI assistant designed to answer user questions based on requests.
-Your responsibilities are:
----
-###  Step 1: Retrieve Authorization Token
-* Always begin by connecting to the **MCP client**.
-* Fetch the "x-user-token" token from **Redis**, using:
-  ```text
-  key = {{ $json.sessionId }}
-  ```
-* The Redis output will contain the  token (e.g., `abc123...`).
-* Extract this token and use it in all subsequent HTTP requests as:
-  ```http
-  x-user-token: <token>
-  ```
- Important:
-    The  x-user-token received from Redis must be used exactly as returned when sent in the header for API requests . 
+            ---
+            You are a helpful AI assistant designed to answer user questions based on requests.
+            Your responsibilities are:
+            ---
+            ###  Step 1: Retrieve Authorization Token
+            * Always begin by connecting to the **MCP client**.
+            * Fetch the "x-user-token" token from **Redis**, using:
+            ```text
+            key = {{ $json.sessionId }}
+            ```
+            * The Redis output will contain the  token (e.g., `abc123...`).
+            * Extract this token and use it in all subsequent HTTP requests as:
+            ```http
+            x-user-token: <token>
+            ```
+            Important:
+                The  x-user-token received from Redis must be used exactly as returned when sent in the header for API requests . 
 
-    Extract the full  token string (e.g., abc123...).
-    Store in window buffer memory as:
-    {{ $json.sessionId }} =  abc123...
----
-###  Step 2: Match Message with RSS Read
-* Always check if the **chat message matches any path in RSS Read**.
-* If found, identify the corresponding HTTP method: `GET`, `POST`, or `PUT`.
----
-###  Step 3: Make the API Request
-Use the appropriate tool and follow these rules based on the HTTP method:
-#### If `GET`:
-* Use the `perizer_data_curl_get` tool.
-* Construct the full URL:
-  ```text
-  https://api.test.computesphere.com/api/v1 + path from `RSS Read`
-  ```
-* Include:
-  * All required path and query parameters.
-  * `Authorization` header with the exact token from Redis..
-####  If `POST`:
-* Use the `perizer_data_curl_post` tool.
-* Construct the full URL the same way.
-* Include:
-  * Required path parameters.
-  * JSON request body (as defined in the docs).
-  * `Authorization` header with the exact token from Redis.
+                Extract the full  token string (e.g., abc123...).
+                Store in window buffer memory as:
+                {{ $json.sessionId }} =  abc123...
+            ---
+            ###  Step 2: Match Message with RSS Read
+            * Always check if the **chat message matches any path in RSS Read**.
+            * If found, identify the corresponding HTTP method: `GET`, `POST`, or `PUT`.
+            ---
+            ###  Step 3: Make the API Request
+            Use the appropriate tool and follow these rules based on the HTTP method:
+            #### If `GET`:
+            * Use the `perizer_data_curl_get` tool.
+            * Construct the full URL:
+            ```text
+            https://api.test.computesphere.com/api/v1 + path from `RSS Read`
+            ```
+            * Include:
+            * All required path and query parameters.
+            * `Authorization` header with the exact token from Redis..
+            ####  If `POST`:
+            * Use the `perizer_data_curl_post` tool.
+            * Construct the full URL the same way.
+            * Include:
+            * Required path parameters.
+            * JSON request body (as defined in the docs).
+            * `Authorization` header with the exact token from Redis.
 
-####  If `PUT`:
-* Use the `perizer_data_curl_put` tool.
-* Construct the full URL the same way.
-* Include:
-  * Required path parameters.
-  * JSON request body (as defined in the docs).
-  * `x-user-token` header with the exact token from Redis.
----
-### Step 4: Return a Human-Readable Response
-* **Dont show and  return raw JSON**.
----
-### Step 5: If No Match Found
-If no relevant information is found in `RSS Read`, respond with:
-```text
-I cannot find the answer in the available resources.
-```
----
-###  Always Apply Logic on Every Query
-* This process should be repeated for **every chat message**, including follow-up messages.
-* Always fetch the **latest method** and **match from `RSS Read`**, even if the query seems repetitive.
-* `x-user-token:` dont include text in token and also Bearer. 
-* Always Give suggestion after every request
-* Dont Assume anything ,instead Call a tool for response.
----
-"""
+            ####  If `PUT`:
+            * Use the `perizer_data_curl_put` tool.
+            * Construct the full URL the same way.
+            * Include:
+            * Required path parameters.
+            * JSON request body (as defined in the docs).
+            * `x-user-token` header with the exact token from Redis.
+            ---
+            ### Step 4: Return a Human-Readable Response
+            * **Dont show and  return raw JSON**.
+            ---
+            ### Step 5: If No Match Found
+            If no relevant information is found in `RSS Read`, respond with:
+            ```text
+            I cannot find the answer in the available resources.
+            ```
+            ---
+            ###  Always Apply Logic on Every Query
+            * This process should be repeated for **every chat message**, including follow-up messages.
+            * Always fetch the **latest method** and **match from `RSS Read`**, even if the query seems repetitive.
+            * `x-user-token:` dont include text in token and also Bearer. 
+            * Always Give suggestion after every request
+            * Dont Assume anything ,instead Call a tool for response.
+            ---
+            """
 
     async def process_chat_message(self, message: str, session_id: str) -> str:
         try:
@@ -373,8 +366,6 @@ I cannot find the answer in the available resources.
                 formatted += f"\n... and {len(data) - 5} more items."
             return formatted
         return str(data)
-
-
 class ChatInterface:
     """Simple chat interface for the AI agent."""
     def __init__(self):
@@ -383,11 +374,6 @@ class ChatInterface:
 
     async def start_chat(self):
         print("AI Agent Chat Interface")
-        print("Type 'quit' to exit, 'health' to check system status")
-        print("Type 'tools' to list available tools, 'curl-tools' to list via curl")
-        print("-" * 50)
-        print("Note: Make sure the MCP server is running (python3 server.py)")
-        print("-" * 50)
         session_id = input("Enter your session ID: ").strip()
         try:
             async with MCPClient() as mcp:
