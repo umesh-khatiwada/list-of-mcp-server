@@ -26,8 +26,8 @@ async def main():
                 print(f"  - {tool.name}: {tool.description}")
 
             # Call our calculator tool
-            result = await session.call_tool("add", arguments={"a": 2, "b": 3})
-            print(f"2 + 3 = {result.content[0].text}")
+            result = await session.call_tool("add", arguments={"a": 200, "b": 3})
+            print(f"200 + 3 = {result.content[0].text}")
 
 
 if __name__ == "__main__":
