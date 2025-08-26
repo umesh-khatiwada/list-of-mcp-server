@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 *.pyo
 mcp-local-sql-client/myenv
+*.venv
