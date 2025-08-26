@@ -8,7 +8,7 @@ import time
 import httpx
 import base64
 
-
+BASE_API_URL = "https://api.test.computesphere.com"
 class MCPClient:
     """Client to communicate with MCP server tools via HTTP."""
 
@@ -237,7 +237,6 @@ I cannot find the answer in the available resources.
 
     async def process_chat_message(self, message: str, session_id: str) -> str:
         try:
-            # Step 1: Get token from Redis
             token_response = await self.mcp_client.call_tool("redis_get_token", key=session_id)
             token_data = json.loads(token_response)
 
@@ -247,16 +246,13 @@ I cannot find the answer in the available resources.
             token = token_data.get("token")
             if not token:
                 return " **Authentication Error**\n\nAuthentication token not found. Please check your session."
-
-            print(f"✅ Token retrieved: {token}")
-
-            # Step 2: Load RSS feed data
+            print(f"Token retrieved: {token}")
             rss_response = await self.mcp_client.call_tool("rss_feed_read")
             rss_data = json.loads(rss_response)
             if "error" in rss_data:
-                return f"❌ **RSS Error**\n\nError loading RSS data: {rss_data['error']}"
+                return f" **RSS Error**\n\nError loading RSS data: {rss_data['error']}"
 
-            print(f"✅ RSS data loaded: {len(rss_data.get('endpoints', []))} endpoints")
+            print(f" RSS data loaded: {len(rss_data.get('endpoints', []))} endpoints")
 
             # Step 3: Match message to endpoint
             best_match = None
@@ -274,20 +270,15 @@ I cannot find the answer in the available resources.
                     best_match = endpoint
 
             if not best_match:
-                return f"❌ **No Matching Endpoint**\n\nI cannot find the answer in the available resources.\n\n**Available endpoints:** {len(rss_data.get('endpoints', []))}\n\n**Suggestion:** Try asking about users, notifications, messages, or other available API endpoints."
+                return f" **No Matching Endpoint**\n\nI cannot find the answer in the available resources.\n\n**Available endpoints:** {len(rss_data.get('endpoints', []))}\n\n**Suggestion:** Try asking about users, notifications, messages, or other available API endpoints."
 
-            print(f"✅ Matched endpoint: {best_match['method']} {best_match['path']} (score: {highest_score})")
-
-            # Step 4: Execute the actual API call
-            BASE_API_URL = "https://api.test.computesphere.com"
-            
-            # Check if path already includes /api/v1, if so don't add it again
+            print(f" Matched endpoint: {best_match['method']} {best_match['path']} (score: {highest_score})")
             if best_match['path'].startswith('/api/v1'):
                 full_url = BASE_API_URL + best_match['path']
             else:
                 full_url = BASE_API_URL + "/api/v1" + best_match['path']
             
-            print(f"🔄 Making {best_match['method']} request to: {full_url}")
+            print(f"Making {best_match['method']} request to: {full_url}")
 
             if best_match['method'] == 'GET':
                 api_response = await self.mcp_client.call_tool(
@@ -309,45 +300,37 @@ I cannot find the answer in the available resources.
                     JSON={}
                 )
             else:
-                return f"❌ **Unsupported Method**\n\nHTTP method '{best_match['method']}' is not supported."
-
-            # Step 5: Parse and display results
+                return f"**Unsupported Method**\n\nHTTP method '{best_match['method']}' is not supported."
             api_data = json.loads(api_response)
             
             if api_data.get("success"):
-                response_text = f"✅ **API Call Successful**\n\n"
+                response_text = f"**API Call Successful**\n\n"
                 response_text += f"**Method:** {best_match['method']}\n"
                 response_text += f"**URL:** {full_url}\n"
                 response_text += f"**Status Code:** {api_data.get('status_code')}\n"
                 response_text += f"**Endpoint:** {best_match['path']}\n\n"
-                
-                # Only show human-readable format, not raw JSON
+
                 formatted_response = self._format_response_for_human(api_data.get('data', {}))
                 response_text += f"**Result:**\n{formatted_response}\n\n"
                 response_text += f"**Suggestion:** You can ask about other endpoints or request specific actions."
                 return response_text
             else:
-                return f"❌ **API Call Failed**\n\nError: {api_data.get('error', 'Unknown error')}\n\nURL: {full_url}\n\n**Suggestion:** Please check your session token or try a different request."
+                return f"**API Call Failed**\n\nError: {api_data.get('error', 'Unknown error')}\n\nURL: {full_url}\n\n**Suggestion:** Please check your session token or try a different request."
 
         except Exception as e:
-            return f"❌ **Processing Error**\n\nError: {str(e)}"
+            return f"**Processing Error**\n\nError: {str(e)}"
 
     def _format_response_for_human(self, data: Any) -> str:
         """Convert API response data to human-readable format"""
         if isinstance(data, dict):
             if not data:
                 return "No data found."
-            
-            # Check if it's a standard API response with status and data
             if data.get("status") == "success" and "data" in data:
                 return self._format_response_for_human(data["data"])
-            
-            # Format dictionary nicely
             formatted = ""
             for k, v in data.items():
                 if k == "meta":
-                    # Format pagination info nicely
-                    formatted += f"📊 **Pagination:** Page {v.get('page', 'N/A')} of {v.get('total_pages', 'N/A')} (Total: {v.get('total', 'N/A')} items)\n\n"
+                    formatted += f"**Pagination:** Page {v.get('page', 'N/A')} of {v.get('total_pages', 'N/A')} (Total: {v.get('total', 'N/A')} items)\n\n"
                 elif isinstance(v, (dict, list)):
                     formatted += f"**{k.title()}:**\n{self._format_response_for_human(v)}\n"
                 else:
@@ -361,21 +344,18 @@ I cannot find the answer in the available resources.
             if len(data) > 0 and isinstance(data[0], dict) and "title" in data[0]:
                 formatted = f"📋 **Found {len(data)} notifications:**\n\n"
                 for i, notification in enumerate(data, 1):
-                    status_icon = "🔔" if not notification.get("seen", False) else "✅"
+                    status_icon = "" if not notification.get("seen", False) else ""
                     formatted += f"{status_icon} **{i}. {notification.get('title', 'No title')}**\n"
-                    formatted += f"    {notification.get('body', 'No description')}\n"
-                    formatted += f"    {notification.get('created_at', 'No date')[:10]}\n"
-                    formatted += f"  Type: {notification.get('type', 'Unknown')} | Level: {notification.get('notication_level', 'Unknown')}\n"
+                    formatted += f"{notification.get('body', 'No description')}\n"
+                    formatted += f"{notification.get('created_at', 'No date')[:10]}\n"
+                    formatted += f"Type: {notification.get('type', 'Unknown')} | Level: {notification.get('notication_level', 'Unknown')}\n"
                     if notification.get('url'):
-                        formatted += f"   🔗 URL: {notification.get('url')}\n"
+                        formatted += f"URL: {notification.get('url')}\n"
                     formatted += "\n"
                 return formatted
-            
-            # Generic list formatting
             formatted = f"Found {len(data)} items:\n\n"
             for i, item in enumerate(data[:5], 1):
                 if isinstance(item, dict):
-                    # Show key fields only
                     if "name" in item:
                         formatted += f"{i}. **{item['name']}**"
                     elif "title" in item:
@@ -392,13 +372,11 @@ I cannot find the answer in the available resources.
             if len(data) > 5:
                 formatted += f"\n... and {len(data) - 5} more items."
             return formatted
-            
         return str(data)
 
 
 class ChatInterface:
     """Simple chat interface for the AI agent."""
-
     def __init__(self):
         self.ai_model = genai.GenerativeModel("gemini-1.5-flash")
         self.agent: AIAgent | None = None
@@ -410,13 +388,10 @@ class ChatInterface:
         print("-" * 50)
         print("Note: Make sure the MCP server is running (python3 server.py)")
         print("-" * 50)
-
         session_id = input("Enter your session ID: ").strip()
-
         try:
             async with MCPClient() as mcp:
                 self.agent = AIAgent(mcp, self.ai_model)
-
                 while True:
                     try:
                         user_input = input(f"[{session_id}] You: ").strip()
@@ -449,11 +424,9 @@ class ChatInterface:
                             continue
                         elif not user_input:
                             continue
-
                         print("Agent: Processing your request...")
                         response = await self.agent.process_chat_message(user_input, session_id)
                         print(f"Agent: {response}")
-
                     except KeyboardInterrupt:
                         print("\nGoodbye!")
                         break
@@ -462,7 +435,6 @@ class ChatInterface:
         except Exception as e:
             print(f"Failed to start chat interface: {e}")
             print("Please ensure the MCP server is running and try again.")
-
 
 if __name__ == "__main__":
     genai.configure(api_key=os.getenv("GENAI_API_KEY"))

@@ -17,6 +17,7 @@ redis_url = os.getenv('REDIS_URL', '')
 redis_client = redis.from_url(redis_url, decode_responses=True)
 http_client = httpx.AsyncClient()
 BASE_API_URL = os.getenv('API_BASE_URL', "https://api.test.computesphere.com/api/v1")
+BASE_URL = "https://api.test.computesphere.com"
 ACCOUNT_ID = os.getenv('ACCOUNT_ID', "ed95ae9d-05ca-4c41-b233-0891e53316d4")
 RSS_FEED_URL = os.getenv('RSS_FEED_URL', "https://umeshkhatiwada.com.np/assets/file/cm.rss")
 
@@ -28,7 +29,6 @@ class APIEndpoint(BaseModel):
 
 class SessionManager:
     """Manages session tokens and RSS feed data"""
-    
     def __init__(self):
         self.rss_endpoints = []
         self.rss_last_updated = None
@@ -202,9 +202,6 @@ class SessionManager:
         
         return best_match if highest_score > 0 else None
 session_manager = SessionManager()
-
-
-
 # Authentication Middleware
 async def auth_middleware(func, *args, **kwargs) -> str:
     """Middleware to check HTTP Basic Auth for all MCP tool calls"""
@@ -260,12 +257,12 @@ def with_auth_middleware(tool_func):
         return await auth_middleware(tool_func, *args, **kwargs)
     return wrapper
 
-@mcp.tool()
+@mcp.tool(name="health_check", description="Check server health status")
 async def health_check() -> str:
     """Health check endpoint"""
     return json.dumps({"status": "healthy", "message": "Server is running"})
 
-@mcp.tool()
+@mcp.tool(name="redis_set_token", description="Set authentication token in Redis")
 @with_auth_middleware
 async def redis_get_token(key: str, Authorization: str) -> str:
     """Get authentication token from Redis"""
@@ -277,7 +274,7 @@ async def redis_get_token(key: str, Authorization: str) -> str:
     except Exception as e:
         return json.dumps({"error": str(e), "key": key})
 
-@mcp.tool()
+@mcp.tool(name="rss_feed_read", description="Read RSS feed and load API endpoints")
 @with_auth_middleware
 async def rss_feed_read(Authorization: str) -> str:
     """Read RSS feed and load API endpoints"""
@@ -291,7 +288,7 @@ async def rss_feed_read(Authorization: str) -> str:
     except Exception as e:
         return json.dumps({"error": str(e)})
 
-@mcp.tool()
+@mcp.tool(name="perizer_data_curl_get", description="Make HTTP GET request")
 @with_auth_middleware
 async def perizer_data_curl_get(url: str, parameters2_Value: str, Authorization: str) -> str:
     """Make HTTP GET request"""
@@ -310,7 +307,7 @@ async def perizer_data_curl_get(url: str, parameters2_Value: str, Authorization:
     except Exception as e:
         return json.dumps({"error": str(e), "url": url})
 
-@mcp.tool()
+@mcp.tool(name="perizer_data_curl_post", description="Make HTTP POST request")
 @with_auth_middleware
 async def perizer_data_curl_post(
     url: str,
@@ -343,7 +340,7 @@ async def perizer_data_curl_post(
     except Exception as e:
         return json.dumps({"error": str(e), "url": url})
 
-@mcp.tool()
+@mcp.tool(name="perizer_data_curl_put", description="Make HTTP PUT request")
 @with_auth_middleware
 async def perizer_data_curl_put(url: str, parameters4_Value: str, JSON: dict, Authorization: str) -> str:
     """Make HTTP PUT request"""
@@ -362,7 +359,7 @@ async def perizer_data_curl_put(url: str, parameters4_Value: str, JSON: dict, Au
     except Exception as e:
         return json.dumps({"error": str(e), "url": url})
 
-@mcp.tool()
+@mcp.tool(name="ai_agent_process", description="Process user messages and execute API calls")
 @with_auth_middleware
 async def ai_agent_process(user_message: str, session_id: str, Authorization: str) -> str:
     """AI Agent tool that processes user messages and executes appropriate API calls"""
@@ -381,9 +378,6 @@ async def ai_agent_process(user_message: str, session_id: str, Authorization: st
                 "message": "I cannot find the answer in the available resources.",
                 "suggestion": "Try asking about users, notifications, messages, or other available API endpoints."
             })
-
-        BASE_URL = "https://api.test.computesphere.com"
-        
         # Check if path already includes /api/v1, if so don't add it again
         if best_match.path.startswith('/api/v1'):
             full_url = BASE_URL + best_match.path
@@ -472,11 +466,7 @@ def _format_api_response_for_human(data: Any) -> str:
 
 if __name__ == "__main__":
     print("Starting MCP Server on http://localhost:8000")
-    print("Make sure to start this server before running the client")
     try:
         mcp.run()
     except Exception as e:
         print(f"Server failed to start: {e}")
-        print("Check if port 8000 is available")
-
-
