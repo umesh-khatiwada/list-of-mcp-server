@@ -34,36 +34,71 @@ class SessionManager:
         self.rss_last_updated = None
     
     def _extract_path_from_entry(self, entry) -> str:
-        """Extract API path from RSS entry - customize this"""
+        """Extract API path from RSS entry"""
         title = entry.get('title', '')
         description = entry.get('description', '')
         link = entry.get('link', '')
-        text_to_search = f"{title} {description} {link}".lower()
         import re
-        api_patterns = [
-            r'/api/v\d+/[a-zA-Z0-9/_-]+',
-            r'/v\d+/[a-zA-Z0-9/_-]+',    
-            r'/[a-zA-Z]+(?:/[a-zA-Z0-9_-]+)*'
-        ]
+        title_pattern = r'(?:GET|POST|PUT|DELETE|PATCH)\s+(/[^\s]+)'
+        title_match = re.search(title_pattern, title, re.IGNORECASE)
+        if title_match:
+            path = title_match.group(1)
+            path = re.sub(r'\{[^}]+\}', '', path)
+            path = path.rstrip('/').split('?')[0]
+            if path and len(path) > 1:
+                return path
+        if link:
+            url_pattern = r'https?://[^/]+(/api/v\d+/[^?\s]*)'
+            url_match = re.search(url_pattern, link)
+            if url_match:
+                path = url_match.group(1)
+                path = re.sub(r'\{[^}]+\}', '', path)
+                path = path.rstrip('/').split('?')[0]
+                if path and len(path) > 1:
+                    return path
+        text_to_search = f"{title} {description}".lower()
+        fallback_mappings = {
+            'projects': '/projects',
+            'environments': '/environments', 
+            'notifications': '/notifications',
+            'services': '/services',
+            'users': '/users',
+            'user': '/users',
+            'auth': '/auth',
+            'login': '/auth',
+            'profile': '/profile',
+            'settings': '/settings'
+        }
         
-        for pattern in api_patterns:
-            matches = re.findall(pattern, text_to_search)
-            if matches:
-                for match in matches:
-                    if len(match) > 3:
-                        return match
-        if 'user' in text_to_search:
-            return '/users'
-        elif 'notification' in text_to_search:
-            return '/notifications'
-        elif 'message' in text_to_search:
-            return '/messages'
-        elif 'auth' in text_to_search or 'login' in text_to_search:
-            return '/auth'
-        elif 'profile' in text_to_search:
-            return '/profile'
+        for keyword, path in fallback_mappings.items():
+            if keyword in text_to_search:
+                if 'notification' in text_to_search and 'settings' in text_to_search:
+                    return '/notifications/settings'
+                elif 'users' in text_to_search and 'projects' in text_to_search:
+                    return '/users/projects'
+                return path
         
-        return ''
+        return '/api/v1/default'
+
+    def build_headers(
+        token: str,
+        content_type: Optional[str] = None,
+        extra_headers: Optional[Dict[str, str]] = None
+    ) -> Dict[str, str]:
+        """Build standard headers for API requests"""
+        headers = {
+            "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:141.0) Gecko/20100101 Firefox/141.0",
+            "Accept": "application/json, text/plain, */*",
+            "x-user-token": token,
+            "x-account-id": ACCOUNT_ID,
+            "Origin": "https://console.test.computesphere.com",
+            "Referer": "https://console.test.computesphere.com/",
+        }
+        if content_type:
+            headers["Content-Type"] = content_type
+        if extra_headers:
+            headers.update(extra_headers)
+        return headers
 
     def _extract_keywords_from_entry(self, entry) -> List[str]:
         """Extract keywords from RSS entry - customize this"""
@@ -169,25 +204,6 @@ class SessionManager:
 session_manager = SessionManager()
 
 
-def build_headers(
-    token: str,
-    content_type: Optional[str] = None,
-    extra_headers: Optional[Dict[str, str]] = None
-) -> Dict[str, str]:
-    """Build standard headers for API requests"""
-    headers = {
-        "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:141.0) Gecko/20100101 Firefox/141.0",
-        "Accept": "application/json, text/plain, */*",
-        "x-user-token": token,
-        "x-account-id": ACCOUNT_ID,
-        "Origin": "https://console.test.computesphere.com",
-        "Referer": "https://console.test.computesphere.com/",
-    }
-    if content_type:
-        headers["Content-Type"] = content_type
-    if extra_headers:
-        headers.update(extra_headers)
-    return headers
 
 # Authentication Middleware
 async def auth_middleware(func, *args, **kwargs) -> str:
@@ -241,7 +257,6 @@ async def auth_middleware(func, *args, **kwargs) -> str:
 def with_auth_middleware(tool_func):
     @wraps(tool_func)
     async def wrapper(*args, **kwargs):
-        # Ensure Authorization is present in kwargs
         return await auth_middleware(tool_func, *args, **kwargs)
     return wrapper
 
@@ -281,7 +296,7 @@ async def rss_feed_read(Authorization: str) -> str:
 async def perizer_data_curl_get(url: str, parameters2_Value: str, Authorization: str) -> str:
     """Make HTTP GET request"""
     try:
-        headers = build_headers(parameters2_Value)
+        headers = session_manager.build_headers(parameters2_Value)
         
         response = await http_client.get(url, headers=headers)
         response.raise_for_status()
@@ -308,7 +323,7 @@ async def perizer_data_curl_post(
 ) -> str:
     """Make HTTP POST request"""
     try:
-        headers = build_headers(parameters4_Value, content_type="application/json")
+        headers = session_manager.build_headers(parameters4_Value, content_type="application/json")
         # Build request body
         body = {}
         if parameters0_Name and parameters0_Value:
@@ -333,7 +348,7 @@ async def perizer_data_curl_post(
 async def perizer_data_curl_put(url: str, parameters4_Value: str, JSON: dict, Authorization: str) -> str:
     """Make HTTP PUT request"""
     try:
-        headers = build_headers(parameters4_Value, content_type="application/json")
+        headers = session_manager.build_headers(parameters4_Value, content_type="application/json")
         response = await http_client.put(url, headers=headers, json=JSON)
         print("response",response)
         response.raise_for_status()
