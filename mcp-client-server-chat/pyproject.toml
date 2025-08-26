@@ -8,4 +8,5 @@ dependencies = [
     "fastapi>=0.116.1",
     "fastmcp>=2.11.3",
     "google-generativeai>=0.8.5",
+    "mcp[cli]>=1.13.1",
 ]

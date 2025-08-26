@@ -12,7 +12,7 @@ from functools import wraps
 import base64
 
 load_dotenv()
-mcp = FastMCP("AI Agent Tools Server")
+mcp = FastMCP("AI Agent Tools Server", port=8000, debug=True)
 redis_url = os.getenv('REDIS_URL', '')
 redis_client = redis.from_url(redis_url, decode_responses=True)
 http_client = httpx.AsyncClient()
