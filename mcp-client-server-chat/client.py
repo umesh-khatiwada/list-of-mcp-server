@@ -48,10 +48,8 @@ class MCPClient:
         try:
             kwargs["Authorization"] = self.basic_auth_header
             result = await self.client.call_tool(tool_name, kwargs)
-            # Extract content from CallToolResult object
             if hasattr(result, 'content'):
                 if isinstance(result.content, list) and len(result.content) > 0:
-                    # Get the first content item
                     content_item = result.content[0]
                     if hasattr(content_item, 'text'):
                         return content_item.text
@@ -154,7 +152,6 @@ class AIAgent:
         self.mcp_client = mcp_client
         self.ai_model = ai_model
         self.memory = {}
-
         # Full system prompt with instructions
         self.system_prompt = """
             ---
