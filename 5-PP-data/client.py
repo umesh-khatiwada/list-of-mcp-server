@@ -12,8 +12,8 @@ async def main():
             print(f"- {tool.name}")
             
         # Call one of the generated tools
-        print("\n\nCalling tool 'get_user_projects'...")
-        accounts = await client.call_tool("get_user_projects")
+        print("\n\nCalling tool 'update_project_alert_notifications'...")
+        accounts = await client.call_tool("update_project_alert_notifications")
         print(f"Result:\n{accounts.data}")
 
 if __name__ == "__main__":

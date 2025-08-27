@@ -17,18 +17,8 @@ mcp = FastMCP.from_openapi(
     openapi_spec=openapi_spec,
     client=client,
     name="JSONPlaceholder MCP Server"
+
 )
-
-# Register additional tools (if you want to add custom ones)
-@mcp.tool("get_project_alerts")
-async def get_project_alerts(id: str):
-    response = await client.get(f"/projects/{id}/alerts")
-    return response.json()
-
-@mcp.tool("update_project_alert_notifications")
-async def update_project_alert_notifications(id: str, payload: dict):
-    response = await client.put(f"/projects/{id}/alerts/notifications", json=payload)
-    return response.json()
 
 if __name__ == "__main__":
     mcp.run(transport="http", port=8000)
