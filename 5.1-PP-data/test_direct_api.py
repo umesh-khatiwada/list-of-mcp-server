@@ -12,13 +12,6 @@ def test_api_direct():
     
     try:
         print("Testing direct API call...")
-        
-        # Test home endpoint first
-        # with httpx.Client(timeout=10.0) as client:
-        #     response = client.get(f"{base_url}/", headers=headers)
-        #     print(f"Home endpoint status: {response.status_code}")
-        #     print(f"Home response: {response.text[:200]}...")
-            
         # Test accounts endpoint
         with httpx.Client(timeout=10.0) as client:
             response = client.get(f"{base_url}/accounts", headers=headers)
@@ -26,11 +19,11 @@ def test_api_direct():
             print(f"Accounts response: {response.text[:200]}...")
             
     except httpx.TimeoutException:
-        print("❌ Timeout - API server not responding")
+        print("Timeout - API server not responding")
     except httpx.ConnectError:
-        print("❌ Connection error - Cannot reach API server")
+        print(" Connection error - Cannot reach API server")
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f" Error: {e}")
 
 if __name__ == "__main__":
     test_api_direct()

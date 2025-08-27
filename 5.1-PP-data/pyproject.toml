@@ -11,4 +11,5 @@ dependencies = [
     "mcp[cli]>=1.13.1",
     "openai>=1.102.0",
     "python-dotenv>=1.1.1",
+    "redis==6.4.0",
 ]

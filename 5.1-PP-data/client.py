@@ -13,8 +13,6 @@ from openai import AsyncOpenAI
 # Allow nested event loops (needed for Jupyter/IPython)
 nest_asyncio.apply()
 load_dotenv(".env")
-
-
 class MCPServerClient:
     """Represents a single MCP server connection."""
 
@@ -39,6 +37,7 @@ class MCPServerClient:
             ClientSession(self.stdio, self.write)
         )
         await self.session.initialize()
+        print(f"Session ID for server '{self.name}': {getattr(self.session, 'session_id', 'N/A')}")
 
         # List tools
         tools_result = await self.session.list_tools()
@@ -48,14 +47,13 @@ class MCPServerClient:
                 "parameters": tool.inputSchema,
             }
 
-        print(f"\n✅ Connected to server '{self.name}' with tools:")
+        print(f"\n Connected to server '{self.name}' with tools:")
         for tool in self.tools:
             print(f"  - {tool}: {self.tools[tool]['description']}")
 
 
 class MCPOpenAIClient:
     """OpenAI client supporting multiple MCP servers with fallback."""
-
     def __init__(self, model: str = "gemini-2.5-flash"):
         self.exit_stack = AsyncExitStack()
         self.openai_client = AsyncOpenAI(
@@ -64,6 +62,33 @@ class MCPOpenAIClient:
         )
         self.model = model
         self.servers: Dict[str, MCPServerClient] = {}
+        self.system_prompt = (
+            "You are a helpful AI assistant designed to answer user questions using MCP tools.\n"
+            "Your workflow for every query is as follows:\n"
+            "\n"
+            "Step 1: Retrieve Authorization Token\n"
+            "- Fetch the 'x-user-token' from Redis using: key = {{$json.sessionId}}.\n"
+            "- Extract the token exactly as returned (e.g., abc123...).\n"
+            "- Use this token in all subsequent API requests as 'x-user-token: <token>' (no Bearer, no extra text).\n"
+            "\n"
+            "Step 2: Make the API Request\n"
+            "- Decide and do all the request to MCP tools"
+            "- Construct the full URL: https://api.test.computesphere.com/api/v1 + path from RSS Read.\n"
+            "- Include all required path/query parameters and the 'x-user-token' header.\n"
+            "- For POST/PUT, include the JSON request body as defined in docs.\n"
+            "\n"
+            "Step 4: Return a Human-Readable Response\n"
+            "- Do not show or return raw JSON.\n"
+            "\n"
+            "Step 5: If No Match Found\n"
+            "- Respond: 'I cannot find the answer in the available resources.'\n"
+            "\n"
+            "Additional Rules:\n"
+            "- Repeat this process for every chat message, including follow-ups.\n"
+            "- Always fetch the latest method and match from RSS Read, even for repeated queries.\n"
+            "- Always call a tool for a response; do not assume or guess.\n"
+            "- Always give a suggestion after every request.\n"
+        )
 
     async def add_server(self, name: str, server_script: str):
         server_client = MCPServerClient(name, server_script)
@@ -109,7 +134,7 @@ class MCPOpenAIClient:
             for tool_call in assistant_message.tool_calls:
                 server = self.find_tool_server(tool_call.function.name)
                 if not server:
-                    return f"⚠️ Tool '{tool_call.function.name}' not found on any server."
+                    return f" Tool '{tool_call.function.name}' not found on any server."
 
                 result = await server.session.call_tool(
                     tool_call.function.name,
@@ -142,10 +167,10 @@ async def main():
 
     try:
         # Add multiple MCP servers
-        await client.add_server("server1", "server.py")
-        await client.add_server("server2", "server_2.py")
+        await client.add_server("helper_tool", "mcp_server_helpertool.py")
+        await client.add_server("open_api", "mcp_server_openapi.py")
 
-        print("\n✅ Connected! Type your questions (or 'exit' to quit)\n")
+        print("\n Connected! Type your questions (or 'exit' to quit)\n")
         while True:
             query = input("You: ").strip()
             if query.lower() in {"exit", "quit"}:
@@ -154,8 +179,7 @@ async def main():
                 response = await client.process_query(query)
                 print(f"\nAssistant: {response}\n")
             except Exception as e:
-                print(f"⚠️ Error: {e}")
-
+                print(f" Error: {e}")
     finally:
         await client.cleanup()
 
