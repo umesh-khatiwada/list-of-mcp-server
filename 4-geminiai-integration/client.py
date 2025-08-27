@@ -156,7 +156,5 @@ async def main():
         await client.cleanup()
     except Exception as e:
         print(f"Main error: {e}")
-
-
 if __name__ == "__main__":
     asyncio.run(main())
