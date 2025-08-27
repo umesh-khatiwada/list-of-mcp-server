@@ -1,7 +1,7 @@
 import asyncio
 import json
-from contextlib import AsyncExitStack
 import os
+from contextlib import AsyncExitStack
 from typing import Any, Dict, List, Optional
 
 import nest_asyncio
@@ -10,165 +10,152 @@ from mcp.client.stdio import stdio_client
 from mcp import ClientSession, StdioServerParameters
 from openai import AsyncOpenAI
 
-# Apply nest_asyncio to allow nested event loops (needed for Jupyter/IPython)
+# Allow nested event loops (needed for Jupyter/IPython)
 nest_asyncio.apply()
-
-# Load environment variables
 load_dotenv(".env")
 
 
-class MCPOpenAIClient:
-    """Client for interacting with OpenAI models using MCP tools."""
+class MCPServerClient:
+    """Represents a single MCP server connection."""
 
-    def __init__(self, model: str = "gemini-2.5-flash"):
-        """Initialize the OpenAI MCP client.
-
-        Args:
-            model: The OpenAI model to use.
-        """
-        # Initialize session and client objects
+    def __init__(self, name: str, server_script: str):
+        self.name = name
+        self.server_script = server_script
         self.session: Optional[ClientSession] = None
-        self.exit_stack = AsyncExitStack()
-        self.openai_client = AsyncOpenAI(
-            api_key=os.getenv("GOOGLE_API_KEY"),
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
-        )
-        self.model = model
         self.stdio: Optional[Any] = None
         self.write: Optional[Any] = None
+        self.tools: Dict[str, Dict[str, Any]] = {}
 
-    async def connect_to_server(self, server_script_path: str = "server.py"):
-        """Connect to an MCP server.
-
-        Args:
-            server_script_path: Path to the server script.
-        """
-        # Server configuration
+    async def connect(self, exit_stack: AsyncExitStack):
         server_params = StdioServerParameters(
             command="python",
-            args=[server_script_path],
+            args=[self.server_script],
         )
-
-        # Connect to the server
-        stdio_transport = await self.exit_stack.enter_async_context(
+        stdio_transport = await exit_stack.enter_async_context(
             stdio_client(server_params)
         )
         self.stdio, self.write = stdio_transport
-        self.session = await self.exit_stack.enter_async_context(
+        self.session = await exit_stack.enter_async_context(
             ClientSession(self.stdio, self.write)
         )
-
-        # Initialize the connection
         await self.session.initialize()
 
-        # List available tools
+        # List tools
         tools_result = await self.session.list_tools()
-        print("\nConnected to server with tools:")
         for tool in tools_result.tools:
-            print(f"  - {tool.name}: {tool.description}")
-
-    async def get_mcp_tools(self) -> List[Dict[str, Any]]:
-        """Get available tools from the MCP server in OpenAI format.
-
-        Returns:
-            A list of tools in OpenAI format.
-        """
-        tools_result = await self.session.list_tools()
-        return [
-            {
-                "type": "function",
-                "function": {
-                    "name": tool.name,
-                    "description": tool.description,
-                    "parameters": tool.inputSchema,
-                },
+            self.tools[tool.name] = {
+                "description": tool.description,
+                "parameters": tool.inputSchema,
             }
-            for tool in tools_result.tools
-        ]
+
+        print(f"\n✅ Connected to server '{self.name}' with tools:")
+        for tool in self.tools:
+            print(f"  - {tool}: {self.tools[tool]['description']}")
+
+
+class MCPOpenAIClient:
+    """OpenAI client supporting multiple MCP servers with fallback."""
+
+    def __init__(self, model: str = "gemini-2.5-flash"):
+        self.exit_stack = AsyncExitStack()
+        self.openai_client = AsyncOpenAI(
+            api_key=os.getenv("GOOGLE_API_KEY"),
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        )
+        self.model = model
+        self.servers: Dict[str, MCPServerClient] = {}
+
+    async def add_server(self, name: str, server_script: str):
+        server_client = MCPServerClient(name, server_script)
+        await server_client.connect(self.exit_stack)
+        self.servers[name] = server_client
+
+    def find_tool_server(self, tool_name: str) -> Optional[MCPServerClient]:
+        for server in self.servers.values():
+            if tool_name in server.tools:
+                return server
+        return None
+
+    async def get_all_tools(self) -> List[Dict[str, Any]]:
+        """Aggregate all server tools for OpenAI tool integration."""
+        tools_list = []
+        for server in self.servers.values():
+            for name, meta in server.tools.items():
+                tools_list.append({
+                    "type": "function",
+                    "function": {
+                        "name": name,
+                        "description": meta["description"],
+                        "parameters": meta["parameters"],
+                    },
+                })
+        return tools_list
 
     async def process_query(self, query: str) -> str:
-        """Process a query using OpenAI and available MCP tools.
+        tools = await self.get_all_tools()
 
-        Args:
-            query: The user query.
-
-        Returns:
-            The response from OpenAI.
-        """
-        # Get available tools
-        tools = await self.get_mcp_tools()
-
-        # Initial OpenAI API call
+        # Initial OpenAI request with all tools
         response = await self.openai_client.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": query}],
             tools=tools,
             tool_choice="auto",
         )
-
-        # Get assistant's response
         assistant_message = response.choices[0].message
+        messages = [{"role": "user", "content": query}, assistant_message]
 
-        # Initialize conversation with user query and assistant response
-        messages = [
-            {"role": "user", "content": query},
-            assistant_message,
-        ]
-
-        # Handle tool calls if present
+        # If there are tool calls, process them
         if assistant_message.tool_calls:
-            # Process each tool call
             for tool_call in assistant_message.tool_calls:
-                # Execute tool call
-                result = await self.session.call_tool(
+                server = self.find_tool_server(tool_call.function.name)
+                if not server:
+                    return f"⚠️ Tool '{tool_call.function.name}' not found on any server."
+
+                result = await server.session.call_tool(
                     tool_call.function.name,
                     arguments=json.loads(tool_call.function.arguments),
                 )
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": result.content[0].text,
+                })
 
-                # Add tool response to conversation
-                messages.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "content": result.content[0].text,
-                    }
-                )
-
-            # Get final response from OpenAI with tool results
+            # Final response after tool execution
             final_response = await self.openai_client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 tools=tools,
-                tool_choice="none",  # Don't allow more tool calls
+                tool_choice="none",
             )
-
             return final_response.choices[0].message.content
 
-        # No tool calls, just return the direct response
+        # No tool calls; fallback to general OpenAI response
         return assistant_message.content
 
     async def cleanup(self):
-        """Clean up resources."""
         await self.exit_stack.aclose()
 
 
 async def main():
     client = MCPOpenAIClient()
+
     try:
-        await client.connect_to_server("server.py")
+        # Add multiple MCP servers
+        await client.add_server("server1", "server.py")
+        await client.add_server("server2", "server_2.py")
 
         print("\n✅ Connected! Type your questions (or 'exit' to quit)\n")
-
         while True:
-            query = input("You: ")
-            if query.strip().lower() in {"exit", "quit"}:
+            query = input("You: ").strip()
+            if query.lower() in {"exit", "quit"}:
                 break
-
             try:
                 response = await client.process_query(query)
                 print(f"\nAssistant: {response}\n")
             except Exception as e:
                 print(f"⚠️ Error: {e}")
+
     finally:
         await client.cleanup()
 

@@ -10,7 +10,7 @@ mcp = FastMCP(
 )
 
 
-@mcp.tool()
+@mcp.tool(name="get_knowledge_base")
 def get_knowledge_base() -> str:
     """Retrieve the entire knowledge base as a formatted string.
 
