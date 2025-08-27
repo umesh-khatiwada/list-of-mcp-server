@@ -10870,6 +10870,7 @@
         ],
         "summary": "List Project",
         "description": "List Project",
+        "operationId": "get_user_projects",
         "parameters": [
           {
             "name": "x-account-id",
