@@ -1,4 +1,4 @@
-mcp[cli]>=1.10.1
+mcp[cli]>=1.13.1
 openai>=1.75.0
 redis==6.4.0
 python-dotenv

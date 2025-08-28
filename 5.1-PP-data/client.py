@@ -63,31 +63,33 @@ class MCPOpenAIClient:
         self.model = model
         self.servers: Dict[str, MCPServerClient] = {}
         self.system_prompt = (
-            "You are a helpful AI assistant designed to answer user questions using MCP tools.\n"
-            "Your workflow for every query is as follows:\n"
+            "You are a helpful AI assistant that MUST follow this exact workflow for EVERY user query.\n"
             "\n"
-            "Step 1: Retrieve Authorization Token\n"
-            "- Fetch the 'x-user-token' from Redis using: key = {{$json.sessionId}}.\n"
-            "- Extract the token exactly as returned (e.g., abc123...).\n"
-            "- Use this token in all subsequent API requests as 'x-user-token: <token>' (no Bearer, no extra text).\n"
+            "MANDATORY 2-STEP WORKFLOW (NO EXCEPTIONS):\n"
             "\n"
-            "Step 2: Make the API Request\n"
-            "- Decide and do all the request to MCP tools"
-            "- Construct the full URL: https://api.test.computesphere.com/api/v1 + path from RSS Read.\n"
-            "- Include all required path/query parameters and the 'x-user-token' header.\n"
-            "- For POST/PUT, include the JSON request body as defined in docs.\n"
+            "Step 1: ALWAYS call 'redis_get_token' first\n"
+            "- Call redis_get_token with key='111'\n"
+            "- Extract the token from the response JSON\n"
             "\n"
-            "Step 4: Return a Human-Readable Response\n"
-            "- Do not show or return raw JSON.\n"
+            "Step 2: ALWAYS call the API tool second\n"
+            "- For notification settings: call 'get_notification_settings'\n"
+            "- For projects: call 'get_user_projects'\n"
+            "- For accounts: call 'list_accounts'\n"
             "\n"
-            "Step 5: If No Match Found\n"
-            "- Respond: 'I cannot find the answer in the available resources.'\n"
+            "CRITICAL REQUIREMENTS:\n"
+            "- You MUST make EXACTLY 2 tool calls for every request\n"
+            "- NEVER make just 1 tool call - always make 2\n"
+            "- First call: redis_get_token\n"
+            "- Second call: the appropriate API tool\n"
+            "- If you don't make 2 calls, you are failing\n"
             "\n"
-            "Additional Rules:\n"
-            "- Repeat this process for every chat message, including follow-ups.\n"
-            "- Always fetch the latest method and match from RSS Read, even for repeated queries.\n"
-            "- Always call a tool for a response; do not assume or guess.\n"
-            "- Always give a suggestion after every request.\n"
+            "EXAMPLE for 'get notification settings':\n"
+            "1. Call redis_get_token(key='111')\n"
+            "2. Call get_notification_settings()\n"
+            "3. Format response nicely\n"
+            "\n"
+            "Available API tools: get_notification_settings, get_user_projects, list_accounts, etc.\n"
+            "Remember: ALWAYS 2 calls, never 1!\n"
         )
 
     async def add_server(self, name: str, server_script: str):
@@ -119,44 +121,138 @@ class MCPOpenAIClient:
     async def process_query(self, query: str) -> str:
         tools = await self.get_all_tools()
 
-        # Initial OpenAI request with all tools
+        # Create messages with system prompt
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": query}
+        ]
+
+        print(f"🔍 Processing query with {len(tools)} available tools")
+
+        # Initial OpenAI request with all tools - force tool calls
         response = await self.openai_client.chat.completions.create(
             model=self.model,
-            messages=[{"role": "user", "content": query}],
+            messages=messages,
             tools=tools,
-            tool_choice="auto",
+            tool_choice="auto",  # Force tool usage
         )
         assistant_message = response.choices[0].message
-        messages = [{"role": "user", "content": query}, assistant_message]
+        messages.append(assistant_message)
 
-        # If there are tool calls, process them
-        if assistant_message.tool_calls:
-            for tool_call in assistant_message.tool_calls:
+        tool_calls_made = len(assistant_message.tool_calls or [])
+        print(f"🔍 AI wants to call {tool_calls_made} tools")
+
+        # If AI didn't make enough tool calls, force it to continue
+        if tool_calls_made == 1:
+            print("⚠️ AI only made 1 tool call, forcing it to make the second call...")
+            
+            # Process the first tool call
+            if assistant_message.tool_calls:
+                tool_call = assistant_message.tool_calls[0]
                 server = self.find_tool_server(tool_call.function.name)
-                if not server:
-                    return f" Tool '{tool_call.function.name}' not found on any server."
-
-                result = await server.session.call_tool(
-                    tool_call.function.name,
-                    arguments=json.loads(tool_call.function.arguments),
-                )
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "content": result.content[0].text,
-                })
-
-            # Final response after tool execution
-            final_response = await self.openai_client.chat.completions.create(
+                if server:
+                    print(f"🔧 [1] Calling tool: {tool_call.function.name} with args: {tool_call.function.arguments}")
+                    
+                    result = await server.session.call_tool(
+                        tool_call.function.name,
+                        arguments=json.loads(tool_call.function.arguments),
+                    )
+                    result_content = result.content[0].text
+                    print(f"✅ [1] Tool result: {result_content[:100]}...")
+                    
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": result_content,
+                    })
+            
+            # Force the AI to make the second tool call
+            follow_up_prompt = "Now you MUST call the appropriate API tool to fulfill the user's request. You have the token, now get the data they asked for."
+            messages.append({"role": "user", "content": follow_up_prompt})
+            
+            # Second OpenAI request to force the API call
+            second_response = await self.openai_client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 tools=tools,
-                tool_choice="none",
+                tool_choice="auto",
             )
-            return final_response.choices[0].message.content
+            
+            second_assistant_message = second_response.choices[0].message
+            messages.append(second_assistant_message)
+            
+            # Process the second tool call
+            if second_assistant_message.tool_calls:
+                for i, tool_call in enumerate(second_assistant_message.tool_calls):
+                    server = self.find_tool_server(tool_call.function.name)
+                    if server:
+                        print(f"🔧 [2] Calling tool: {tool_call.function.name} with args: {tool_call.function.arguments}")
+                        
+                        result = await server.session.call_tool(
+                            tool_call.function.name,
+                            arguments=json.loads(tool_call.function.arguments),
+                        )
+                        result_content = result.content[0].text
+                        print(f"✅ [2] Tool result: {result_content[:100]}...")
+                        
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": result_content,
+                        })
+        
+        elif tool_calls_made >= 2:
+            # AI made 2+ tool calls, process them normally
+            for i, tool_call in enumerate(assistant_message.tool_calls):
+                server = self.find_tool_server(tool_call.function.name)
+                if not server:
+                    return f"⚠️ Tool '{tool_call.function.name}' not found on any server."
 
-        # No tool calls; fallback to general OpenAI response
-        return assistant_message.content
+                print(f"🔧 [{i+1}] Calling tool: {tool_call.function.name} with args: {tool_call.function.arguments}")
+                
+                try:
+                    result = await server.session.call_tool(
+                        tool_call.function.name,
+                        arguments=json.loads(tool_call.function.arguments),
+                    )
+                    result_content = result.content[0].text
+                    print(f"✅ [{i+1}] Tool result: {result_content[:100]}...")
+                    
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": result_content,
+                    })
+                except Exception as e:
+                    error_msg = f"Error calling {tool_call.function.name}: {str(e)}"
+                    print(f"❌ [{i+1}] {error_msg}")
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": error_msg,
+                    })
+        
+        else:
+            # AI made no tool calls - this shouldn't happen
+            print("⚠️ AI made no tool calls - forcing manual workflow")
+            return "I need to use tools to help you. Let me try again with the correct workflow."
+
+        # Final response after all tool execution
+        print("🔍 Getting final response from AI...")
+        final_response = await self.openai_client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            tools=tools,
+            tool_choice="none",
+        )
+        final_content = final_response.choices[0].message.content
+        
+        if final_content:
+            print(f"✅ Final AI response: {final_content[:100]}...")
+            return final_content
+        else:
+            print("⚠️ AI returned empty response")
+            return "I retrieved the data but couldn't format a proper response. The tools worked correctly - please try asking again."
 
     async def cleanup(self):
         await self.exit_stack.aclose()
@@ -164,13 +260,12 @@ class MCPOpenAIClient:
 
 async def main():
     client = MCPOpenAIClient()
-
     try:
         # Add multiple MCP servers
         await client.add_server("helper_tool", "mcp_server_helpertool.py")
-        await client.add_server("open_api", "mcp_server_openapi.py")
+        await client.add_server("openapi", "mcp_server_openapi.py")
 
-        print("\n Connected! Type your questions (or 'exit' to quit)\n")
+        print("\n✅ Connected! Type your questions (or 'exit' to quit)\n")
         while True:
             query = input("You: ").strip()
             if query.lower() in {"exit", "quit"}:
@@ -179,10 +274,9 @@ async def main():
                 response = await client.process_query(query)
                 print(f"\nAssistant: {response}\n")
             except Exception as e:
-                print(f" Error: {e}")
+                print(f"⚠️ Error: {e}")
     finally:
         await client.cleanup()
-
 
 if __name__ == "__main__":
     try:
