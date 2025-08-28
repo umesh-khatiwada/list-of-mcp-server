@@ -11,6 +11,8 @@ uv add python-dotenv
 uv add ipykernel
 uv add httpx
 uv add fastmcp
+uv add redis
+uv add nest_asyncio
 ```
 
 ## Environment Variables

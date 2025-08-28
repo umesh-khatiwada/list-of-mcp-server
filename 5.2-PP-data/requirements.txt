@@ -4,3 +4,4 @@ redis==6.4.0
 python-dotenv
 ipykernel
 httpx
+nest_asyncio

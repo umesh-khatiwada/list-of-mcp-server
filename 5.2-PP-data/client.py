@@ -219,11 +219,10 @@ class MCPOpenAIClient:
     def _inject_session_id_if_needed(self, tool_name: str, arguments: dict) -> dict:
         """Inject sessionId for authenticated tools that require it."""
         if tool_name in self.authenticated_tools:
-            # Use a default sessionId for testing - in production this would come from user authentication
-            arguments["sessionId"] = session_id  # Default session ID for testing
-            print(f"   ✅ Injected sessionId='111' for authenticated tool: {tool_name}")
+            arguments["sessionId"] = session_id 
+            print(f"Injected sessionId='111' for authenticated tool: {tool_name}")
         else:
-            print(f"   ℹ️  No sessionId needed for tool: {tool_name}")
+            print(f"No sessionId needed for tool: {tool_name}")
         return arguments
 
     def _needs_authentication(self, tool_name: str) -> bool:
@@ -257,25 +256,21 @@ class MCPOpenAIClient:
         
         print(f"🔍 Processing query with {len(tools)} available tools")
         print(f" {self.memory.get_context_summary()}")
-        
-        # Log session information
         session_info = self.memory.get_session_info()
         print(f"Query ID: {str(uuid.uuid4())[:8]}... | Session: {session_info['session_id'][:8]}...")
         
         if is_formatting_request and cached_response:
             print("🔄 Detected formatting request - using cached data (no API calls)")
-            
             # Create context for formatting without making tool calls
             format_messages = [
                 {"role": "system", "content": self.memory.system_prompt},
                 {"role": "user", "content": f"Format this data according to the request '{query}':\n\n{cached_response}"}
             ]
-            
             # Get formatted response without making tool calls
             format_response = await self.openai_client.chat.completions.create(
                 model=self.model,
                 messages=format_messages,
-                tool_choice="none",  # Force no tool calls
+                tool_choice="none",
             )
             
             formatted_content = format_response.choices[0].message.content
@@ -285,11 +280,6 @@ class MCPOpenAIClient:
                 return formatted_content
             else:
                 print(" Failed to format cached data, falling back to API call")
-        
-        # Regular workflow for new data requests
-        print("🔍 Making API calls for new data request")
-        
-        # Get conversation context
         messages = self.memory.get_conversation_context()
         
         # Initial OpenAI request
@@ -300,7 +290,6 @@ class MCPOpenAIClient:
             tool_choice="auto",
         )
         assistant_message = response.choices[0].message
-
         tool_calls_made = len(assistant_message.tool_calls or [])
         print(f"🔍 AI wants to call {tool_calls_made} tools")
 
@@ -309,13 +298,11 @@ class MCPOpenAIClient:
             {"role": "system", "content": self.memory.system_prompt},
             {"role": "user", "content": query}
         ]
-        
         api_response_data = None
         api_call_info = None
 
         # Process tool calls (existing logic)
         if tool_calls_made == 1:
-            # Process first tool call
             if assistant_message.tool_calls:
                 tool_call = assistant_message.tool_calls[0]
                 server = self.find_tool_server(tool_call.function.name)
