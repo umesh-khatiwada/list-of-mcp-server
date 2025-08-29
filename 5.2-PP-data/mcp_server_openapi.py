@@ -60,7 +60,6 @@ async def redis_get_token(key: str) -> str:
                 return mock_result
         except Exception as redis_error:
             logger.debug(f"[REDIS] Redis connection error: {redis_error}, falling back to mock data")
-            # For testing, return a mock token
             mock_result = json.dumps({"success": True, "token": "mock-token-for-testing", "key": key, "source": "mock"})
             logger.debug(f"[REDIS] Using mock token due to error: {mock_result}")
             return mock_result
@@ -74,21 +73,15 @@ def with_token_middleware(tool_func):
     @wraps(tool_func)
     async def wrapper(*args, **kwargs) -> str:
         logger.debug(f"[MIDDLEWARE] Tool '{tool_func.__name__}' called with args: {args}, kwargs: {kwargs}")
-        
-        # Extract sessionId from kwargs
         sessionId = kwargs.pop('sessionId', None)
-        
         logger.debug(f"[MIDDLEWARE] Extracted sessionId: '{sessionId}'")
-        
         if not sessionId:
             error_msg = "[MIDDLEWARE] Error: sessionId is required for this authenticated operation"
             logger.error(error_msg)
             return error_msg
-        
         # Get token from Redis
         logger.debug(f"[MIDDLEWARE] Fetching token from Redis for sessionId: '{sessionId}'")
         token_result = await redis_get_token(sessionId)
-        
         try:
             if token_result.startswith('{"error"'):
                 logger.error(f"[MIDDLEWARE] Redis error for sessionId '{sessionId}': {token_result}")
@@ -97,9 +90,6 @@ def with_token_middleware(tool_func):
             token_data = json.loads(token_result)
             if token_data.get("success") and token_data.get("token"):
                 token = token_data["token"]
-                logger.debug(f"[MIDDLEWARE] Successfully retrieved token for sessionId: '{sessionId}'")
-                logger.debug(f"[MIDDLEWARE] Token: {token[:30]}...")
-                
                 # Create headers with the token
                 dynamic_headers = headers.copy()
                 dynamic_headers["authorization"] = f"Bearer {token}"
@@ -114,17 +104,10 @@ def with_token_middleware(tool_func):
                 
                 session_context = with_token_middleware._session_contexts[sessionId]
                 session_context.set(dynamic_headers)
-                
-                # Store current session ID for make_authenticated_api_request to use
                 if not hasattr(with_token_middleware, '_current_session_context'):
                     with_token_middleware._current_session_context = contextvars.ContextVar('current_session')
                 
                 with_token_middleware._current_session_context.set(sessionId)
-                logger.debug(f"[MIDDLEWARE] Set session context for sessionId: '{sessionId}'")
-                
-                logger.debug(f"[MIDDLEWARE] Calling tool function '{tool_func.__name__}' with remaining args: {args}, kwargs: {kwargs}")
-                
-                # Call the original function with remaining args and kwargs
                 result = tool_func(*args, **kwargs)
                 logger.debug(f"[MIDDLEWARE] Tool '{tool_func.__name__}' completed for sessionId: '{sessionId}'")
                 return result
@@ -149,7 +132,6 @@ def make_authenticated_request(token: str, method: str, endpoint: str, params: O
 def make_authenticated_api_request(method: str, endpoint: str, params: Optional[Dict] = None, json_data: Optional[Dict] = None) -> str:
     """Helper function that uses auth headers from middleware context"""
     try:
-        # Get current session ID from context
         if hasattr(with_token_middleware, '_current_session_context'):
             current_session = with_token_middleware._current_session_context.get(None)
             if current_session and hasattr(with_token_middleware, '_session_contexts'):
@@ -158,8 +140,6 @@ def make_authenticated_api_request(method: str, endpoint: str, params: Optional[
                     auth_headers = session_context.get(None)
                     if auth_headers:
                         return make_api_request(method, endpoint, params=params, json_data=json_data, headers_override=auth_headers)
-        
-        # Fallback to regular request if no auth context
         return make_api_request(method, endpoint, params=params, json_data=json_data)
     except Exception as e:
         return f"Error making authenticated request: {str(e)}"
@@ -174,15 +154,6 @@ def make_api_request(method: str, endpoint: str, params: Optional[Dict] = None, 
         
         # Debug logging - now with more detail
         logger.debug(f"[DEBUG] Making {method} request to {base_url}{endpoint}")
-        logger.debug(f"[DEBUG] Headers: {dict(request_headers)}")
-        logger.debug(f"[DEBUG] Params: {params}")
-        logger.debug(f"[DEBUG] JSON Data: {json_data}")
-        
-        logger.debug(f"Making {method} request to {base_url}{endpoint}")
-        logger.debug(f"Headers: {dict(request_headers)}")
-        logger.debug(f"Params: {params}")
-        logger.debug(f"JSON Data: {json_data}")
-            
         with httpx.Client(base_url=base_url, headers=request_headers, timeout=30.0) as client:
             response = client.request(
                 method=method,
@@ -210,15 +181,9 @@ def make_api_request(method: str, endpoint: str, params: Optional[Dict] = None, 
                 
     except httpx.TimeoutException as e:
         error_msg = f"Request timeout error for {method} {endpoint}: {str(e)}"
-        logger.error(f"[DEBUG] {error_msg}")
-        logger.error(error_msg)
         return error_msg
     except httpx.HTTPStatusError as e:
         error_msg = f"HTTP Error {e.response.status_code} for {method} {endpoint}"
-        logger.error(f"[DEBUG] Status Code: {e.response.status_code}")
-        logger.error(f"[DEBUG] Response text: {e.response.text}")
-        logger.error(f"Status Code: {e.response.status_code}")
-        logger.error(f"Response text: {e.response.text}")
         try:
             error_data = e.response.json()
             error_msg += f": {json.dumps(error_data, indent=2)}"
@@ -228,11 +193,8 @@ def make_api_request(method: str, endpoint: str, params: Optional[Dict] = None, 
     except Exception as e:
         error_msg = f"Request error for {method} {endpoint}: {str(e)}"
         logger.error(f"[DEBUG] {error_msg}")
-        logger.debug(f"[DEBUG] Full traceback: {traceback.format_exc()}")
         logger.error(error_msg)
-        logger.error(f"Full traceback: {traceback.format_exc()}")
         return error_msg
-
 # Home endpoint
 @mcp.tool(name="get_home")
 @with_token_middleware
