@@ -1,0 +1,10 @@
+[project]
+name = "6-0-bedrock-agentcore"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "bedrock-agentcore>=0.1.2",
+    "strands>=0.1.0",
+]
