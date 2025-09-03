@@ -199,7 +199,16 @@ def make_api_request(method: str, endpoint: str, params: Optional[Dict] = None, 
 @mcp.tool(name="get_home")
 @with_token_middleware
 def get_home(sessionId: str = None) -> str:
-    """Show Computesphere home page message."""
+    """
+    Get the Computesphere platform home page welcome message and basic API status.
+    
+    This is useful for:
+    - Testing API connectivity
+    - Getting platform status information
+    - Initial health check of the service
+    
+    Returns: JSON response with welcome message and API status
+    """
     return make_authenticated_api_request("GET", "/")
 
 # Project Management Tools
@@ -215,7 +224,26 @@ def get_user_projects(
     sort_column: Optional[str] = None,
     sort_direction: Optional[str] = None
 ) -> str:
-    """List all projects with optional filtering and pagination."""
+    """
+    Retrieve a comprehensive list of all projects accessible to the authenticated user.
+    
+    This endpoint allows you to:
+    - View all projects you have access to
+    - Filter projects by name, active status, or search terms
+    - Paginate through large lists of projects
+    - Sort projects by various columns (name, created_date, etc.)
+    
+    Parameters:
+    - name: Filter projects by exact name match
+    - active: Filter by active status ('true', 'false', or 'all')
+    - size: Number of projects per page (default: 10)
+    - page: Page number for pagination (starts from 1)
+    - search: Search term to find projects by name or description
+    - sort_column: Column to sort by (name, created_date, updated_date)
+    - sort_direction: Sort direction ('asc' or 'desc')
+    
+    Returns: JSON array of project objects with details like ID, name, description, status, created date, etc.
+    """
     params = {}
     if name:
         params["name"] = name
@@ -237,13 +265,65 @@ def get_user_projects(
 @mcp.tool(name="get_project")
 @with_token_middleware
 def get_project(project_id: str, sessionId: str = None) -> str:
-    """Get detailed information about a specific project by ID."""
+    """
+    Get comprehensive details about a specific project by its unique identifier.
+    
+    This endpoint provides complete information about a project including:
+    - Basic project details (name, description, status)
+    - Resource usage and limits
+    - Associated environments and services
+    - Team members and permissions
+    - Billing and subscription information
+    - Activity and deployment history
+    
+    Parameters:
+    - project_id: The unique identifier of the project to retrieve
+    
+    Use this when you need:
+    - Detailed project information for management decisions
+    - Current resource usage and limits
+    - Project status and health information
+    - Team and access control details
+    
+    Returns: JSON object with complete project details
+    """
     return make_authenticated_api_request("GET", f"/projects/{project_id}")
 
 @mcp.tool(name="create_project")
 @with_token_middleware
 def create_project(name: str, sessionId: str = None, description: Optional[str] = None, plan_name: Optional[str] = None, plan_value: Optional[int] = None) -> str:
-    """Create a new project."""
+    """
+    Create a new project in your Computesphere account with specified configuration.
+    
+    A project is the top-level organizational unit that contains:
+    - Multiple environments (development, staging, production)
+    - Services and their deployments
+    - Team members and access controls
+    - Resource allocations and billing tracking
+    - Configuration and environment variables
+    
+    Parameters:
+    - name: Unique name for the project (required)
+        * Must be 3-50 characters
+        * Can contain letters, numbers, hyphens, and underscores
+        * Must be unique within your account
+    - description: Detailed description of the project purpose (optional)
+        * Helps team members understand project scope
+        * Used in project listings and documentation
+    - plan_name: Subscription plan for this project (optional)
+        * Determines resource limits and features
+        * Examples: 'starter', 'professional', 'enterprise'
+    - plan_value: Numeric plan identifier (optional)
+        * Alternative to plan_name for specific plan configurations
+    
+    After creation, you can:
+    - Add team members and set permissions
+    - Create environments and services
+    - Configure deployment pipelines
+    - Set up monitoring and alerts
+    
+    Returns: JSON object with the newly created project details including project ID, configuration, and next steps
+    """
     data = {"name": name}
     if description:
         data["description"] = description
@@ -270,8 +350,52 @@ def update_project(project_id: str, sessionId: str = None, name: Optional[str] =
 
 @mcp.tool(name="delete_project")
 @with_token_middleware
-def delete_project(project_id: str, sessionId: str = None) -> str:
-    """Delete a project by ID."""
+def delete_project(project_id: str, sessionId: str = None, confirm: Optional[str] = None) -> str:
+    """
+    ⚠️  DESTRUCTIVE OPERATION: Permanently delete a project and ALL associated resources.
+    
+    This action will PERMANENTLY remove:
+    - The project and all its configurations
+    - All environments within the project
+    - All services and deployments
+    - All associated data, logs, and backups
+    - All team access and permissions
+    - All billing history for this project
+    
+    ⚠️  WARNING: This action CANNOT be undone!
+    
+    Parameters:
+    - project_id: The unique identifier of the project to delete
+    - confirm: Must be set to 'yes' to confirm the deletion
+    
+    IMPORTANT: Before deletion, ensure you have:
+    - Backed up any important data
+    - Notified all team members
+    - Reviewed any active deployments
+    - Confirmed this is the correct project
+    
+    The AI assistant should ALWAYS ask the user: 
+    "Are you absolutely sure you want to delete this project? This action cannot be undone and will remove all associated resources. Please confirm by typing 'yes'."
+    
+    Returns: Confirmation message of deletion or error if not confirmed
+    """
+    if not confirm or confirm.lower() != 'yes':
+        return """
+⚠️  PROJECT DELETION REQUIRES CONFIRMATION ⚠️
+
+This is a DESTRUCTIVE operation that will permanently delete the project and ALL associated resources including:
+- All environments and services
+- All deployments and data
+- All configurations and settings
+- All logs and backups
+
+This action CANNOT be undone!
+
+To proceed with deletion, you must confirm by setting confirm='yes' parameter.
+
+Are you absolutely sure you want to delete this project?
+"""
+    
     return make_authenticated_api_request("DELETE", f"/projects/{project_id}")
 
 # Account Management Tools
@@ -303,7 +427,29 @@ def get_account(account_id: str, sessionId: str = None) -> str:
 @mcp.tool(name="get_account_overview")
 @with_token_middleware
 def get_account_overview(sessionId: str = None) -> str:
-    """Get account overview with deployment count, project count, and resource usage."""
+    """
+    Get a comprehensive overview of your Computesphere account status and usage.
+    
+    This dashboard-style endpoint provides:
+    - Total number of projects and their status
+    - Active deployments count across all projects
+    - Current resource usage (CPU, memory, storage)
+    - Subscription plan details and limits
+    - Billing status and current month usage
+    - Account health and any alerts
+    - Team member count and roles
+    
+    Perfect for:
+    - Getting a quick account health check
+    - Understanding current resource consumption
+    - Monitoring deployment activity
+    - Checking subscription limits and usage
+    - Account management and planning
+    
+    Use this as a starting point to understand your account status before diving into specific projects or resources.
+    
+    Returns: JSON object with comprehensive account metrics and status information
+    """
     return make_authenticated_api_request("GET", "/accounts/overview")
 
 @mcp.tool(name="list_account_users")
@@ -325,7 +471,37 @@ def list_services(
     sort_column: Optional[str] = None,
     sort_direction: Optional[str] = None
 ) -> str:
-    """List services with optional filtering."""
+    """
+    Retrieve a comprehensive list of all services across your projects or within a specific project.
+    
+    Services represent deployable applications or microservices that contain:
+    - Source code repositories and build configurations
+    - Container images and deployment specifications
+    - Environment variables and configuration settings
+    - Resource requirements (CPU, memory, storage)
+    - Networking and ingress configurations
+    - Health check and monitoring settings
+    
+    Each service can be deployed to multiple environments with different configurations.
+    
+    Parameters:
+    - project_id: Filter services within a specific project
+    - name: Filter by service name (exact match)
+    - size: Number of services per page for pagination
+    - page: Page number (starts from 1)
+    - search: Search term to find services by name or description
+    - sort_column: Sort by (name, created_date, updated_date, status)
+    - sort_direction: Sort order ('asc' or 'desc')
+    
+    Use this to:
+    - Get an overview of all your deployable services
+    - Find services across projects for management
+    - Monitor service deployment status
+    - Plan service updates and deployments
+    - Understand service dependencies and relationships
+    
+    Returns: JSON array of service objects with configuration, status, and deployment information
+    """
     params = {}
     if project_id:
         params["project_id"] = project_id
@@ -352,8 +528,50 @@ def get_service(service_id: str, sessionId: str = None) -> str:
 
 @mcp.tool(name="delete_service")
 @with_token_middleware
-def delete_service(service_id: str, sessionId: str = None) -> str:
-    """Delete a service by ID."""
+def delete_service(service_id: str, sessionId: str = None, confirm: Optional[str] = None) -> str:
+    """
+    ⚠️  DESTRUCTIVE OPERATION: Permanently delete a service and all its deployments.
+    
+    This action will PERMANENTLY remove:
+    - The service and all its configurations
+    - All deployments associated with this service
+    - All deployment history and logs
+    - All environment variables and secrets
+    - All service-specific data and backups
+    
+    ⚠️  WARNING: This action CANNOT be undone!
+    
+    Parameters:
+    - service_id: The unique identifier of the service to delete
+    - confirm: Must be set to 'yes' to confirm the deletion
+    
+    The AI assistant should ALWAYS ask the user: 
+    "Are you sure you want to delete this service? This will remove all deployments and cannot be undone. Please confirm by typing 'yes'."
+    
+    Before deletion, ensure:
+    - All important data is backed up
+    - No critical deployments are running
+    - Team members are notified
+    
+    Returns: Confirmation message of deletion or error if not confirmed
+    """
+    if not confirm or confirm.lower() != 'yes':
+        return """
+⚠️  SERVICE DELETION REQUIRES CONFIRMATION ⚠️
+
+This is a DESTRUCTIVE operation that will permanently delete the service and ALL associated resources including:
+- All deployments and their history
+- All configuration and environment variables
+- All logs and monitoring data
+- All service-specific backups
+
+This action CANNOT be undone!
+
+To proceed with deletion, you must confirm by setting confirm='yes' parameter.
+
+Are you sure you want to delete this service?
+"""
+    
     return make_authenticated_api_request("DELETE", f"/services/{service_id}")
 
 # Environment Management Tools
@@ -371,7 +589,41 @@ def list_environments(
     sort_column: Optional[str] = None,
     sort_direction: Optional[str] = None
 ) -> str:
-    """List environments with optional filtering."""
+    """
+    Retrieve a comprehensive list of environments across your projects or within a specific project.
+    
+    Environments are isolated deployment targets that typically represent:
+    - Development: For active development and testing
+    - Staging: For pre-production testing and validation
+    - Production: For live user-facing deployments
+    - Custom environments: For specific use cases (QA, demo, etc.)
+    
+    Each environment contains:
+    - Deployed services and their current versions
+    - Environment-specific configuration and secrets
+    - Resource allocations and scaling settings
+    - Access controls and team permissions
+    - Monitoring and alerting configurations
+    
+    Parameters:
+    - project_id: Filter environments within a specific project
+    - name: Filter by environment name (exact match)
+    - deployed: Filter by deployment status ('true', 'false', 'all')
+    - service_id: Filter environments that contain a specific service
+    - size: Number of environments per page
+    - page: Page number for pagination
+    - search: Search term for environment names or descriptions
+    - sort_column: Sort by (name, created_date, updated_date, status)
+    - sort_direction: Sort order ('asc' or 'desc')
+    
+    Use this to:
+    - Get an overview of all your deployment environments
+    - Find environments by project or service
+    - Monitor environment health and deployment status
+    - Plan deployment strategies across environments
+    
+    Returns: JSON array of environment objects with status, configuration, and deployment information
+    """
     params = {}
     if project_id:
         params["project_id"] = project_id
@@ -422,14 +674,83 @@ def get_deployment(deployment_id: str, sessionId: str = None) -> str:
 
 @mcp.tool(name="delete_deployment")
 @with_token_middleware
-def delete_deployment(deployment_id: str, sessionId: str = None) -> str:
-    """Delete a deployment by ID."""
+def delete_deployment(deployment_id: str, sessionId: str = None, confirm: Optional[str] = None) -> str:
+    """
+    ⚠️  DESTRUCTIVE OPERATION: Permanently delete a deployment and all its data.
+    
+    This action will PERMANENTLY remove:
+    - The deployment and all its running instances
+    - All deployment history and version information
+    - All logs and monitoring data
+    - All deployment-specific configurations
+    - All associated storage and data
+    
+    ⚠️  WARNING: This action CANNOT be undone!
+    
+    Parameters:
+    - deployment_id: The unique identifier of the deployment to delete
+    - confirm: Must be set to 'yes' to confirm the deletion
+    
+    The AI assistant should ALWAYS ask the user: 
+    "Are you sure you want to delete this deployment? This will permanently remove the deployment and all its data. Please confirm by typing 'yes'."
+    
+    Before deletion, consider:
+    - Stopping the deployment gracefully first
+    - Backing up any important data
+    - Notifying users of downtime
+    
+    Returns: Confirmation message of deletion or error if not confirmed
+    """
+    if not confirm or confirm.lower() != 'yes':
+        return """
+⚠️  DEPLOYMENT DELETION REQUIRES CONFIRMATION ⚠️
+
+This is a DESTRUCTIVE operation that will permanently delete the deployment and ALL associated data including:
+- All running instances
+- All deployment history
+- All logs and monitoring data
+- All configurations and environment variables
+- All deployment-specific storage
+
+This action CANNOT be undone!
+
+To proceed with deletion, you must confirm by setting confirm='yes' parameter.
+
+Are you sure you want to delete this deployment?
+"""
+    
     return make_authenticated_api_request("DELETE", f"/deployments/{deployment_id}")
 
 @mcp.tool(name="restart_deployment")
 @with_token_middleware
 def restart_deployment(deployment_id: str, sessionId: str = None) -> str:
-    """Restart a deployment."""
+    """
+    Safely restart a running deployment with zero-downtime rolling restart.
+    
+    This operation will:
+    - Gracefully stop the current deployment instances
+    - Start new instances with the same configuration
+    - Perform health checks to ensure successful restart
+    - Route traffic to new instances once they're ready
+    - Maintain service availability during the restart process
+    
+    Use this when you need to:
+    - Apply configuration changes that require a restart
+    - Recover from application issues or memory leaks
+    - Clear temporary data or reset application state
+    - Apply security updates that require process restart
+    - Troubleshoot performance issues
+    
+    Parameters:
+    - deployment_id: The unique identifier of the deployment to restart
+    
+    The restart process typically takes 1-3 minutes depending on:
+    - Application startup time
+    - Health check configuration
+    - Resource allocation
+    
+    Returns: Status message confirming restart initiation and estimated completion time
+    """
     return make_authenticated_api_request("PUT", f"/deployments/{deployment_id}/restart")
 
 @mcp.tool(name="start_deployment")
@@ -447,7 +768,30 @@ def stop_deployment(deployment_id: str, sessionId: str = None) -> str:
 @mcp.tool(name="get_deployment_logs")
 @with_token_middleware
 def get_deployment_logs(deployment_id: str, sessionId: str = None) -> str:
-    """Get deployment build logs."""
+    """
+    Retrieve comprehensive build and deployment logs for a specific deployment.
+    
+    This endpoint provides:
+    - Complete build process logs from source code to deployment
+    - Container build steps and any errors encountered
+    - Deployment initialization and startup logs
+    - Environment setup and configuration logs
+    - Any build warnings or optimization suggestions
+    
+    Use this for:
+    - Troubleshooting failed deployments
+    - Understanding build performance
+    - Debugging configuration issues
+    - Monitoring deployment progress
+    - Analyzing build optimization opportunities
+    
+    Parameters:
+    - deployment_id: The unique identifier of the deployment
+    
+    Note: These are build-time logs. For runtime application logs, use get_deployment_runtime_logs.
+    
+    Returns: Text output containing chronological build and deployment logs
+    """
     return make_authenticated_api_request("GET", f"/deployments/{deployment_id}/deploylogs")
 
 @mcp.tool(name="get_deployment_runtime_logs")
@@ -670,7 +1014,37 @@ def get_invoice(invoice_id: str, sessionId: str = None) -> str:
 @mcp.tool(name="get_resource_usage")
 @with_token_middleware
 def get_resource_usage(sessionId: str = None) -> str:
-    """Get resource usage history from the start of month till date."""
+    """
+    Get detailed resource usage analytics and consumption metrics for your account.
+    
+    This comprehensive report includes:
+    - CPU usage by project and service (current month)
+    - Memory consumption patterns and peaks
+    - Storage utilization across all projects
+    - Network bandwidth usage (ingress/egress)
+    - Database query and storage metrics
+    - Cost breakdown by resource type
+    - Usage trends and projections
+    - Comparison with subscription limits
+    
+    Time period: From the start of current month to present date
+    
+    Use this for:
+    - Monitoring resource consumption and costs
+    - Capacity planning and scaling decisions
+    - Identifying resource optimization opportunities
+    - Budget forecasting and cost management
+    - Understanding usage patterns across projects
+    - Preparing for subscription upgrades/downgrades
+    
+    Perfect for:
+    - Monthly resource reviews
+    - Cost optimization analysis
+    - Performance monitoring
+    - Compliance and usage auditing
+    
+    Returns: JSON object with detailed usage metrics, costs, and analytics
+    """
     return make_authenticated_api_request("GET", "/accounts/resources/usage")
 
 @mcp.tool(name="get_account_resources")
@@ -721,7 +1095,30 @@ def get_notification_count(sessionId: str = None) -> str:
 @mcp.tool(name="get_notification_settings")
 @with_token_middleware
 def get_notification_settings(sessionId: str = None) -> str:
-    """Get notification settings of a user."""
+    """
+    Retrieve the current notification preferences and settings for the authenticated user.
+    
+    This endpoint returns comprehensive notification configuration including:
+    - Email notification preferences (enabled/disabled)
+    - Configured email addresses for notifications
+    - In-app notification settings
+    - Webhook endpoints for automated notifications
+    - Notification categories and their individual settings:
+      * Activity notifications (deployments, builds, etc.)
+      * Billing and payment notifications
+      * System alerts and maintenance notifications
+      * Team invitations and access changes
+      * Resource usage alerts and limits
+    
+    Use this to:
+    - Review current notification configuration
+    - Understand which alerts you're receiving
+    - Check notification delivery methods
+    - Audit notification settings for compliance
+    - Prepare for updating notification preferences
+    
+    Returns: JSON object with complete notification settings and preferences
+    """
     return make_authenticated_api_request("GET", "/notifications/settings")
 
 @mcp.tool(name="update_notification_settings")
@@ -1227,7 +1624,33 @@ def stop_deployment_ci(deployment_id: str, sessionId: str = None) -> str:
 
 @mcp.tool(name="test_connection")
 def test_connection() -> str:
-    """Test the API connection and authentication."""
+    """
+    Test the API connection and verify that the Computesphere platform is accessible.
+    
+    This diagnostic tool performs:
+    - Basic connectivity check to the API endpoints
+    - Authentication verification (if credentials are available)
+    - Response time measurement
+    - Service health status validation
+    - Network connectivity troubleshooting
+    
+    Use this when:
+    - Setting up a new client connection
+    - Troubleshooting connectivity issues
+    - Verifying API credentials
+    - Checking service availability
+    - Diagnosing network problems
+    
+    The test will report:
+    - Connection status (success/failure)
+    - Response time and latency
+    - API version and service status
+    - Any error messages or troubleshooting hints
+    
+    No authentication required - this is a public endpoint for connectivity testing.
+    
+    Returns: Detailed connection test results and diagnostic information
+    """
     try:
         logger.info("Testing API connection...")
         
