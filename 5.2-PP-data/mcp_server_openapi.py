@@ -724,6 +724,46 @@ def get_notification_settings(sessionId: str = None) -> str:
     """Get notification settings of a user."""
     return make_authenticated_api_request("GET", "/notifications/settings")
 
+@mcp.tool(name="update_notification_settings")
+@with_token_middleware
+def update_notification_settings(
+    sessionId: str = None,
+    activity: Optional[bool] = None,
+    billing: Optional[bool] = None,
+    deployment: Optional[bool] = None,
+    email_enabled: Optional[bool] = None,
+    email_address: Optional[str] = None,  # Single email address
+    inapp_enabled: Optional[bool] = None,
+    invites: Optional[bool] = None,
+    payment: Optional[bool] = None,
+    webhook_enabled: Optional[bool] = None
+) -> str:
+    """Update notification settings with simple parameters (single email address)."""
+    data = {}
+    
+    if activity is not None:
+        data["activity"] = activity
+    if billing is not None:
+        data["billing"] = billing
+    if deployment is not None:
+        data["deployment"] = deployment
+    if email_enabled is not None:
+        data["email_enabled"] = email_enabled
+    if email_address is not None:
+        data["emails"] = [email_address]  # Convert single email to array
+    if inapp_enabled is not None:
+        data["inapp_enabled"] = inapp_enabled
+    if invites is not None:
+        data["invites"] = invites
+    if payment is not None:
+        data["payment"] = payment
+    if webhook_enabled is not None:
+        data["webhook_enabled"] = webhook_enabled
+    if webhook_enabled is False:
+        data["webhooks"] = []  # Empty webhooks array when disabled
+    
+    logger.debug(f"[NOTIFICATION_SETTINGS_SIMPLE] Sending data to API: {json.dumps(data, indent=2)}")
+    return make_authenticated_api_request("PUT", "/notifications/settings", json_data=data)
 # Plan Management
 @mcp.tool(name="list_plans")
 def list_plans(
@@ -755,11 +795,13 @@ def list_plans(
     return make_api_request("GET", "/plans", params=params)
 
 @mcp.tool(name="get_plan")
+@with_token_middleware
 def get_plan(plan_id: str) -> str:
     """Get detailed information about a specific plan by ID."""
     return make_api_request("GET", f"/plans/{plan_id}")
 
 @mcp.tool(name="get_spherestor_plan")
+@with_token_middleware
 def get_spherestor_plan(country_code: Optional[str] = None) -> str:
     """Get spherestor plan from country code."""
     params = {}
@@ -770,6 +812,7 @@ def get_spherestor_plan(country_code: Optional[str] = None) -> str:
 
 # Plugin Management
 @mcp.tool(name="list_plugins")
+@with_token_middleware
 def list_plugins(
     size: Optional[str] = None,
     page: Optional[str] = None,
@@ -799,12 +842,14 @@ def list_plugins(
     return make_api_request("GET", "/plugins", params=params)
 
 @mcp.tool(name="get_plugin")
+@with_token_middleware
 def get_plugin(plugin_id: str) -> str:
     """Get detailed information about a specific plugin by ID."""
     return make_api_request("GET", f"/plugins/{plugin_id}")
 
 # Payment Management
 @mcp.tool(name="list_payment_gateways")
+@with_token_middleware
 def list_payment_gateways(
     size: Optional[str] = None,
     page: Optional[str] = None,
@@ -834,6 +879,7 @@ def list_payment_gateways(
     return make_api_request("GET", "/payments/gateways", params=params)
 
 @mcp.tool(name="get_payment_gateway")
+@with_token_middleware
 def get_payment_gateway(gateway_id: str) -> str:
     """Get payment gateway by ID."""
     return make_api_request("GET", f"/payments/gateways/{gateway_id}")
@@ -861,6 +907,7 @@ def list_payment_history(
     return make_authenticated_api_request("GET", "/accounts/payments/history", params=params)
 
 @mcp.tool(name="get_payment_history")
+@with_token_middleware
 @with_token_middleware
 def get_payment_history(payment_id: str, sessionId: str = None) -> str:
     """Get specific payment history by ID."""

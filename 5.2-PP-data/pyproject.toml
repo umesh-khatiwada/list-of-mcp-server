@@ -1,7 +1,7 @@
 [project]
 name = "5-1-pp-data"
 version = "0.1.0"
-description = "Add your description here"
+description = "Computesphere MCP Server with Strands Agents Client"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -13,4 +13,6 @@ dependencies = [
     "openai>=1.102.0",
     "python-dotenv>=1.1.1",
     "redis==6.4.0",
+    "strands-agents[openai]",
+    "strands-agents-tools",
 ]
