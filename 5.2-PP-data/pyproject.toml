@@ -18,4 +18,5 @@ dependencies = [
     "mem0ai>=0.1.116",
     "opensearch-py>=3.0.0",
     "faiss-cpu>=1.12.0",
+    "fastapi>=0.116.1",
 ]
