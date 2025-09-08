@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Computesphere Agent Chat</title>
+    <!-- Add Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -200,6 +202,108 @@
             border: 1px solid #e1e5ff;
             border-bottom-left-radius: 5px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        /* Markdown content styles for agent messages */
+        .agent-message .message-content h1,
+        .agent-message .message-content h2,
+        .agent-message .message-content h3,
+        .agent-message .message-content h4,
+        .agent-message .message-content h5,
+        .agent-message .message-content h6 {
+            margin: 10px 0 5px 0;
+            color: #667eea;
+        }
+        
+        .agent-message .message-content h1 { font-size: 1.4em; }
+        .agent-message .message-content h2 { font-size: 1.3em; }
+        .agent-message .message-content h3 { font-size: 1.2em; }
+        .agent-message .message-content h4 { font-size: 1.1em; }
+        
+        .agent-message .message-content p {
+            margin: 8px 0;
+            line-height: 1.5;
+        }
+        
+        .agent-message .message-content ul,
+        .agent-message .message-content ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+        
+        .agent-message .message-content li {
+            margin: 4px 0;
+            line-height: 1.4;
+        }
+        
+        .agent-message .message-content code {
+            background: #f4f4f4;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #d73a49;
+        }
+        
+        .agent-message .message-content pre {
+            background: #f8f8f8;
+            border: 1px solid #e1e1e1;
+            border-radius: 5px;
+            padding: 12px;
+            margin: 10px 0;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .agent-message .message-content pre code {
+            background: none;
+            padding: 0;
+            color: #333;
+        }
+        
+        .agent-message .message-content blockquote {
+            border-left: 4px solid #667eea;
+            margin: 10px 0;
+            padding: 5px 0 5px 15px;
+            background: #f8f9ff;
+            font-style: italic;
+        }
+        
+        .agent-message .message-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px 0;
+        }
+        
+        .agent-message .message-content th,
+        .agent-message .message-content td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .agent-message .message-content th {
+            background: #f8f9ff;
+            font-weight: bold;
+        }
+        
+        .agent-message .message-content a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        .agent-message .message-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .agent-message .message-content strong {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .agent-message .message-content em {
+            font-style: italic;
         }
         
         .message-avatar {
@@ -688,12 +792,35 @@
             
             const time = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
             
+            // Parse Markdown for agent messages, keep plain text for user messages
+            let messageContent;
+            if (sender === 'agent') {
+                try {
+                    // Configure marked options for better rendering
+                    marked.setOptions({
+                        breaks: true,
+                        gfm: true,
+                        tables: true,
+                        sanitize: false,
+                        headerIds: false,
+                        mangle: false
+                    });
+                    messageContent = marked.parse(message);
+                } catch (error) {
+                    console.error('Error parsing markdown:', error);
+                    messageContent = message.replace(/\n/g, '<br>');
+                }
+            } else {
+                // For user messages, just convert line breaks to <br>
+                messageContent = message.replace(/\n/g, '<br>');
+            }
+            
             messageDiv.innerHTML = `
                 <div class="message-avatar ${sender}-avatar">
                     ${sender === 'user' ? 'You' : 'AI'}
                 </div>
                 <div class="message-content">
-                    ${message}
+                    ${messageContent}
                     <div class="message-time">${time}</div>
                 </div>
             `;

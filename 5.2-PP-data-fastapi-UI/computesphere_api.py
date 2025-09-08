@@ -174,11 +174,11 @@ class ServerClient:
 # Initialize server client
 server_client = ServerClient()
 # REST API Endpoints
-@app.get("/")
+@app.get("/api")
 async def root():
     return {"message": "Computesphere Agent API", "status": "running"}
 
-@app.get("/health")
+@app.get("/api/health")
 async def health_check():
     return {"status": "healthy", "agent_ready": agent_instance is not None}
 
