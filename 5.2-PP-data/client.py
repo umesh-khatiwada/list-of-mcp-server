@@ -89,13 +89,13 @@ class ComputesphereAgent:
             self.mcp_client.start()
             tools = self.mcp_client.list_tools_sync()
             
-            print(f"✅ Connected to MCP server. Available tools: {len(tools)}")
+            print(f" Connected to MCP server. Available tools: {len(tools)}")
             
             # Prepare tools list - add memory tools if enabled
             agent_tools = list(tools)
             if self.enable_memory:
                 agent_tools.extend([mem0_memory, use_llm])
-                print("✅ Memory tools enabled")
+                print(" Memory tools enabled")
             
             # Create the agent with the model and tools
             self.agent = Agent(
@@ -134,18 +134,19 @@ Always be helpful and provide clear, actionable responses. Use memory to make in
                 description="AI assistant for Computesphere cloud platform management with memory"
             )
             
-            print("✅ Agent initialized successfully!")
+            print("Agent initialized successfully!")
             return True
             
         except Exception as e:
-            print(f"❌ Failed to initialize agent: {str(e)}")
+            print(f"Failed to initialize agent: {str(e)}")
             return False
     
-    async def chat(self, message: str) -> str:
+    async def chat(self, message: str, stream: bool = False) -> str:
         """
         Send a message to the agent and get a response.
         Args:
             message: The user's message/query
+            stream: Whether to stream the response
         Returns:
             The agent's response
         """
@@ -155,13 +156,33 @@ Always be helpful and provide clear, actionable responses. Use memory to make in
         try:
             self.conversation_history.append({"role": "user", "content": message})
             contextual_message = f"Session ID: {self.session_id}\n\nUser Query: {message}"
-            response = await self.agent.invoke_async(contextual_message)
-            if hasattr(response, 'content'):
-                response_text = str(response.content)
-            elif hasattr(response, 'text'):
-                response_text = str(response.text)
+            
+            if stream:
+                # Use streaming response
+                response_text = ""
+                async for chunk in self.agent.stream_async(contextual_message):
+                    if hasattr(chunk, 'content'):
+                        chunk_text = str(chunk.content)
+                    elif hasattr(chunk, 'text'):
+                        chunk_text = str(chunk.text)
+                    else:
+                        chunk_text = str(chunk)
+                    
+                    # Print chunk immediately for real-time display
+                    print(chunk_text, end="", flush=True)
+                    response_text += chunk_text
+                
+                print()  # New line after streaming
             else:
-                response_text = str(response)
+                # Use regular response
+                response = await self.agent.invoke_async(contextual_message)
+                if hasattr(response, 'content'):
+                    response_text = str(response.content)
+                elif hasattr(response, 'text'):
+                    response_text = str(response.text)
+                else:
+                    response_text = str(response)
+            
             self.conversation_history.append({"role": "assistant", "content": response_text})
             return response_text
             
@@ -233,7 +254,6 @@ Always be helpful and provide clear, actionable responses. Use memory to make in
                 "Show me everything you remember about me",
                 tools=[mem0_memory]
             )
-            
             if hasattr(response, 'content'):
                 return str(response.content)
             elif hasattr(response, 'text'):
@@ -257,13 +277,47 @@ Always be helpful and provide clear, actionable responses. Use memory to make in
         Clear the local conversation history.
         """
         self.conversation_history.clear()
-        print("✅ Conversation history cleared.")
+        print(" Conversation history cleared.")
     
-    def chat_sync(self, message: str) -> str:
+    async def chat_stream(self, message: str):
+        """
+        Send a message to the agent and stream the response.
+        Args:
+            message: The user's message/query
+        Yields:
+            Response chunks as they arrive
+        """
+        if not self.agent:
+            raise RuntimeError("Agent not initialized. Call initialize_agent() first.")
+        
+        try:
+            self.conversation_history.append({"role": "user", "content": message})
+            contextual_message = f"Session ID: {self.session_id}\n\nUser Query: {message}"
+            
+            response_text = ""
+            async for chunk in self.agent.stream_async(contextual_message):
+                if hasattr(chunk, 'content'):
+                    chunk_text = str(chunk.content)
+                elif hasattr(chunk, 'text'):
+                    chunk_text = str(chunk.text)
+                else:
+                    chunk_text = str(chunk)
+                
+                response_text += chunk_text
+                yield chunk_text
+            
+            self.conversation_history.append({"role": "assistant", "content": response_text})
+            
+        except Exception as e:
+            error_message = f"Error: {str(e)}"
+            self.conversation_history.append({"role": "assistant", "content": error_message})
+            yield error_message
+
+    def chat_sync(self, message: str, stream: bool = False) -> str:
         """
         Synchronous version of chat method.
         """
-        return asyncio.run(self.chat(message))
+        return asyncio.run(self.chat(message, stream))
     
     async def get_available_tools(self) -> list:
         """
@@ -281,7 +335,7 @@ Always be helpful and provide clear, actionable responses. Use memory to make in
         """
         if self.mcp_client:
             self.mcp_client.stop(None, None, None)
-            print("✅ MCP client connection closed.")
+            print(" MCP client connection closed.")
 
 class InteractiveClient:
     """
@@ -290,21 +344,22 @@ class InteractiveClient:
     
     def __init__(self):
         self.agent_client = None
+        self.streaming_enabled = True  # Default to streaming mode
     
     async def setup(self):
         """
         Set up the agent client.
         """
-        print("🚀 Initializing Computesphere Agent...")
-        
-        # Get session ID from user or environment
+        print(" Initializing Computesphere Agent...")
         session_id = input("Enter your session ID (or press Enter for default): ").strip()
         if not session_id:
             session_id = os.getenv('SESSION_ID', 'default-session')
-        
-        # Ask about memory preference
         enable_memory = input("Enable conversation memory? (y/n, default: y): ").strip().lower()
         enable_memory = enable_memory != 'n'
+        
+        # Ask about streaming preference
+        enable_streaming = input("Enable text streaming? (y/n, default: y): ").strip().lower()
+        self.streaming_enabled = enable_streaming != 'n'
         
         self.agent_client = ComputesphereAgent(session_id=session_id, enable_memory=enable_memory)
         
@@ -320,7 +375,8 @@ class InteractiveClient:
         Run the interactive chat interface.
         """
         print("\n" + "="*60)
-        print("🧠 Computesphere Agent with Memory Ready!")
+        mode = " Streaming" if self.streaming_enabled else " Standard"
+        print(f" Computesphere Agent with Memory Ready! ({mode} mode)")
         print("Type 'help' for available commands, 'quit' to exit")
         print("="*60 + "\n")
         
@@ -345,25 +401,22 @@ class InteractiveClient:
                     continue
                 
                 elif user_input.lower().startswith('remember '):
-                    # Store memory command
-                    content = user_input[9:].strip()  # Remove 'remember ' prefix
+                    content = user_input[9:].strip()
                     if content:
                         response = await self.agent_client.store_memory(content)
-                        print(f"\n🧠 {response}")
+                        print(f"\n {response}")
                     else:
-                        print("\n❌ Please provide content to remember.")
+                        print("\n Please provide content to remember.")
                     continue
                 
                 elif user_input.lower() in ['memories', 'list memories', 'show memories']:
-                    # List all memories
                     response = await self.agent_client.list_all_memories()
-                    print(f"\n🧠 Stored Memories:\n{response}")
+                    print(f"\n Stored Memories:\n{response}")
                     continue
                 
                 elif user_input.lower() in ['history', 'conversation history']:
-                    # Show conversation history
                     history = self.agent_client.get_conversation_history()
-                    print(f"\n📝 Conversation History ({len(history)} messages):")
+                    print(f"\n Conversation History ({len(history)} messages):")
                     for msg in history[-10:]:  # Show last 10 messages
                         role = msg['role'].capitalize()
                         content = msg['content'][:100] + "..." if len(msg['content']) > 100 else msg['content']
@@ -371,16 +424,27 @@ class InteractiveClient:
                     continue
                 
                 elif user_input.lower() in ['clear history', 'clear']:
-                    # Clear conversation history
                     self.agent_client.clear_conversation_history()
+                    continue
+                
+                elif user_input.lower() in ['stream', 'toggle stream']:
+                    self.streaming_enabled = not self.streaming_enabled
+                    mode = "enabled" if self.streaming_enabled else "disabled"
+                    print(f"\n Text streaming {mode}")
                     continue
                 
                 elif not user_input:
                     continue
                 
-                print("\n Agent: ", end="", flush=True)
-                response = await self.agent_client.chat(user_input)
-                print(response)
+                print("\n🤖 Agent: ", end="", flush=True)
+                
+                if self.streaming_enabled:
+                    async for chunk in self.agent_client.chat_stream(user_input):
+                        print(chunk, end="", flush=True)
+                    print()  
+                else:
+                    response = await self.agent_client.chat(user_input, stream=False)
+                    print(response)
                 
             except KeyboardInterrupt:
                 print("\n Goodbye!")
@@ -393,19 +457,20 @@ class InteractiveClient:
         Show available commands.
         """
         help_text = """
-🧠 Available Commands:
+ Available Commands:
 - help: Show this help message
 - tools: List available MCP tools
 - test: Run some test commands
+- stream: Toggle text streaming mode
 - quit/exit/bye: Exit the application
 
-🧠 Memory Commands:
+ Memory Commands:
 - remember <info>: Store information in memory
 - memories: List all stored memories
 - history: Show conversation history
 - clear: Clear conversation history
 
-📝 Example queries:
+ Example queries:
 - "List all my projects"
 - "Show project details for project ID abc123"
 - "Get account overview"
@@ -413,10 +478,14 @@ class InteractiveClient:
 - "List recent activity logs"
 - "Get resource usage information"
 
-🧠 Memory examples:
+ Memory examples:
 - "remember I prefer staging environments for testing"
 - "remember my main project is project-abc123"
 - "What do you remember about my preferences?"
+
+ Streaming Mode:
+- Responses are displayed in real-time as they're generated
+- Use 'stream' command to toggle streaming on/off
 """
         print(help_text)
     

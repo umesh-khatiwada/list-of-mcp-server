@@ -12,14 +12,14 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv(".env")
 
-# Set up logging for debugging
+# Set up logging
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 # Create MCP server - Remove host and port for stdio transport
@@ -35,7 +35,6 @@ async def redis_get_token(key: str) -> str:
     """Get token from Redis"""
     try:
         redis_url = os.getenv('REDIS_URL')
-        logger.debug(f"[REDIS] Redis URL from env: {redis_url}")
         
         if not redis_url:
             logger.error("[REDIS] REDIS_URL environment variable not set!")
@@ -43,25 +42,19 @@ async def redis_get_token(key: str) -> str:
             return error_result
             
         try:
-            logger.debug(f"[REDIS] Attempting to connect to Redis for key: {key}")
             redis_client = redis.from_url(redis_url, decode_responses=True)
             token = redis_client.get(key)
             redis_client.close()
             
             if token:
                 result = json.dumps({"success": True, "token": token, "key": key, "source": "redis"})
-                logger.debug(f"[REDIS] Successfully retrieved token from Redis for key '{key}': {result}")
                 return result
             else:
-                logger.debug(f"[REDIS] Token not found in Redis for key '{key}', using mock data")
-                # For testing, return a mock token
                 mock_result = json.dumps({"success": True, "token": "mock-token-for-testing", "key": key, "source": "mock"})
-                logger.debug(f"[REDIS] Using mock token: {mock_result}")
                 return mock_result
         except Exception as redis_error:
-            logger.debug(f"[REDIS] Redis connection error: {redis_error}, falling back to mock data")
+            logger.info(f"[REDIS] Redis connection error: {redis_error}, falling back to mock data")
             mock_result = json.dumps({"success": True, "token": "mock-token-for-testing", "key": key, "source": "mock"})
-            logger.debug(f"[REDIS] Using mock token due to error: {mock_result}")
             return mock_result
             
     except Exception as e:
@@ -72,15 +65,12 @@ async def redis_get_token(key: str) -> str:
 def with_token_middleware(tool_func):
     @wraps(tool_func)
     async def wrapper(*args, **kwargs) -> str:
-        logger.debug(f"[MIDDLEWARE] Tool '{tool_func.__name__}' called with args: {args}, kwargs: {kwargs}")
         sessionId = kwargs.pop('sessionId', None)
-        logger.debug(f"[MIDDLEWARE] Extracted sessionId: '{sessionId}'")
         if not sessionId:
             error_msg = "[MIDDLEWARE] Error: sessionId is required for this authenticated operation"
             logger.error(error_msg)
             return error_msg
         # Get token from Redis
-        logger.debug(f"[MIDDLEWARE] Fetching token from Redis for sessionId: '{sessionId}'")
         token_result = await redis_get_token(sessionId)
         try:
             if token_result.startswith('{"error"'):
@@ -109,7 +99,6 @@ def with_token_middleware(tool_func):
                 
                 with_token_middleware._current_session_context.set(sessionId)
                 result = tool_func(*args, **kwargs)
-                logger.debug(f"[MIDDLEWARE] Tool '{tool_func.__name__}' completed for sessionId: '{sessionId}'")
                 return result
             else:
                 error_msg = f"[MIDDLEWARE] Failed to retrieve valid token for sessionId '{sessionId}': {token_result}"
@@ -153,7 +142,6 @@ def make_api_request(method: str, endpoint: str, params: Optional[Dict] = None, 
             request_headers.update(headers_override)
         
         # Debug logging - now with more detail
-        logger.debug(f"[DEBUG] Making {method} request to {base_url}{endpoint}")
         with httpx.Client(base_url=base_url, headers=request_headers, timeout=30.0) as client:
             response = client.request(
                 method=method,
@@ -161,22 +149,14 @@ def make_api_request(method: str, endpoint: str, params: Optional[Dict] = None, 
                 params=params,
                 json=json_data
             )
-            
-            logger.debug(f"Response status: {response.status_code}")
-            logger.debug(f"Response headers: {dict(response.headers)}")
-            
             response.raise_for_status()
             
             # Handle different content types
             content_type = response.headers.get("content-type", "")
             if "application/json" in content_type:
                 result = json.dumps(response.json(), indent=2)
-                logger.debug(f"JSON Response (first 200 chars): {result[:200]}...")
-                logger.debug(f"JSON Response: {result[:500]}...")  # Log first 500 chars
                 return result
             else:
-                logger.debug(f"Text Response (first 200 chars): {response.text[:200]}...")
-                logger.debug(f"Text Response: {response.text[:500]}...")
                 return response.text
                 
     except httpx.TimeoutException as e:
@@ -193,7 +173,6 @@ def make_api_request(method: str, endpoint: str, params: Optional[Dict] = None, 
     except Exception as e:
         error_msg = f"Request error for {method} {endpoint}: {str(e)}"
         logger.error(f"[DEBUG] {error_msg}")
-        logger.error(error_msg)
         return error_msg
 # Home endpoint
 @mcp.tool(name="get_home")
@@ -1159,7 +1138,6 @@ def update_notification_settings(
     if webhook_enabled is False:
         data["webhooks"] = []  # Empty webhooks array when disabled
     
-    logger.debug(f"[NOTIFICATION_SETTINGS_SIMPLE] Sending data to API: {json.dumps(data, indent=2)}")
     return make_authenticated_api_request("PUT", "/notifications/settings", json_data=data)
 # Plan Management
 @mcp.tool(name="list_plans")
@@ -1693,8 +1671,6 @@ def test_api_with_mock_token() -> str:
         # Test with mock token
         mock_headers = headers.copy()
         mock_headers["authorization"] = "Bearer mock-token-for-testing"
-        
-        logger.info("Testing API with mock token...")
         result = make_api_request("GET", "/accounts", headers_override=mock_headers)
         
         return f"Mock token test result: {result[:500]}..."
@@ -1703,14 +1679,9 @@ def test_api_with_mock_token() -> str:
 
 if __name__ == "__main__":
     logger.info("Starting Computesphere API MCP server...")
-    logger.info(f"Current working directory: {os.getcwd()}")
     logger.info(f"Base URL: {base_url}")
-    logger.debug(f"Headers: {json.dumps(headers, indent=2)}")
     
-    # Enable debug logging
-    logger.info("Debug mode enabled - detailed logging active")
     try:
-        logger.info("Starting MCP server with stdio transport...")
         logger.info("Server will be available for stdio connections")
         mcp.run()
     except RuntimeError as e:
