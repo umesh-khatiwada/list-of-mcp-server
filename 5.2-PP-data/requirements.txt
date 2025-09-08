@@ -13,3 +13,6 @@ python-dotenv
 ipykernel
 httpx
 nest_asyncio
+opensearch-py==3.0.0
+faiss-cpu==1.12.0
+mem0ai==0.1.116

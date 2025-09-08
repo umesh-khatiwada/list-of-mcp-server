@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from strands import Agent
 from strands.models.openai import OpenAIModel
 from strands.tools.mcp import MCPClient
+from strands_tools import mem0_memory, use_llm
 from mcp import stdio_client, StdioServerParameters
 
 # Load environment variables
@@ -20,21 +21,25 @@ load_dotenv()
 
 class ComputesphereAgent:
     """
-    A Strands Agent client that communicates with the Computesphere MCP server.
+    A Strands Agent client that communicates with the Computesphere MCP server with memory capabilities.
     """
     
-    def __init__(self, google_api_key: Optional[str] = None, session_id: Optional[str] = None):
+    def __init__(self, google_api_key: Optional[str] = None, session_id: Optional[str] = None, enable_memory: bool = True):
         """
         Initialize the Computesphere Agent.
         
         Args:
             google_api_key: Google API key for the Gemini model
             session_id: Session ID for MCP server authentication
+            enable_memory: Whether to enable conversation memory
         """
         self.google_api_key = google_api_key or os.getenv('GOOGLE_API_KEY')
         self.session_id = session_id or os.getenv('SESSION_ID', 'default-session')
+        self.enable_memory = enable_memory
+        self.user_id = f"computesphere_user_{self.session_id}"  # Unique user ID for memory
         self.agent = None
         self.mcp_client = None
+        self.conversation_history = []  # Local conversation history
         
         if not self.google_api_key:
             raise ValueError("Google API key is required. Set GOOGLE_API_KEY environment variable or pass it directly.")
@@ -86,28 +91,47 @@ class ComputesphereAgent:
             
             print(f"✅ Connected to MCP server. Available tools: {len(tools)}")
             
-            # Create the agent with the model and MCP tools
+            # Prepare tools list - add memory tools if enabled
+            agent_tools = list(tools)
+            if self.enable_memory:
+                agent_tools.extend([mem0_memory, use_llm])
+                print("✅ Memory tools enabled")
+            
+            # Create the agent with the model and tools
             self.agent = Agent(
                 model=model, 
-                tools=tools,
+                tools=agent_tools,
                 system_prompt=f"""
-                You are a helpful assistant for the Computesphere cloud platform. 
-                You have access to various tools to manage projects, environments, deployments, and other resources.
-                
-                Important: When using MCP tools, always include sessionId='{self.session_id}' in your tool calls.
-                
-                You can help users with:
-                - Managing projects and environments
-                - Viewing deployment status and logs
-                - Managing teams and users
-                - Checking resource usage and billing
-                - Setting up notifications and alerts
-                - And much more!
-                
-                Always be helpful and provide clear, actionable responses.
+You are a helpful assistant for the Computesphere cloud platform with memory capabilities. 
+You have access to various tools to manage projects, environments, deployments, and other resources.
+
+IMPORTANT INSTRUCTIONS:
+1. When using MCP tools, always include sessionId='{self.session_id}' in your tool calls.
+2. Use each tool only ONCE per response - do not repeat tool calls.
+3. If a tool returns data, format it nicely and present it to the user.
+4. Be concise and avoid duplicating information.
+5. For delete operations, always ask for user confirmation first.
+
+MEMORY CAPABILITIES:
+- Use mem0_memory tool to store important user preferences and information
+- Always include user_id='{self.user_id}' when using memory tools
+- Store relevant context like project preferences, common tasks, user roles
+- Retrieve memories to provide personalized responses
+- Remember user's work patterns and frequently accessed resources
+
+You can help users with:
+- Managing projects and environments
+- Viewing deployment status and logs
+- Managing teams and users
+- Checking resource usage and billing
+- Setting up notifications and alerts
+- Remembering user preferences and work patterns
+- And much more!
+
+Always be helpful and provide clear, actionable responses. Use memory to make interactions more personalized and efficient.
                 """,
                 name="Computesphere Assistant",
-                description="AI assistant for Computesphere cloud platform management"
+                description="AI assistant for Computesphere cloud platform management with memory"
             )
             
             print("✅ Agent initialized successfully!")
@@ -120,10 +144,8 @@ class ComputesphereAgent:
     async def chat(self, message: str) -> str:
         """
         Send a message to the agent and get a response.
-        
         Args:
             message: The user's message/query
-            
         Returns:
             The agent's response
         """
@@ -131,14 +153,111 @@ class ComputesphereAgent:
             raise RuntimeError("Agent not initialized. Call initialize_agent() first.")
         
         try:
-            # Add session context to the message
+            self.conversation_history.append({"role": "user", "content": message})
             contextual_message = f"Session ID: {self.session_id}\n\nUser Query: {message}"
-            
             response = await self.agent.invoke_async(contextual_message)
-            return response
+            if hasattr(response, 'content'):
+                response_text = str(response.content)
+            elif hasattr(response, 'text'):
+                response_text = str(response.text)
+            else:
+                response_text = str(response)
+            self.conversation_history.append({"role": "assistant", "content": response_text})
+            return response_text
             
         except Exception as e:
-            return f"Error: {str(e)}"
+            error_message = f"Error: {str(e)}"
+            self.conversation_history.append({"role": "assistant", "content": error_message})
+            return error_message
+    
+    async def store_memory(self, content: str) -> str:
+        """
+        Store information in memory for later retrieval.
+        Args:
+            content: The information to store
+        Returns:
+            Confirmation message
+        """
+        if not self.agent or not self.enable_memory:
+            return "Memory is not enabled."
+        try:
+            response = await self.agent.invoke_async(
+                f"Remember this information: {content}",
+                tools=[mem0_memory]
+            )
+            return "Information stored in memory successfully."
+        except Exception as e:
+            return f"Error storing memory: {str(e)}"
+    
+    async def retrieve_memories(self, query: str = None) -> str:
+        """
+        Retrieve relevant memories based on a query.
+        Args:
+            query: Optional query to find specific memories  
+        Returns:
+            Retrieved memories or error message
+        """
+        if not self.agent or not self.enable_memory:
+            return "Memory is not enabled."
+        try:
+            if query:
+                response = await self.agent.invoke_async(
+                    f"What do you remember about: {query}",
+                    tools=[mem0_memory]
+                )
+            else:
+                response = await self.agent.invoke_async(
+                    "What do you remember about me?",
+                    tools=[mem0_memory]
+                )
+            if hasattr(response, 'content'):
+                return str(response.content)
+            elif hasattr(response, 'text'):
+                return str(response.text)
+            else:
+                return str(response)
+                
+        except Exception as e:
+            return f"Error retrieving memories: {str(e)}"
+    
+    async def list_all_memories(self) -> str:
+        """
+        List all stored memories.
+        Returns:
+            All stored memories or error message
+        """
+        if not self.agent or not self.enable_memory:
+            return "Memory is not enabled."
+        try:
+            response = await self.agent.invoke_async(
+                "Show me everything you remember about me",
+                tools=[mem0_memory]
+            )
+            
+            if hasattr(response, 'content'):
+                return str(response.content)
+            elif hasattr(response, 'text'):
+                return str(response.text)
+            else:
+                return str(response)
+        except Exception as e:
+            return f"Error listing memories: {str(e)}"
+    
+    def get_conversation_history(self) -> list:
+        """
+        Get the current conversation history.
+        
+        Returns:
+            List of conversation messages
+        """
+        return self.conversation_history.copy()
+    
+    def clear_conversation_history(self):
+        """
+        Clear the local conversation history.
+        """
+        self.conversation_history.clear()
+        print("✅ Conversation history cleared.")
     
     def chat_sync(self, message: str) -> str:
         """
@@ -183,7 +302,11 @@ class InteractiveClient:
         if not session_id:
             session_id = os.getenv('SESSION_ID', 'default-session')
         
-        self.agent_client = ComputesphereAgent(session_id=session_id)
+        # Ask about memory preference
+        enable_memory = input("Enable conversation memory? (y/n, default: y): ").strip().lower()
+        enable_memory = enable_memory != 'n'
+        
+        self.agent_client = ComputesphereAgent(session_id=session_id, enable_memory=enable_memory)
         
         success = await self.agent_client.initialize_agent()
         if not success:
@@ -197,7 +320,7 @@ class InteractiveClient:
         Run the interactive chat interface.
         """
         print("\n" + "="*60)
-        print(" Computesphere Agent Ready!")
+        print("🧠 Computesphere Agent with Memory Ready!")
         print("Type 'help' for available commands, 'quit' to exit")
         print("="*60 + "\n")
         
@@ -221,6 +344,37 @@ class InteractiveClient:
                     await self.run_test_commands()
                     continue
                 
+                elif user_input.lower().startswith('remember '):
+                    # Store memory command
+                    content = user_input[9:].strip()  # Remove 'remember ' prefix
+                    if content:
+                        response = await self.agent_client.store_memory(content)
+                        print(f"\n🧠 {response}")
+                    else:
+                        print("\n❌ Please provide content to remember.")
+                    continue
+                
+                elif user_input.lower() in ['memories', 'list memories', 'show memories']:
+                    # List all memories
+                    response = await self.agent_client.list_all_memories()
+                    print(f"\n🧠 Stored Memories:\n{response}")
+                    continue
+                
+                elif user_input.lower() in ['history', 'conversation history']:
+                    # Show conversation history
+                    history = self.agent_client.get_conversation_history()
+                    print(f"\n📝 Conversation History ({len(history)} messages):")
+                    for msg in history[-10:]:  # Show last 10 messages
+                        role = msg['role'].capitalize()
+                        content = msg['content'][:100] + "..." if len(msg['content']) > 100 else msg['content']
+                        print(f"  {role}: {content}")
+                    continue
+                
+                elif user_input.lower() in ['clear history', 'clear']:
+                    # Clear conversation history
+                    self.agent_client.clear_conversation_history()
+                    continue
+                
                 elif not user_input:
                     continue
                 
@@ -239,19 +393,30 @@ class InteractiveClient:
         Show available commands.
         """
         help_text = """
- Available Commands:
+🧠 Available Commands:
 - help: Show this help message
 - tools: List available MCP tools
 - test: Run some test commands
 - quit/exit/bye: Exit the application
 
- Example queries:
+🧠 Memory Commands:
+- remember <info>: Store information in memory
+- memories: List all stored memories
+- history: Show conversation history
+- clear: Clear conversation history
+
+📝 Example queries:
 - "List all my projects"
 - "Show project details for project ID abc123"
 - "Get account overview"
 - "Show deployment status"
 - "List recent activity logs"
 - "Get resource usage information"
+
+🧠 Memory examples:
+- "remember I prefer staging environments for testing"
+- "remember my main project is project-abc123"
+- "What do you remember about my preferences?"
 """
         print(help_text)
     
@@ -311,75 +476,5 @@ async def main():
     finally:
         # Cleanup
         await client.cleanup()
-
-# Example usage functions
-async def example_basic_usage():
-    """
-    Example of basic usage without interactive mode.
-    """
-    print("📚 Basic Usage Example")
-    
-    # Initialize the agent
-    agent = ComputesphereAgent(session_id="example-session")
-    
-    try:
-        # Initialize
-        await agent.initialize_agent()
-        
-        # Example queries
-        queries = [
-            "What tools are available?",
-            "Test the API connection",
-            "Get my account overview"
-        ]
-        
-        for query in queries:
-            print(f"\n🔍 Query: {query}")
-            response = await agent.chat(query)
-            print(f" Response: {response}")
-            
-    finally:
-        await agent.close()
-
-async def example_project_management():
-    """
-    Example focused on project management tasks.
-    """
-    print("📁 Project Management Example")
-    
-    agent = ComputesphereAgent(session_id="project-session")
-    
-    try:
-        await agent.initialize_agent()
-        
-        # Project management queries
-        queries = [
-            "List all my projects",
-            "Show me the account overview",
-            "Get resource usage information",
-            "List recent activity logs"
-        ]
-        
-        for query in queries:
-            print(f"\n🔍 Query: {query}")
-            response = await agent.chat(query)
-            print(f" Response: {response[:500]}...")
-            
-    finally:
-        await agent.close()
-
 if __name__ == "__main__":
-    print("🌟 Computesphere Strands Agent Client")
-    print("Choose an option:")
-    print("1. Interactive mode (default)")
-    print("2. Basic usage example")
-    print("3. Project management example")
-    
-    choice = input("\nEnter your choice (1-3, default=1): ").strip()
-    
-    if choice == "2":
-        asyncio.run(example_basic_usage())
-    elif choice == "3":
-        asyncio.run(example_project_management())
-    else:
-        asyncio.run(main())
+    asyncio.run(main())

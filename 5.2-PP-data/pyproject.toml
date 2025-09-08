@@ -15,4 +15,7 @@ dependencies = [
     "redis==6.4.0",
     "strands-agents[openai]",
     "strands-agents-tools",
+    "mem0ai>=0.1.116",
+    "opensearch-py>=3.0.0",
+    "faiss-cpu>=1.12.0",
 ]
