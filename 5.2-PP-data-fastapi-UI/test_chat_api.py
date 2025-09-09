@@ -10,7 +10,7 @@ def test_chat_api():
     
     test_data = {
         "message": "provide me notification settings",
-        "session_id": "2403eeac-14cd-44ed-bcfc-f90319cacf4d"
+        "session_id": "1f7edc1b-80e9-4ef1-9865-4f3ab4a134e4"
     }
     
     print("🧪 Testing chat API...")

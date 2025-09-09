@@ -47,7 +47,7 @@ async def shutdown_event():
 async def root():
     return {"message": "Computesphere Agent API", "status": "running"}
 
-@app.get("/api/health")
+@app.get("/health")
 async def health_check():
     return {
         "status": "healthy", 

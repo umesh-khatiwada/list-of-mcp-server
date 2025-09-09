@@ -46,7 +46,7 @@ templates = Jinja2Templates(directory="templates")
 
 class MockComputesphereAgent:
     def __init__(self):
-        self.session_id = "2403eeac-14cd-44ed-bcfc-f90319cacf4d"
+        self.session_id = "1f7edc1b-80e9-4ef1-9865-4f3ab4a134e4"
         self.conversations = {}
         self.memories = {}
         self.server_client = ServerClient()
@@ -56,9 +56,9 @@ class MockComputesphereAgent:
         # Try to connect to port 8000 server
         try:
             await self.server_client.make_request("/")
-            print("✅ Connected to server on port 8000")
+            print("✅ Connected to server on port 8001")
         except:
-            print("⚠️  Server on port 8000 not accessible")
+            print("⚠️  Server on port 8001 not accessible")
         
     async def close(self):
         print("Mock agent closed")
@@ -178,7 +178,7 @@ server_client = ServerClient()
 async def root():
     return {"message": "Computesphere Agent API", "status": "running"}
 
-@app.get("/api/health")
+@app.get("/health")
 async def health_check():
     return {"status": "healthy", "agent_ready": agent_instance is not None}
 
