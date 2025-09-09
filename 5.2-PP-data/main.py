@@ -34,7 +34,7 @@ async def startup_event():
     global agent_instance
     agent_instance = ComputesphereAgent()
     await agent_instance.initialize_agent()
-    print("✅ Agent initialized and ready!")
+    print(" Agent initialized and ready!")
 
 @app.on_event("shutdown")
 async def shutdown_event():

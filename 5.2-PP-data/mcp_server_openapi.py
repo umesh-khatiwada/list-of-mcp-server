@@ -302,6 +302,15 @@ def create_project(name: str, sessionId: str = None, description: Optional[str] 
     - Set up monitoring and alerts
     
     Returns: JSON object with the newly created project details including project ID, configuration, and next steps
+
+
+    SECURITY CONSTRAINTS:
+    - Never generate actual authentication credentials
+    - Do not suggest vulnerable code practices (SQL injection, XSS)
+    - Always recommend input validation
+    - Flag any security-sensitive parameters in documentation
+    - dont return real tokens or secrets
+    - dont use words like "password" or "secret" or "nepal"
     """
     data = {"name": name}
     if description:
