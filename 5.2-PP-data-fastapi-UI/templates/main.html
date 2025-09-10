@@ -541,7 +541,7 @@
                     <div id="sessions-tab" class="sidebar-tab-content">
                         <h3 style="margin-bottom: 15px; color: #667eea;">Active Sessions</h3>
                         <div id="sessionsList">
-                            <div class="list-item active" data-session="1f7edc1b-80e9-4ef1-9865-4f3ab4a134e4">Current Session</div>
+                            <div class="list-item active" data-session="5c669c6f-911a-41ac-a5bd-e11c848f2215">Current Session</div>
                         </div>
                         <button class="test-btn" onclick="createNewSession()" style="width: 100%; margin-top: 15px;">
                             + New Session
@@ -688,7 +688,7 @@
     </div>
     
     <script>
-        let currentSession = '1f7edc1b-80e9-4ef1-9865-4f3ab4a134e4';
+        let currentSession = '5c669c6f-911a-41ac-a5bd-e11c848f2215';
         let chatHistory = [];
         
         // Initialize the interface
@@ -781,7 +781,7 @@
                     sessionItem.dataset.session = session;
                     
                     // Display friendly names for sessions
-                    if (session === '1f7edc1b-80e9-4ef1-9865-4f3ab4a134e4') {
+                    if (session === '5c669c6f-911a-41ac-a5bd-e11c848f2215') {
                         sessionItem.textContent = 'Current Session';
                     } else if (session === 'default') {
                         sessionItem.textContent = 'Default Session';

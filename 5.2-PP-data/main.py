@@ -4,6 +4,15 @@ from typing import Optional, Dict, Any
 import asyncio
 import logging
 import json
+
+# --- Strands Observability Metrics Exporters ---
+try:
+    from strands.observability import enable_console_metrics_exporter, enable_prometheus_metrics_exporter
+    enable_console_metrics_exporter()  # Print metrics to console every 10s
+    enable_prometheus_metrics_exporter(port=8000)  # Expose metrics at http://localhost:8000/metrics
+except ImportError:
+    pass  # If not available, skip metrics exporters
+
 from client import ComputesphereAgent
 
 # Configure logging

@@ -1,13 +1,25 @@
+
 """
 Strands Agents Client with MCP Server Integration
 This client uses Strands Agents with OpenAI integration to communicate with the MCP server.
 """
 
+import logging
+# Configure the root strands logger
+logging.getLogger("strands").setLevel(logging.DEBUG)
+# Add a handler to see the logs
+logging.basicConfig(
+    format="%(levelname)s | %(name)s | %(message)s",
+    handlers=[logging.StreamHandler()]
+)
+
+from multiprocessing.util import get_logger
 import os
 import asyncio
 import json
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv
+
 
 # Strands Agents imports
 from strands import Agent
@@ -16,7 +28,25 @@ from strands.tools.mcp import MCPClient
 from strands_tools import mem0_memory, use_llm
 from mcp import stdio_client, StdioServerParameters
 
-# Load environment variables
+
+# --- Strands Observability: Metrics, Logging, Tracing ---
+try:
+    from strands.telemetry import StrandsTelemetry
+    import os
+    os.environ.setdefault("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
+    strands_telemetry = StrandsTelemetry()
+    strands_telemetry.setup_otlp_exporter()      # Send traces to OTLP endpoint
+    strands_telemetry.setup_console_exporter()   # Print traces to console
+    # Set up logger and metrics
+    logger = get_logger("computesphere.agent")
+    # Example metric: count agent initializations and chats
+    agent_init_counter = strands_telemetry.counter("agent_initializations", "Number of agent initializations")
+    chat_counter = strands_telemetry.counter("agent_chats", "Number of agent chat calls")
+except ImportError:
+    logger = None
+    agent_init_counter = None
+    chat_counter = None
+    pass  # If not available, skip observability
 load_dotenv()
 
 class ComputesphereAgent:
@@ -81,64 +111,71 @@ class ComputesphereAgent:
         try:
             # Set up the OpenAI model
             model = self.setup_openai_model()
-            
             # Set up the MCP client
             self.mcp_client = self.setup_mcp_client()
-            
             # Start the MCP client and get tools
             self.mcp_client.start()
             tools = self.mcp_client.list_tools_sync()
-            
-            print(f" Connected to MCP server. Available tools: {len(tools)}")
-            
+            if logger:
+                logger.info(f"Connected to MCP server. Available tools: {len(tools)}")
+            else:
+                print(f" Connected to MCP server. Available tools: {len(tools)}")
             # Prepare tools list - add memory tools if enabled
             agent_tools = list(tools)
             if self.enable_memory:
                 agent_tools.extend([mem0_memory, use_llm])
-                print(" Memory tools enabled")
-            
+                if logger:
+                    logger.info("Memory tools enabled")
+                else:
+                    print(" Memory tools enabled")
             # Create the agent with the model and tools
             self.agent = Agent(
                 model=model, 
                 tools=agent_tools,
                 system_prompt=f"""
-You are a helpful assistant for the Computesphere cloud platform with memory capabilities. 
-You have access to various tools to manage projects, environments, deployments, and other resources.
+                You are a helpful assistant for the Computesphere cloud platform with memory capabilities. 
+                You have access to various tools to manage projects, environments, deployments, and other resources.
 
-IMPORTANT INSTRUCTIONS:
-1. When using MCP tools, always include sessionId='{self.session_id}' in your tool calls.
-2. Use each tool only ONCE per response - do not repeat tool calls.
-3. If a tool returns data, format it nicely and present it to the user.
-4. Be concise and avoid duplicating information.
-5. For delete operations, always ask for user confirmation first.
+                IMPORTANT INSTRUCTIONS:
+                1. When using MCP tools, always include sessionId='{self.session_id}' in your tool calls.
+                2. Use each tool only ONCE per response - do not repeat tool calls.
+                3. If a tool returns data, format it nicely and present it to the user.
+                4. Be concise and avoid duplicating information.
+                5. For delete operations, always ask for user confirmation first.
 
-MEMORY CAPABILITIES:
-- Use mem0_memory tool to store important user preferences and information
-- Always include user_id='{self.user_id}' when using memory tools
-- Store relevant context like project preferences, common tasks, user roles
-- Retrieve memories to provide personalized responses
-- Remember user's work patterns and frequently accessed resources
+                MEMORY CAPABILITIES:
+                - Use mem0_memory tool to store important user preferences and information
+                - Always include user_id='{self.user_id}' when using memory tools
+                - Store relevant context like project preferences, common tasks, user roles
+                - Retrieve memories to provide personalized responses
+                - Remember user's work patterns and frequently accessed resources
 
-You can help users with:
-- Managing projects and environments
-- Viewing deployment status and logs
-- Managing teams and users
-- Checking resource usage and billing
-- Setting up notifications and alerts
-- Remembering user preferences and work patterns
-- And much more!
+                You can help users with:
+                - Managing projects and environments
+                - Viewing deployment status and logs
+                - Managing teams and users
+                - Checking resource usage and billing
+                - Setting up notifications and alerts
+                - Remembering user preferences and work patterns
+                - And much more!
 
-Always be helpful and provide clear, actionable responses. Use memory to make interactions more personalized and efficient.
+                Always be helpful and provide clear, actionable responses. Use memory to make interactions more personalized and efficient.
                 """,
                 name="Computesphere Assistant",
                 description="AI assistant for Computesphere cloud platform management with memory"
             )
-            
-            print("Agent initialized successfully!")
+            if agent_init_counter:
+                agent_init_counter.inc()
+            if logger:
+                logger.info("Agent initialized successfully!")
+            else:
+                print("Agent initialized successfully!")
             return True
-            
         except Exception as e:
-            print(f"Failed to initialize agent: {str(e)}")
+            if logger:
+                logger.error(f"Failed to initialize agent: {str(e)}")
+            else:
+                print(f"Failed to initialize agent: {str(e)}")
             return False
     
     async def chat(self, message: str, stream: bool = False) -> str:
@@ -152,11 +189,14 @@ Always be helpful and provide clear, actionable responses. Use memory to make in
         """
         if not self.agent:
             raise RuntimeError("Agent not initialized. Call initialize_agent() first.")
-        
+        if chat_counter:
+            chat_counter.inc()
+        if logger:
+            logger.info(f"User message: {message}")
         try:
             self.conversation_history.append({"role": "user", "content": message})
             contextual_message = f"Session ID: {self.session_id}\n\nUser Query: {message}"
-            
+            agent_result = None
             if stream:
                 # Use streaming response
                 response_text = ""
@@ -167,28 +207,35 @@ Always be helpful and provide clear, actionable responses. Use memory to make in
                         chunk_text = str(chunk.text)
                     else:
                         chunk_text = str(chunk)
-                    
-                    # Print chunk immediately for real-time display
                     print(chunk_text, end="", flush=True)
                     response_text += chunk_text
-                
                 print()  # New line after streaming
+                # For streaming, metrics are not available per chunk, so skip metrics summary
             else:
                 # Use regular response
-                response = await self.agent.invoke_async(contextual_message)
-                if hasattr(response, 'content'):
-                    response_text = str(response.content)
-                elif hasattr(response, 'text'):
-                    response_text = str(response.text)
+                agent_result = await self.agent.invoke_async(contextual_message)
+                if hasattr(agent_result, 'content'):
+                    response_text = str(agent_result.content)
+                elif hasattr(agent_result, 'text'):
+                    response_text = str(agent_result.text)
                 else:
-                    response_text = str(response)
-            
+                    response_text = str(agent_result)
             self.conversation_history.append({"role": "assistant", "content": response_text})
+            if logger:
+                logger.info(f"Agent response: {response_text[:200]}")
+            # Print and log metrics summary if available
+            if agent_result and hasattr(agent_result, 'metrics') and hasattr(agent_result.metrics, 'get_summary'):
+                metrics_summary = agent_result.metrics.get_summary()
+                print("\n--- Agent Execution Metrics Summary ---")
+                print(json.dumps(metrics_summary, indent=2))
+                if logger:
+                    logger.info(f"Agent metrics summary: {metrics_summary}")
             return response_text
-            
         except Exception as e:
             error_message = f"Error: {str(e)}"
             self.conversation_history.append({"role": "assistant", "content": error_message})
+            if logger:
+                logger.error(error_message)
             return error_message
     
     async def store_memory(self, content: str) -> str:
@@ -457,35 +504,35 @@ class InteractiveClient:
         Show available commands.
         """
         help_text = """
- Available Commands:
-- help: Show this help message
-- tools: List available MCP tools
-- test: Run some test commands
-- stream: Toggle text streaming mode
-- quit/exit/bye: Exit the application
+        Available Commands:
+        - help: Show this help message
+        - tools: List available MCP tools
+        - test: Run some test commands
+        - stream: Toggle text streaming mode
+        - quit/exit/bye: Exit the application
 
- Memory Commands:
-- remember <info>: Store information in memory
-- memories: List all stored memories
-- history: Show conversation history
-- clear: Clear conversation history
+        Memory Commands:
+        - remember <info>: Store information in memory
+        - memories: List all stored memories
+        - history: Show conversation history
+        - clear: Clear conversation history
 
- Example queries:
-- "List all my projects"
-- "Show project details for project ID abc123"
-- "Get account overview"
-- "Show deployment status"
-- "List recent activity logs"
-- "Get resource usage information"
+        Example queries:
+        - "List all my projects"
+        - "Show project details for project ID abc123"
+        - "Get account overview"
+        - "Show deployment status"
+        - "List recent activity logs"
+        - "Get resource usage information"
 
- Memory examples:
-- "remember I prefer staging environments for testing"
-- "remember my main project is project-abc123"
-- "What do you remember about my preferences?"
+        Memory examples:
+        - "remember I prefer staging environments for testing"
+        - "remember my main project is project-abc123"
+        - "What do you remember about my preferences?"
 
- Streaming Mode:
-- Responses are displayed in real-time as they're generated
-- Use 'stream' command to toggle streaming on/off
+        Streaming Mode:
+        - Responses are displayed in real-time as they're generated
+        - Use 'stream' command to toggle streaming on/off
 """
         print(help_text)
     
@@ -533,15 +580,10 @@ async def main():
     Main function to run the interactive client.
     """
     client = InteractiveClient()
-    
     try:
-        # Setup the agent
         if not await client.setup():
             return
-        
-        # Run interactive mode
-        await client.run_interactive_mode()
-        
+        await client.run_interactive_mode()   
     finally:
         # Cleanup
         await client.cleanup()

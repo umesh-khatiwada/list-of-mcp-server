@@ -46,7 +46,7 @@ templates = Jinja2Templates(directory="templates")
 
 class MockComputesphereAgent:
     def __init__(self):
-        self.session_id = "1f7edc1b-80e9-4ef1-9865-4f3ab4a134e4"
+        self.session_id = "5c669c6f-911a-41ac-a5bd-e11c848f2215"
         self.conversations = {}
         self.memories = {}
         self.server_client = ServerClient()
