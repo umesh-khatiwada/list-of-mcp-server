@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-client-server
+  namespace: agenticai
+  labels:
+    app: mcp-client-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-client-server
+  template:
+    metadata:
+      labels:
+        app: mcp-client-server
+    spec:
+      containers:
+      - name: mcp-client-server
+        image: umesh1212/mcp-client-server:v1
+        ports:
+        - containerPort: 8001
+        env:
+        # Add environment variables here if needed
+        # - name: ENV_VAR_NAME
+        #   value: "value"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"

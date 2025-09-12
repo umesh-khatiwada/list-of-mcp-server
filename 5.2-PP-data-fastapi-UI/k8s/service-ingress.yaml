@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-client-server-svc
+  namespace: agenticai
+  labels:
+    app: mcp-client-server
+spec:
+  selector:
+    app: mcp-client-server
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8001
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mcp-client-server-ingress
+  namespace: agenticai
+  labels:
+    app: mcp-client-server
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+spec:
+  rules:
+    - host: mcp.local
+      http:
+        paths:
+          - path: /(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: mcp-client-server-svc
+                port:
+                  number: 80
