@@ -4,6 +4,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
+import os
+from dotenv import load_dotenv
 import asyncio
 import uvicorn
 import datetime
@@ -14,6 +16,10 @@ import aiohttp
 
 # Import your ComputesphereAgent (assuming it's in client.py)
 # from client import ComputesphereAgent
+
+
+# Load environment variables from .env
+load_dotenv()
 
 # Global agent instance
 agent_instance = None
@@ -46,7 +52,7 @@ templates = Jinja2Templates(directory="templates")
 
 class MockComputesphereAgent:
     def __init__(self):
-        self.session_id = "5c669c6f-911a-41ac-a5bd-e11c848f2215"
+        self.session_id = os.getenv("SESSION_ID", "5c669c6f-911a-41ac-a5bd-e11c848f2215")
         self.conversations = {}
         self.memories = {}
         self.server_client = ServerClient()
