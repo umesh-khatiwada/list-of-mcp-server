@@ -140,8 +140,9 @@ class ProxyRequest(BaseModel):
 
 # HTTP Client for port 8000 server
 class ServerClient:
-    def __init__(self, base_url: str = "http://localhost:8000"):
-        self.base_url = base_url
+    def __init__(self, base_url: str = None):
+        # Get base_url from environment variable SERVER_BASE_URL, fallback to default
+        self.base_url = base_url or os.getenv("SERVER_BASE_URL", "http://localhost:8000")
         
     async def make_request(self, endpoint: str, method: str = "GET", data: Optional[Dict] = None, headers: Optional[Dict] = None):
         """Make HTTP request to the server on port 8000"""

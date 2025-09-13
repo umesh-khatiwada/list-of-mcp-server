@@ -21,9 +21,10 @@ spec:
         ports:
         - containerPort: 8001
         env:
-        # Add environment variables here if needed
-        # - name: ENV_VAR_NAME
-        #   value: "value"
+        - name: SESSION_ID
+          value: "5c669c6f-911a-41ac-a5bd-e11c848f2215"
+        - name: SERVER_BASE_URL
+          value: "http://localhost:8000"
         resources:
           requests:
             cpu: "100m"
