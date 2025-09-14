@@ -4,6 +4,7 @@ Strands Agents Client with MCP Server Integration
 This client uses Strands Agents with OpenAI integration to communicate with the MCP server.
 """
 
+import base64
 import logging
 # Configure the root strands logger
 logging.getLogger("strands").setLevel(logging.DEBUG)
@@ -18,8 +19,9 @@ import os
 import asyncio
 import json
 from typing import Optional, Dict, Any
-from dotenv import load_dotenv
 
+from dotenv import load_dotenv
+load_dotenv()
 
 # Strands Agents imports
 from strands import Agent
@@ -33,21 +35,34 @@ from mcp import stdio_client, StdioServerParameters
 try:
     from strands.telemetry import StrandsTelemetry
     import os
-    os.environ.setdefault("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
+    langfuse_public = os.getenv("LANGFUSE_PUBLIC_KEY")
+    langfuse_secret = os.getenv("LANGFUSE_SECRET_KEY")
+    langfuse_host = os.getenv("LANGFUSE_HOST")
+    if not (langfuse_public and langfuse_secret and langfuse_host):
+        raise EnvironmentError("Langfuse credentials or host missing in environment. Check your .env file.")
+    import base64
+    auth = base64.b64encode(f"{langfuse_public}:{langfuse_secret}".encode()).decode()
+    os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = langfuse_host.rstrip('"') + "/api/public/otel"
+    os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = f"Authorization=Basic {auth}"
+
     strands_telemetry = StrandsTelemetry()
-    strands_telemetry.setup_otlp_exporter()      # Send traces to OTLP endpoint
-    strands_telemetry.setup_console_exporter()   # Print traces to console
+    strands_telemetry.setup_otlp_exporter() 
+         # Send traces to OTLP endpoint
     # Set up logger and metrics
-    logger = get_logger("computesphere.agent")
+    logger = logging.getLogger("computesphere.agent")
     # Example metric: count agent initializations and chats
-    agent_init_counter = strands_telemetry.counter("agent_initializations", "Number of agent initializations")
-    chat_counter = strands_telemetry.counter("agent_chats", "Number of agent chat calls")
+    if hasattr(strands_telemetry, "counter"):
+        agent_init_counter = strands_telemetry.counter("agent_initializations", "Number of agent initializations")
+        chat_counter = strands_telemetry.counter("agent_chats", "Number of agent chat calls")
+    else:
+        logger.warning("StrandsTelemetry does not support 'counter' method. Metrics will be disabled.")
+        agent_init_counter = None
+        chat_counter = None
 except ImportError:
     logger = None
     agent_init_counter = None
     chat_counter = None
     pass  # If not available, skip observability
-load_dotenv()
 
 class ComputesphereAgent:
     """
@@ -162,7 +177,16 @@ class ComputesphereAgent:
                 Always be helpful and provide clear, actionable responses. Use memory to make interactions more personalized and efficient.
                 """,
                 name="Computesphere Assistant",
-                description="AI assistant for Computesphere cloud platform management with memory"
+                description="AI assistant for Computesphere cloud platform management with memory",
+                trace_attributes={
+                    "session.id": self.session_id,  # Example session ID
+                    "user.id": "user-email-example@domain.com",  # Example user ID
+                    "langfuse.tags": [
+                        "Agent-SDK-Example",
+                        "Strands-Project-Demo",
+            "Observability-Tutorial"
+        ]
+    }
             )
             if agent_init_counter:
                 agent_init_counter.inc()

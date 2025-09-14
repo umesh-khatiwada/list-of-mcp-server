@@ -13,10 +13,11 @@ dependencies = [
     "openai>=1.102.0",
     "python-dotenv>=1.1.1",
     "redis==6.4.0",
-    "strands-agents[openai]",
+    "strands-agents[openai,otel]",
     "strands-agents-tools",
     "mem0ai>=0.1.116",
     "opensearch-py>=3.0.0",
     "faiss-cpu>=1.12.0",
     "fastapi>=0.116.1",
+    "langfuse>=3.3.4",
 ]

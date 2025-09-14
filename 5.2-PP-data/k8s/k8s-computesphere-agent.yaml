@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: computesphere-agent
+  namespace: agenticai
   labels:
     app: computesphere-agent
 spec:
@@ -16,7 +17,7 @@ spec:
     spec:
       containers:
         - name: computesphere-agent
-          image: umesh1212/mcp-http-server:latest
+          image: umesh1212/mcp-http-server:v2
           ports:
             - containerPort: 8000
           env:
@@ -33,6 +34,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: computesphere-agent-svc
+  namespace: agenticai
   labels:
     app: computesphere-agent
 spec:

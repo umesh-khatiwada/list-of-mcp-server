@@ -1,0 +1,35 @@
+mode: deployment
+
+config:
+  receivers:
+    otlp:
+      protocols:
+        http:
+        grpc:
+
+  processors:
+    batch: {}
+
+  exporters:
+    logging: {}
+    prometheus:
+      endpoint: "0.0.0.0:8889"
+    jaeger:
+      endpoint: "jaeger-collector.observability.svc.cluster.local:14250"
+      tls:
+        insecure: true
+
+  service:
+    pipelines:
+      traces:
+        receivers: [otlp]
+        processors: [batch]
+        exporters: [logging, jaeger]
+      metrics:
+        receivers: [otlp]
+        processors: [batch]
+        exporters: [logging, prometheus]
+      logs:
+        receivers: [otlp]
+        processors: [batch]
+        exporters: [logging]

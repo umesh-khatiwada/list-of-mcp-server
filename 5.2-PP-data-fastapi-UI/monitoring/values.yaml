@@ -1,0 +1,33 @@
+mode: deployment  # or daemonset if you want it on every node
+
+replicaCount: 1
+
+serviceAccount:
+  create: true
+  name: otel-collector
+
+config:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+        http:
+  exporters:
+    logging:
+      loglevel: debug
+    otlphttp:
+      endpoint: "http://my-prometheus-server :4318"  # replace with your backend
+    prometheus:
+      endpoint: "0.0.0.0:8888"
+  processors:
+    batch:
+  service:
+    pipelines:
+      traces:
+        receivers: [otlp]
+        processors: [batch]
+        exporters: [logging, otlphttp]
+      metrics:
+        receivers: [otlp]
+        processors: [batch]
+        exporters: [logging, prometheus]

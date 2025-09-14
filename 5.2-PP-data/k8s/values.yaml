@@ -1,0 +1,36 @@
+mode: deployment
+
+config:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+        http:
+
+  exporters:
+    prometheus:
+      endpoint: "0.0.0.0:8888"  # Expose metrics endpoint for Prometheus to scrape
+
+  processors:
+    batch: {}
+
+  service:
+    pipelines:
+      metrics:
+        receivers: [otlp]
+        processors: [batch]
+        exporters: [prometheus]
+
+ports:
+  metrics:
+    enabled: true
+    containerPort: 8888
+    servicePort: 8888
+    protocol: TCP
+
+serviceMonitor:
+  enabled: true
+  # If using kube-prometheus-stack, this will automatically create a ServiceMonitor for Prometheus to scrape the Collector metrics.
+
+metrics:
+  enabled: true
