@@ -1,0 +1,9 @@
+[project]
+name = "6-02-a2a-mcp-server"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "strands-agents-tools[a2a-client]>=0.2.7",
+]
