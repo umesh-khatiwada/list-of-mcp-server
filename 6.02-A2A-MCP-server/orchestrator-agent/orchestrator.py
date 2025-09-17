@@ -19,7 +19,8 @@ async def main():
     time.sleep(2)
 
 
-    print(orchestrator("Ask research_agent to search 'best cloud providers'"))
+    # print(orchestrator("Ask research_agent to search 'best cloud providers'"))
+    print(orchestrator("Ask math_agent to add 5 and 7"))
 
 if __name__ == "__main__":
     asyncio.run(main())

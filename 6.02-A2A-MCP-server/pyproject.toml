@@ -10,4 +10,5 @@ dependencies = [
     "strands-agents-tools[a2a-client]>=0.2.7",
     "mcp[tool]==1.14.0",
     "fastmcp>=2.12.3",
+    "requests>=2.32.5",
 ]
