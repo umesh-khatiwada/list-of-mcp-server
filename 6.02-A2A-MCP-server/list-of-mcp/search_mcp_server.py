@@ -1,57 +1,36 @@
 # A toy MCP server exposing a fake search tool
+import os
 from mcp.server.fastmcp import FastMCP
 import requests
 
 mcp = FastMCP("search-mcp")
+API_URL = "https://www.searchapi.io/api/v1/search"
+API_KEY = os.getenv("SEARCH_API_KEY")
 
-@mcp.tool(name="search", description="Perform a web search")
+@mcp.tool(name="search", description="Perform a web search using SearchAPI.io Google engine")
 def search(query: str) -> str:
-    url = "https://api.duckduckgo.com/"
     params = {
         "q": query,
-        "format": "json",
-        "no_redirect": 1,
-        "no_html": 1
+        "engine": "google"
+    }
+    headers = {
+        "Authorization": f"Bearer {API_KEY}"
     }
     try:
-        resp = requests.get(url, params=params)
+        resp = requests.get(API_URL, params=params, headers=headers, timeout=20)
         data = resp.json()
-
-        # Check for direct answer
-        answer = data.get("AbstractText")
-        if answer:
-            return f"Search results for '{query}': {answer}"
-
-        # If no direct answer, extract related topics
-        related = data.get("RelatedTopics", [])
-        suggestions = []
-
-        def extract_topics(topics):
-            for topic in topics:
-                # Some topics are nested in "Topics" field
-                if "Topics" in topic:
-                    extract_topics(topic["Topics"])
-                elif "Text" in topic and "FirstURL" in topic:
-                    suggestions.append(f"{topic['Text']} ({topic['FirstURL']})")
-                if len(suggestions) >= 5:
-                    break
-
-        extract_topics(related)
-
-        if suggestions:
-            answer = "No direct answer found. Related topics:\n- " + "\n- ".join(suggestions[:5])
+        # Extract top results
+        results = data.get("organic_results", [])
+        if results:
+            top_results = []
+            for r in results[:5]:
+                title = r.get("title", "No title")
+                link = r.get("link", "")
+                snippet = r.get("snippet", "")
+                top_results.append(f"{title}\n{snippet}\n{link}")
+            return f"Top search results for '{query}':\n\n" + "\n\n".join(top_results)
         else:
-            answer = (
-                "No direct answer found. "
-                "Try refining your search with queries like:\n"
-                "- 'cloud provider comparison'\n"
-                "- 'AWS vs Azure vs Google Cloud'\n"
-                "- 'cloud provider pricing 2025'\n"
-                "- 'cloud provider reliability reviews'"
-            )
-
-        return f"Search results for '{query}':\n{answer}"
-
+            return f"No results found for '{query}'."
     except Exception as e:
         return f"Error during search: {e}"
 
