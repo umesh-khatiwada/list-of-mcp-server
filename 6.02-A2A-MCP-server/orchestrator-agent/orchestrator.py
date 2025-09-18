@@ -4,6 +4,7 @@ import time
 from typing import Optional
 from strands import Agent
 from strands_tools.a2a_client import A2AClientToolProvider
+from strands.models.openai import OpenAIModel
 from strands.models.mistral import MistralModel
 from dotenv import load_dotenv
 
@@ -53,16 +54,29 @@ class OrchestratorAgentWithMemory:
         )
         return model
 
+    def setup_openai_model(self) -> OpenAIModel:
+        """
+        Set up the OpenAI model for the agent.
+        """
+        model = OpenAIModel(
+            client_args={
+                "api_key": self.google_api_key,
+                "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+            },
+            model_id="gemini-2.5-flash",
+            params={
+                "max_tokens": 2000,
+                "temperature": 0.7,
+            }
+        )
+        return model
+
 
 
 async def main():
     provider = A2AClientToolProvider(known_agent_urls=urls)
-    # Use private method for agent discovery (public method not available)
     agents = await provider._list_discovered_agents()
     print("Discovered agents:", agents)
-    time.sleep(2)
-
-    # Dynamically build agent/server list for the system prompt
     agent_lines = []
     for agent in agents['agents']:
         name = agent.get('name', 'unknown_agent')
@@ -77,7 +91,8 @@ async def main():
         model=OrchestratorAgentWithMemory(
             mistral_api_key=os.getenv("MISTRAL_API_KEY"),
             session_id=os.getenv("SESSION_ID")
-        ).setup_mistral_model(),
+        ).setup_openai_model(),
+         callback_handler=None,
         system_prompt=(
             "You are an orchestrator agent in a multi-agent system. "
             "You have access to the following specialized agents and their MCP servers: \n"
