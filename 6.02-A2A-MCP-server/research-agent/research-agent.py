@@ -58,17 +58,20 @@ class ResearchAgentWithMemory:
 
 # Connect to the local search MCP server
 try:
-    mcp_client = MCPClient(lambda: stdio_client(
+    mcp_client_1 = MCPClient(lambda: stdio_client(
         StdioServerParameters(command="python", args=["./list-of-mcp/search_mcp_server.py"])
     ))
+    mcp_client = MCPClient(lambda: stdio_client(
+        StdioServerParameters(command="python", args=["./list-of-mcp/search_mcp_google_notifier.py"])
+    ))
 
-    with mcp_client:
+    with mcp_client, mcp_client_1:
         logger.info("Connected to search MCP server")
         model = ResearchAgentWithMemory().setup_openai_model()
-        tools = mcp_client.list_tools_sync()
+        tools = mcp_client.list_tools_sync() + mcp_client_1.list_tools_sync()
         research_agent = Agent(name="research_agent",
                                model=model,
-                               description="A research agent that exposes search tools via MCP and it do not required search url only research words.", 
+                               description="A research agent that exposes search tools via MCP and it does not require search url, only research words.", 
                                tools=tools)
 
         logger.info("Research agent initialized, starting A2A server on port 9002")

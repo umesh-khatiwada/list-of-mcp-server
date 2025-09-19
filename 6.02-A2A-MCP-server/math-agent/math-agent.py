@@ -59,13 +59,16 @@ class MathAgentWithMemory:
 # Connect to the local math MCP server
 try:
     mcp_client = MCPClient(lambda: stdio_client(
-        StdioServerParameters(command="python", args=["./list-of-mcp/math_mcp_server.py","./list-of-mcp/math_mcp_radian_server.py"])
+        StdioServerParameters(command="python", args=["./list-of-mcp/math_mcp_server.py"])
+    ))
+    mcp_client_1 = MCPClient(lambda: stdio_client(
+        StdioServerParameters(command="python", args=["./list-of-mcp/math_mcp_radian_server.py"])
     ))
 
-    with mcp_client:
+    with mcp_client, mcp_client_1:
         logger.info("Connected to math MCP server")
         model = MathAgentWithMemory().setup_openai_model()
-        tools = mcp_client.list_tools_sync()
+        tools = mcp_client.list_tools_sync() + mcp_client_1.list_tools_sync()
         math_agent = Agent(name="math_agent",
                            model=model,
                            description="A comprehensive math agent that provides arithmetic, algebraic, trigonometric, statistical, and advanced mathematical operations via MCP tools. Supports operations like addition, subtraction, multiplication, division, square root, trigonometric functions, logarithms, factorials, and more.",
