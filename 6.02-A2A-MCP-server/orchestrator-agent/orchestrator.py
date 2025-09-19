@@ -122,7 +122,6 @@ async def main():
                 user_input = await get_async_input("> ")
                 if user_input.lower() == "exit":
                     break
-                    
                 # Send the user input to the orchestrator agent with error handling
                 try:
                     response = orchestrator(user_input)
