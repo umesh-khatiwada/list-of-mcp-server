@@ -10,11 +10,11 @@ mcp = FastMCP("search-mcp")
 API_URL = "https://www.searchapi.io/api/v1/search"
 API_KEY = os.getenv("SEARCH_API_KEY")
 
-@mcp.tool(name="search", description="Perform a web search using SearchAPI.io Google engine")
+@mcp.tool(name="search", description="Perform a web search using SearchAPI.io Bing engine")
 def search(query: str) -> str:
     params = {
         "q": query,
-        "engine": "google"
+        "engine": "bing"
     }
     headers = {
         "Authorization": f"Bearer {API_KEY}"

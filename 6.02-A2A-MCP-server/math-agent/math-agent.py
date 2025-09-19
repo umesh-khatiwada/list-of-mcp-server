@@ -59,7 +59,7 @@ class MathAgentWithMemory:
 # Connect to the local math MCP server
 try:
     mcp_client = MCPClient(lambda: stdio_client(
-        StdioServerParameters(command="python", args=["./list-of-mcp/math_mcp_server.py"])
+        StdioServerParameters(command="python", args=["./list-of-mcp/math_mcp_server.py","./list-of-mcp/math_mcp_radian_server.py"])
     ))
 
     with mcp_client:
