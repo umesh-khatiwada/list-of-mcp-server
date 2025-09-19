@@ -2,6 +2,9 @@
 import os
 from mcp.server.fastmcp import FastMCP
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 mcp = FastMCP("search-mcp")
 API_URL = "https://www.searchapi.io/api/v1/search"
@@ -17,7 +20,8 @@ def search(query: str) -> str:
         "Authorization": f"Bearer {API_KEY}"
     }
     try:
-        resp = requests.get(API_URL, params=params, headers=headers, timeout=20)
+        resp = requests.get(API_URL, params=params, headers=headers, timeout=10)
+        resp.raise_for_status()
         data = resp.json()
         # Extract top results
         results = data.get("organic_results", [])
@@ -31,7 +35,11 @@ def search(query: str) -> str:
             return f"Top search results for '{query}':\n\n" + "\n\n".join(top_results)
         else:
             return f"No results found for '{query}'."
-    except Exception as e:
+    except requests.exceptions.Timeout:
+        return "Error: Search request timed out."
+    except requests.exceptions.RequestException as e:
         return f"Error during search: {e}"
+    except Exception as e:
+        return f"Unexpected error during search: {e}"
 
 mcp.run()

@@ -16,8 +16,8 @@ RESEARCH_AGENT_PID=$(pgrep -f "research-agent.py")
 if [ ! -z "$MATH_AGENT_PID" ]; then
     echo "Math agent is already running (PID: $MATH_AGENT_PID)"
 else
-    echo "Starting math agent..."
-    python3 math-agent/math-agent.py &
+    echo "Starting stable math agent..."
+    python3 math-agent/stable-math-agent.py &
     MATH_AGENT_NEW_PID=$!
     echo "Math agent started (PID: $MATH_AGENT_NEW_PID)"
 fi

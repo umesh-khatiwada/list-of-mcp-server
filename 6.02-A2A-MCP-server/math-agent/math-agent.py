@@ -5,9 +5,15 @@ from mcp import stdio_client, StdioServerParameters
 from strands.models.openai import OpenAIModel
 from dotenv import load_dotenv
 import os
+import asyncio
+import logging
 from typing import Optional, Dict, Any
 
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class MathAgentWithMemory:
     """
@@ -51,18 +57,28 @@ class MathAgentWithMemory:
         return model
 
 # Connect to the local math MCP server
-mcp_client = MCPClient(lambda: stdio_client(
-    StdioServerParameters(command="python", args=["./list-of-mcp/math_mcp_server.py"])
-))
+try:
+    mcp_client = MCPClient(lambda: stdio_client(
+        StdioServerParameters(command="python", args=["./list-of-mcp/math_mcp_server.py"])
+    ))
 
-with mcp_client:
-    model = MathAgentWithMemory().setup_openai_model()
-    tools = mcp_client.list_tools_sync()
-    math_agent = Agent(name="math_agent",
-                       model=model,
-                       description="A math agent that exposes math tools via MCP.",
-                       tools=tools)
+    with mcp_client:
+        logger.info("Connected to math MCP server")
+        model = MathAgentWithMemory().setup_openai_model()
+        tools = mcp_client.list_tools_sync()
+        math_agent = Agent(name="math_agent",
+                           model=model,
+                           description="A comprehensive math agent that provides arithmetic, algebraic, trigonometric, statistical, and advanced mathematical operations via MCP tools. Supports operations like addition, subtraction, multiplication, division, square root, trigonometric functions, logarithms, factorials, and more.",
+                           tools=tools)
 
-    # Expose via A2A
-    server = A2AServer(agent=math_agent, port=9001)
-    server.serve()
+        logger.info("Math agent initialized, starting A2A server on port 9001")
+        # Expose via A2A
+        server = A2AServer(agent=math_agent, port=9001)
+        
+        # Start the server with health check
+        logger.info("Starting A2A server with health check...")
+        server.serve()
+        
+except Exception as e:
+    logger.error(f"Failed to start math agent: {e}")
+    raise

@@ -5,9 +5,15 @@ from mcp import stdio_client, StdioServerParameters
 from strands.models.openai import OpenAIModel
 from dotenv import load_dotenv
 import os
+import asyncio
+import logging
 from typing import Optional, Dict, Any
 
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class ResearchAgentWithMemory:
     """
@@ -51,18 +57,28 @@ class ResearchAgentWithMemory:
         return model
 
 # Connect to the local search MCP server
-mcp_client = MCPClient(lambda: stdio_client(
-    StdioServerParameters(command="python", args=["./list-of-mcp/search_mcp_server.py"])
-))
+try:
+    mcp_client = MCPClient(lambda: stdio_client(
+        StdioServerParameters(command="python", args=["./list-of-mcp/search_mcp_server.py"])
+    ))
 
-with mcp_client:
-    model = ResearchAgentWithMemory().setup_openai_model()
-    tools = mcp_client.list_tools_sync()
-    research_agent = Agent(name="research_agent",
-                           model=model,
-                           description="A research agent that exposes search tools via MCP and it do not required search url only research words.", 
-                           tools=tools)
+    with mcp_client:
+        logger.info("Connected to search MCP server")
+        model = ResearchAgentWithMemory().setup_openai_model()
+        tools = mcp_client.list_tools_sync()
+        research_agent = Agent(name="research_agent",
+                               model=model,
+                               description="A research agent that exposes search tools via MCP and it do not required search url only research words.", 
+                               tools=tools)
 
-    # Expose via A2A
-    server = A2AServer(agent=research_agent, port=9002)
-    server.serve()
+        logger.info("Research agent initialized, starting A2A server on port 9002")
+        # Expose via A2A
+        server = A2AServer(agent=research_agent, port=9002)
+        
+        # Start the server with health check
+        logger.info("Starting A2A server with health check...")
+        server.serve()
+        
+except Exception as e:
+    logger.error(f"Failed to start research agent: {e}")
+    raise

@@ -11,4 +11,5 @@ dependencies = [
     "mcp[tool]==1.14.0",
     "fastmcp>=2.12.3",
     "requests>=2.32.5",
+    "nest-asyncio>=1.6.0",
 ]
