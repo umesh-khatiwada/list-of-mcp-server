@@ -76,6 +76,23 @@ class OrchestratorAgentWithMemory:
         )
         return model
 
+    def setup_deepseek_model(self) -> OpenAIModel:
+        """
+        Set up the OpenAI model for the agent.
+        """
+        model = OpenAIModel(
+            client_args={
+                "api_key": os.getenv("DEEPSEEK_API_KEY"),
+                "base_url": "https://api.deepseek.ai/v1/",  # Correct DeepSeek API base URL
+            },
+            model_id="deepseek-chat",
+            params={
+                "max_tokens": 2000,
+                "temperature": 0.7,
+            }
+        )
+        return model
+
 
 async def get_async_input(prompt: str) -> str:
     """Get input asynchronously to avoid blocking the event loop."""
@@ -102,7 +119,7 @@ async def main():
         orchestrator = Agent(
             name="orchestrator",
             model=OrchestratorAgentWithMemory(
-                mistral_api_key=os.getenv("MISTRAL_API_KEY"),
+                mistral_api_key=os.getenv("GOOGLE_API_KEY"),
                 session_id=os.getenv("SESSION_ID")
             ).setup_openai_model(),
             system_prompt=(
@@ -115,7 +132,7 @@ async def main():
             ),
             tools=provider.tools
         )
-        
+        print("Using DEEPSEEK_API_KEY:", os.getenv("DEEPSEEK_API_KEY"))
         print("Type your request (or 'exit' to quit):")
         while True:
             try:
