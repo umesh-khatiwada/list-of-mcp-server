@@ -73,7 +73,7 @@ try:
                            model=model,
                            description="A comprehensive math agent that provides arithmetic, algebraic, trigonometric, statistical, and advanced mathematical operations via MCP tools. Supports operations like addition, subtraction, multiplication, division, square root, trigonometric functions, logarithms, factorials, and more.",
                            tools=tools)
-
+ 
         logger.info("Math agent initialized, starting A2A server on port 9001")
         # Expose via A2A
         server = A2AServer(agent=math_agent, port=9001)
