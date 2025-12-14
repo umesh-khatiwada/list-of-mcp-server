@@ -13,6 +13,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from config import get_config
+
 logger = logging.getLogger("cai.cybersecurity.server")
 logging.basicConfig(level=logging.INFO)
 
@@ -28,6 +30,9 @@ CyberSecurityAgent = getattr(cybersecurity_module, "CyberSecurityAgent")
 from strands import Agent, tool
 from strands.models.openai import OpenAIModel
 from strands.multiagent.a2a.server import A2AServer
+
+# Load configuration
+config = get_config()
 
 class DeepSeekOpenAIModel(OpenAIModel):
     """OpenAIModel subclass that flattens text content for DeepSeek compatibility."""
@@ -93,34 +98,33 @@ async def compliance_assessment(target: dict[str, Any], framework: str = "OWASP"
 
 
 def build_cai_model() -> OpenAIModel:
-    api_key = os.getenv("DEEPSEEK_API_KEY") or os.getenv("OPENAI_API_KEY")
+    """Build the CAI model using configuration."""
+    api_key = config.model.api_key
     if not api_key:
         raise RuntimeError("Set DEEPSEEK_API_KEY (or OPENAI_API_KEY) before starting the cybersecurity A2A server.")
 
-    base_url = os.getenv("DEEPSEEK_BASE_URL") or os.getenv("OPENAI_BASE_URL") or "https://api.deepseek.ai/v1/"
-    timeout = float(os.getenv("CYBERSECURITY_AGENT_TIMEOUT", "60"))
-
-    logger.info("Cybersecurity agent using DeepSeek base_url=%s timeout=%.1fs", base_url, timeout)
+    logger.info("Cybersecurity agent using DeepSeek base_url=%s timeout=%.1fs", config.model.base_url, config.model.timeout)
 
     return DeepSeekOpenAIModel(
         client_args={
             "api_key": api_key,
-            "base_url": base_url,
-            "timeout": timeout,
+            "base_url": config.model.base_url,
+            "timeout": config.model.timeout,
         },
-        model_id=os.getenv("CAI_MODEL", "deepseek-chat"),
+        model_id=config.model.model_id,
         params={
-            "max_tokens": 600,
-            "temperature": float(os.getenv("CYBERSECURITY_AGENT_TEMPERATURE", "0.2")),
+            "max_tokens": config.model.max_tokens,
+            "temperature": config.model.temperature,
         },
     )
 
 
 def build_agent() -> Agent:
+    """Build the Strands agent using configuration."""
     return Agent(
-        name="cai-cybersecurity-agent",
-        description="CAI cybersecurity specialist available via A2A",
-        system_prompt=cybersecurity_agent.instructions,
+        name=config.agent.name,
+        description=config.agent.description,
+        system_prompt=config.agent.system_prompt or cybersecurity_agent.instructions,
         model=build_cai_model(),
         tools=[
             cybersecurity_consult,
@@ -132,16 +136,13 @@ def build_agent() -> Agent:
 
 
 def build_server() -> A2AServer:
-    host = os.getenv("CYBERSECURITY_AGENT_HOST", "127.0.0.1")
-    port = int(os.getenv("CYBERSECURITY_AGENT_PORT", "9003"))
-    public_url = os.getenv("CYBERSECURITY_AGENT_PUBLIC_URL")
-
+    """Build the A2A server using configuration."""
     return A2AServer(
         agent=build_agent(),
-        host=host,
-        port=port,
-        http_url=public_url,
-        version=os.getenv("CYBERSECURITY_AGENT_VERSION", "0.1.0"),
+        host=config.server.host,
+        port=config.server.port,
+        http_url=config.server.public_url,
+        version=config.server.version,
     )
 
 

@@ -7,6 +7,7 @@ from strands_tools.a2a_client import A2AClientToolProvider
 from dotenv import load_dotenv
 from strands.models.openai import OpenAIModel
 import nest_asyncio
+from config import get_config
 
 load_dotenv()
 nest_asyncio.apply()
@@ -15,22 +16,9 @@ nest_asyncio.apply()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-session_id = os.getenv("SESSION_ID")
-
-def _parse_url_list(raw_urls: Optional[str]) -> list[str]:
-    if not raw_urls:
-        return []
-    parsed = [u.strip() for u in raw_urls.split(",") if u.strip()]
-    return parsed
-
-
-urls: list[str] = _parse_url_list(os.getenv("ORCHESTRATOR_AGENT_URLS"))
-cybersecurity_agent_url = os.getenv("CYBERSECURITY_AGENT_URL")
-if cybersecurity_agent_url:
-    urls.append(cybersecurity_agent_url.strip())
-
-# Remove duplicates while preserving order
-urls = list(dict.fromkeys(urls))
+# Load configuration
+config = get_config()
+urls = config.agent.urls
 
 if not urls:
     logger.warning(
@@ -97,27 +85,20 @@ class OrchestratorAgentWithMemory:
 
     def setup_deepseek_model(self) -> OpenAIModel:
         """
-        Set up the OpenAI model for the agent.
+        Set up the DeepSeek model for the agent using configuration.
         """
-        base_url = (
-            os.getenv("DEEPSEEK_BASE_URL")
-            or os.getenv("OPENAI_BASE_URL")
-            or "https://api.deepseek.ai/v1/"
-        )
-        timeout = float(os.getenv("ORCHESTRATOR_DEEPSEEK_TIMEOUT", "60"))
-
-        logger.info(f"Orchestrator DeepSeek base_url={base_url} timeout={timeout}")
+        logger.info(f"Orchestrator DeepSeek base_url={config.model.base_url} timeout={config.model.timeout}")
 
         model = DeepSeekOpenAIModel(
             client_args={
-                "api_key": os.getenv("DEEPSEEK_API_KEY"),
-                "base_url": base_url,
-                "timeout": timeout,
+                "api_key": config.model.api_key,
+                "base_url": config.model.base_url,
+                "timeout": config.model.timeout,
             },
-            model_id=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+            model_id=config.model.model_id,
             params={
-                "max_tokens": 2000,
-                "temperature": 0.7,
+                "max_tokens": config.model.max_tokens,
+                "temperature": config.model.temperature,
             }
         )
         return model
@@ -147,8 +128,8 @@ async def main():
 
         orchestrator_config = OrchestratorAgentWithMemory(
             mistral_api_key=os.getenv("MISTRAL_API_KEY"),
-            session_id=os.getenv("SESSION_ID"),
-            enable_memory=os.getenv("ORCHESTRATOR_ENABLE_MEMORY", "false").lower() == "true",
+            session_id=config.agent.session_id,
+            enable_memory=config.agent.enable_memory,
         )
 
         orchestrator = Agent(
