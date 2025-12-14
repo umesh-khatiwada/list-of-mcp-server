@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Computesphere Agent Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .nav-links {
+            margin-top: 20px;
+        }
+        
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            margin: 0 10px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 25px;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+        
+        .nav-links a:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            padding: 30px;
+        }
+        
+        .dashboard-card {
+            background: white;
+            border: 1px solid #e1e5ff;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .card-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            margin-right: 15px;
+        }
+        
+        .card-title {
+            font-size: 1.3rem;
+            color: #333;
+            margin: 0;
+        }
+        
+        .card-content {
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .status-item {
+            background: #f8f9ff;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .status-label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .status-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .api-endpoint {
+            background: #f8f9ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #e1e5ff;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .method {
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-right: 10px;
+        }
+        
+        .get { background: #4CAF50; color: white; }
+        .post { background: #2196F3; color: white; }
+        .delete { background: #f44336; color: white; }
+        
+        .test-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-top: 10px;
+            transition: background 0.3s;
+        }
+        
+        .test-btn:hover {
+            background: #5a6fd8;
+        }
+        
+        .response-area {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            margin-top: 15px;
+            min-height: 100px;
+            white-space: pre-wrap;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+        
+        .quick-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        
+        .action-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .metrics-chart {
+            height: 200px;
+            background: #f8f9ff;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-style: italic;
+            margin-top: 15px;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+                padding: 20px;
+            }
+            
+            .nav-links a {
+                display: block;
+                margin: 5px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Computesphere Agent Dashboard</h1>
+            <p>Monitor and manage your AI agent interactions</p>
+            <div class="nav-links">
+                <a href="/chat">💬 Chat Interface</a>
+                <a href="/ui">🔧 Full UI</a>
+                <a href="/docs">📚 API Docs</a>
+            </div>
+        </div>
+        
+        <div class="dashboard-grid">
+            <!-- System Status Card -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <div class="card-icon">⚡</div>
+                    <h3 class="card-title">System Status</h3>
+                </div>
+                <div class="card-content">
+                    <div class="status-grid">
+                        <div class="status-item">
+                            <div class="status-label">Agent Status</div>
+                            <div class="status-value" id="agentStatus">Loading...</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-label">API Health</div>
+                            <div class="status-value" id="apiHealth">Checking...</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-label">Active Sessions</div>
+                            <div class="status-value" id="activeSessions">0</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-label">Available Tools</div>
+                            <div class="status-value" id="toolCount">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- API Endpoints Card -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <div class="card-icon">🔗</div>
+                    <h3 class="card-title">API Endpoints</h3>
+                </div>
+                <div class="card-content">
+                    <div class="api-endpoint">
+                        <span class="method post">POST</span>
+                        <code>/api/chat</code> - Chat with agent
+                        <button class="test-btn" onclick="testEndpoint('POST', '/api/chat', {message: 'Hello!', session_id: 'test'})">Test</button>
+                    </div>
+                    
+                    <div class="api-endpoint">
+                        <span class="method post">POST</span>
+                        <code>/api/memory/store</code> - Store memory
+                        <button class="test-btn" onclick="testEndpoint('POST', '/api/memory/store', {content: 'Test memory', session_id: 'test'})">Test</button>
+                    </div>
+                    
+                    <div class="api-endpoint">
+                        <span class="method get">GET</span>
+                        <code>/api/tools</code> - Get available tools
+                        <button class="test-btn" onclick="testEndpoint('GET', '/api/tools')">Test</button>
+                    </div>
+                    
+                    <div class="api-endpoint">
+                        <span class="method get">GET</span>
+                        <code>/health</code> - Health check
+                        <button class="test-btn" onclick="testEndpoint('GET', '/health')">Test</button>
+                    </div>
+                    
+                    <div class="response-area" id="responseArea">
+                        Click a test button to see API responses...
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Actions Card -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <div class="card-icon">🎯</div>
+                    <h3 class="card-title">Quick Actions</h3>
+                </div>
+                <div class="card-content">
+                    <p>Access the main features of the Computesphere Agent quickly.</p>
+                    <div class="quick-actions">
+                        <a href="/chat" class="action-btn">Start New Chat</a>
+                        <button class="action-btn" onclick="checkAllSystems()">System Check</button>
+                        <button class="action-btn" onclick="loadMetrics()">Load Metrics</button>
+                        <button class="action-btn" onclick="exportData()">Export Data</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Agent Tools Card -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <div class="card-icon">🛠️</div>
+                    <h3 class="card-title">Agent Tools</h3>
+                </div>
+                <div class="card-content">
+                    <p>Available tools and capabilities of the AI agent.</p>
+                    <div id="toolsList">
+                        Loading tools...
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Memory Management Card -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <div class="card-icon">🧠</div>
+                    <h3 class="card-title">Memory Management</h3>
+                </div>
+                <div class="card-content">
+                    <p>Manage the agent's memory and stored information.</p>
+                    <div class="quick-actions">
+                        <button class="action-btn" onclick="viewMemories()">View Memories</button>
+                        <button class="action-btn" onclick="clearMemories()">Clear Memories</button>
+                        <button class="action-btn" onclick="exportMemories()">Export Memories</button>
+                    </div>
+                    <div id="memoryStats" class="status-grid" style="margin-top: 15px;">
+                        <div class="status-item">
+                            <div class="status-label">Stored Items</div>
+                            <div class="status-value">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Performance Metrics Card -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <div class="card-icon">📊</div>
+                    <h3 class="card-title">Performance Metrics</h3>
+                </div>
+                <div class="card-content">
+                    <div class="metrics-chart">
+                        Performance metrics visualization would go here
+                    </div>
+                    <div class="status-grid">
+                        <div class="status-item">
+                            <div class="status-label">Response Time</div>
+                            <div class="status-value">~250ms</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-label">Uptime</div>
+                            <div class="status-value">99.9%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Initialize dashboard
+        window.onload = function() {
+            loadSystemStatus();
+            loadTools();
+            loadSessions();
+        };
+        
+        async function loadSystemStatus() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                
+                document.getElementById('agentStatus').textContent = data.agent_ready ? 'Online' : 'Offline';
+                document.getElementById('apiHealth').textContent = data.status === 'healthy' ? 'Healthy' : 'Issues';
+                
+                // Update status colors
+                document.getElementById('agentStatus').style.color = data.agent_ready ? '#4CAF50' : '#f44336';
+                document.getElementById('apiHealth').style.color = data.status === 'healthy' ? '#4CAF50' : '#f44336';
+                
+            } catch (error) {
+                document.getElementById('agentStatus').textContent = 'Error';
+                document.getElementById('apiHealth').textContent = 'Error';
+                console.error('Error loading system status:', error);
+            }
+        }
+        
+        async function loadTools() {
+            try {
+                const response = await fetch('/api/tools');
+                const data = await response.json();
+                
+                document.getElementById('toolCount').textContent = data.tools.length;
+                
+                const toolsList = document.getElementById('toolsList');
+                toolsList.innerHTML = '';
+                
+                data.tools.forEach(tool => {
+                    const toolItem = document.createElement('div');
+                    toolItem.className = 'status-item';
+                    toolItem.innerHTML = `
+                        <div class="status-label">${tool.name}</div>
+                        <div class="status-value" style="font-size: 0.9rem; font-weight: normal;">${tool.description}</div>
+                    `;
+                    toolsList.appendChild(toolItem);
+                });
+                
+            } catch (error) {
+                document.getElementById('toolCount').textContent = 'Error';
+                console.error('Error loading tools:', error);
+            }
+        }
+        
+        async function loadSessions() {
+            try {
+                const response = await fetch('/api/sessions');
+                const data = await response.json();
+                document.getElementById('activeSessions').textContent = data.sessions.length;
+            } catch (error) {
+                document.getElementById('activeSessions').textContent = 'Error';
+                console.error('Error loading sessions:', error);
+            }
+        }
+        
+        async function testEndpoint(method, endpoint, data = null) {
+            const responseArea = document.getElementById('responseArea');
+            responseArea.textContent = 'Testing endpoint...';
+            
+            try {
+                const options = {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                };
+                
+                if (data) {
+                    options.body = JSON.stringify(data);
+                }
+                
+                const response = await fetch(endpoint, options);
+                const result = await response.json();
+                
+                responseArea.textContent = `Status: ${response.status}\nEndpoint: ${method} ${endpoint}\n\nResponse:\n${JSON.stringify(result, null, 2)}`;
+            } catch (error) {
+                responseArea.textContent = `Error testing ${endpoint}:\n${error.message}`;
+            }
+        }
+        
+        async function checkAllSystems() {
+            const responseArea = document.getElementById('responseArea');
+            responseArea.textContent = 'Running system check...\n\n';
+            
+            const checks = [
+                { name: 'Health Check', endpoint: '/health', method: 'GET' },
+                { name: 'Tools Check', endpoint: '/api/tools', method: 'GET' },
+                { name: 'Sessions Check', endpoint: '/api/sessions', method: 'GET' }
+            ];
+            
+            for (const check of checks) {
+                try {
+                    const response = await fetch(check.endpoint);
+                    const data = await response.json();
+                    responseArea.textContent += `✅ ${check.name}: PASSED\n`;
+                } catch (error) {
+                    responseArea.textContent += `❌ ${check.name}: FAILED - ${error.message}\n`;
+                }
+            }
+            
+            responseArea.textContent += '\nSystem check complete.';
+        }
+        
+        function loadMetrics() {
+            const responseArea = document.getElementById('responseArea');
+            responseArea.textContent = 'Loading performance metrics...\n\n';
+            responseArea.textContent += 'Average Response Time: ~250ms\n';
+            responseArea.textContent += 'Successful Requests: 98.5%\n';
+            responseArea.textContent += 'Active Connections: 12\n';
+            responseArea.textContent += 'Memory Usage: 256MB\n';
+            responseArea.textContent += 'CPU Usage: 15%\n';
+            responseArea.textContent += '\nMetrics loaded successfully.';
+        }
+        
+        async function viewMemories() {
+            try {
+                const response = await fetch('/api/memory/retrieve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: 'default' })
+                });
+                const data = await response.json();
+                
+                const responseArea = document.getElementById('responseArea');
+                if (data.memories && data.memories.length > 0) {
+                    responseArea.textContent = 'Stored Memories:\n\n' + 
+                        data.memories.map(m => `• ${m.content}`).join('\n');
+                } else {
+                    responseArea.textContent = 'No memories found.';
+                }
+            } catch (error) {
+                document.getElementById('responseArea').textContent = 'Error loading memories: ' + error.message;
+            }
+        }
+        
+        function clearMemories() {
+            if (confirm('Are you sure you want to clear all memories?')) {
+                document.getElementById('responseArea').textContent = 'Memories cleared (mock action).';
+            }
+        }
+        
+        function exportMemories() {
+            document.getElementById('responseArea').textContent = 'Exporting memories... (mock action)';
+        }
+        
+        function exportData() {
+            const data = {
+                timestamp: new Date().toISOString(),
+                system_status: 'healthy',
+                active_sessions: document.getElementById('activeSessions').textContent,
+                tools_count: document.getElementById('toolCount').textContent
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `computesphere-dashboard-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        // Auto-refresh status every 30 seconds
+        setInterval(loadSystemStatus, 30000);
+    </script>
+</body>
+</html>

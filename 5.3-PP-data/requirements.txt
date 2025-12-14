@@ -1,0 +1,7 @@
+mcp[cli]>=1.13.1
+openai>=1.75.0
+redis==6.4.0
+python-dotenv
+ipykernel
+httpx
+nest_asyncio

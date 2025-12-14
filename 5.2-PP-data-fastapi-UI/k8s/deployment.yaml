@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-client-server
+  namespace: agenticai
+  labels:
+    app: mcp-client-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-client-server
+  template:
+    metadata:
+      labels:
+        app: mcp-client-server
+    spec:
+      containers:
+      - name: mcp-client-server
+        image: umesh1212/mcp-client-server:v1
+        ports:
+        - containerPort: 8001
+        env:
+        - name: SESSION_ID
+          value: "5c669c6f-911a-41ac-a5bd-e11c848f2215"
+        - name: SERVER_BASE_URL
+          value: "http://localhost:8000"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"

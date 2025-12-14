@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Computesphere Agent Chat</title>
+    <!-- Add Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            margin: 0;
+        }
+        
+        .header-info {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 20px;
+            transition: all 0.3s;
+        }
+        
+        .nav-links a:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background: #f8f9ff;
+            border-right: 1px solid #e1e5ff;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .sidebar h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+        
+        .session-list {
+            margin-bottom: 30px;
+        }
+        
+        .session-item {
+            padding: 10px;
+            background: white;
+            border: 1px solid #e1e5ff;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.9rem;
+        }
+        
+        .session-item:hover, .session-item.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .tools-list {
+            margin-bottom: 20px;
+        }
+        
+        .tool-item {
+            padding: 8px 12px;
+            background: white;
+            border: 1px solid #e1e5ff;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+        }
+        
+        .tool-name {
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .tool-desc {
+            color: #666;
+            margin-top: 2px;
+        }
+        
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9ff;
+        }
+        
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .user-message {
+            justify-content: flex-end;
+        }
+        
+        .agent-message {
+            justify-content: flex-start;
+        }
+        
+        .message-content {
+            max-width: 70%;
+            padding: 15px 20px;
+            border-radius: 20px;
+            position: relative;
+            word-wrap: break-word;
+        }
+        
+        .user-message .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .agent-message .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e1e5ff;
+            border-bottom-left-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        /* Markdown content styles for agent messages */
+        .agent-message .message-content h1,
+        .agent-message .message-content h2,
+        .agent-message .message-content h3,
+        .agent-message .message-content h4,
+        .agent-message .message-content h5,
+        .agent-message .message-content h6 {
+            margin: 10px 0 5px 0;
+            color: #667eea;
+        }
+        
+        .agent-message .message-content h1 { font-size: 1.4em; }
+        .agent-message .message-content h2 { font-size: 1.3em; }
+        .agent-message .message-content h3 { font-size: 1.2em; }
+        .agent-message .message-content h4 { font-size: 1.1em; }
+        
+        .agent-message .message-content p {
+            margin: 8px 0;
+            line-height: 1.5;
+        }
+        
+        .agent-message .message-content ul,
+        .agent-message .message-content ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+        
+        .agent-message .message-content li {
+            margin: 4px 0;
+            line-height: 1.4;
+        }
+        
+        .agent-message .message-content code {
+            background: #f4f4f4;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #d73a49;
+        }
+        
+        .agent-message .message-content pre {
+            background: #f8f8f8;
+            border: 1px solid #e1e1e1;
+            border-radius: 5px;
+            padding: 12px;
+            margin: 10px 0;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .agent-message .message-content pre code {
+            background: none;
+            padding: 0;
+            color: #333;
+        }
+        
+        .agent-message .message-content blockquote {
+            border-left: 4px solid #667eea;
+            margin: 10px 0;
+            padding: 5px 0 5px 15px;
+            background: #f8f9ff;
+            font-style: italic;
+        }
+        
+        .agent-message .message-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px 0;
+        }
+        
+        .agent-message .message-content th,
+        .agent-message .message-content td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .agent-message .message-content th {
+            background: #f8f9ff;
+            font-weight: bold;
+        }
+        
+        .agent-message .message-content a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        .agent-message .message-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .agent-message .message-content strong {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .agent-message .message-content em {
+            font-style: italic;
+        }
+        
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin: 0 10px;
+            font-size: 12px;
+        }
+        
+        .user-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .agent-avatar {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+        
+        .message-time {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 5px;
+            opacity: 0.7;
+        }
+        
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e1e5ff;
+        }
+        
+        .input-form {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+        
+        .input-container {
+            flex: 1;
+            position: relative;
+        }
+        
+        .message-input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e1e5ff;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+            resize: none;
+            min-height: 50px;
+            max-height: 120px;
+        }
+        
+        .message-input:focus {
+            border-color: #667eea;
+        }
+        
+        .input-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .control-btn {
+            padding: 12px 20px;
+            border: 1px solid #e1e5ff;
+            border-radius: 20px;
+            background: white;
+            color: #667eea;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+        
+        .control-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .send-button {
+            padding: 15px 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-width: 100px;
+        }
+        
+        .send-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .send-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .typing-indicator {
+            display: none;
+            align-items: center;
+            padding: 10px 20px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .typing-dots {
+            display: inline-flex;
+            gap: 3px;
+            margin-left: 10px;
+        }
+        
+        .typing-dots span {
+            width: 6px;
+            height: 6px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+        
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+        
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+            30% { transform: translateY(-10px); opacity: 1; }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+        
+        .memory-panel {
+            background: #fff5f5;
+            border: 1px solid #fed7d7;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        
+        .memory-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #e1e5ff;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .memory-btn {
+            padding: 8px 16px;
+            background: #e53e3e;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        
+        .memory-btn:hover {
+            background: #c53030;
+        }
+        
+        .memories-list {
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .memory-item {
+            padding: 8px;
+            background: white;
+            border: 1px solid #e1e5ff;
+            border-radius: 4px;
+            margin-bottom: 5px;
+            font-size: 0.85rem;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                max-height: 200px;
+            }
+            
+            .message-content {
+                max-width: 85%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Computesphere Agent</h1>
+            <div class="header-info">
+                <div class="status-indicator">
+                    <div class="status-dot"></div>
+                    <span id="statusText">Connected</span>
+                </div>
+                <div class="nav-links">
+                    <a href="/dashboard">Dashboard</a>
+                    <a href="/ui">Full UI</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="sidebar">
+                <div class="session-list">
+                    <h3>Sessions</h3>
+                    <div id="sessionsList">
+                        <div class="session-item active" data-session="default">Default Session</div>
+                    </div>
+                    <button class="control-btn" onclick="createNewSession()" style="width: 100%; margin-top: 10px;">
+                        + New Session
+                    </button>
+                </div>
+                
+                <div class="tools-list">
+                    <h3>Available Tools</h3>
+                    <div id="toolsList">
+                        <div class="tool-item">Loading tools...</div>
+                    </div>
+                </div>
+                
+                <div class="memory-panel">
+                    <h3 style="color: #e53e3e; font-size: 1rem; margin-bottom: 10px;">Memory Store</h3>
+                    <input type="text" class="memory-input" id="memoryInput" placeholder="Store information...">
+                    <button class="memory-btn" onclick="storeMemory()">Store</button>
+                    <button class="memory-btn" onclick="retrieveMemories()">Retrieve</button>
+                    <div class="memories-list" id="memoriesList"></div>
+                </div>
+            </div>
+            
+            <div class="chat-area">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="empty-state">
+                        <h3>Welcome to Computesphere Agent!</h3>
+                        <p>Start a conversation with the AI agent. You can chat, store memories, and use various tools.</p>
+                    </div>
+                </div>
+                
+                <div class="typing-indicator" id="typingIndicator">
+                    Agent is thinking
+                    <div class="typing-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+                
+                <div class="input-area">
+                    <div class="input-form">
+                        <div class="input-container">
+                            <textarea 
+                                class="message-input" 
+                                id="messageInput" 
+                                placeholder="Type your message to the Computesphere Agent..."
+                                rows="1"
+                            ></textarea>
+                        </div>
+                        <div class="input-controls">
+                            <button class="control-btn" onclick="clearChat()">Clear</button>
+                            <button class="control-btn" onclick="exportChat()">Export</button>
+                            <button type="submit" class="send-button" id="sendButton" onclick="sendMessage()">
+                                Send
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentSession = 'default';
+        let chatHistory = [];
+        
+        // Auto-resize textarea
+        const messageInput = document.getElementById('messageInput');
+        messageInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
+        
+        // Initialize
+        window.onload = function() {
+            checkHealth();
+            loadSessions();
+            loadTools();
+            loadChatHistory();
+        };
+        
+        async function checkHealth() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                const statusText = document.getElementById('statusText');
+                if (data.agent_ready) {
+                    statusText.textContent = 'Agent Ready';
+                } else {
+                    statusText.textContent = 'Initializing...';
+                }
+            } catch (error) {
+                document.getElementById('statusText').textContent = 'Disconnected';
+            }
+        }
+        
+        async function loadSessions() {
+            try {
+                const response = await fetch('/api/sessions');
+                const data = await response.json();
+                const sessionsList = document.getElementById('sessionsList');
+                sessionsList.innerHTML = '';
+                
+                data.sessions.forEach(session => {
+                    const sessionItem = document.createElement('div');
+                    sessionItem.className = 'session-item';
+                    sessionItem.dataset.session = session;
+                    sessionItem.textContent = session === 'default' ? 'Default Session' : session;
+                    sessionItem.onclick = () => switchSession(session);
+                    if (session === currentSession) {
+                        sessionItem.classList.add('active');
+                    }
+                    sessionsList.appendChild(sessionItem);
+                });
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+            }
+        }
+        
+        async function loadTools() {
+            try {
+                const response = await fetch('/api/tools');
+                const data = await response.json();
+                const toolsList = document.getElementById('toolsList');
+                toolsList.innerHTML = '';
+                
+                data.tools.forEach(tool => {
+                    const toolItem = document.createElement('div');
+                    toolItem.className = 'tool-item';
+                    toolItem.innerHTML = `
+                        <div class="tool-name">${tool.name}</div>
+                        <div class="tool-desc">${tool.description}</div>
+                    `;
+                    toolsList.appendChild(toolItem);
+                });
+            } catch (error) {
+                console.error('Error loading tools:', error);
+            }
+        }
+        
+        async function loadChatHistory() {
+            try {
+                const response = await fetch(`/api/history/${currentSession}`);
+                const data = await response.json();
+                chatHistory = data.history || [];
+                displayChatHistory();
+            } catch (error) {
+                console.error('Error loading chat history:', error);
+            }
+        }
+        
+        function displayChatHistory() {
+            const chatMessages = document.getElementById('chatMessages');
+            
+            if (chatHistory.length === 0) {
+                chatMessages.innerHTML = `
+                    <div class="empty-state">
+                        <h3>Welcome to Computesphere Agent!</h3>
+                        <p>Start a conversation with the AI agent. You can chat, store memories, and use various tools.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            chatMessages.innerHTML = '';
+            
+            chatHistory.forEach(conversation => {
+                addMessageToUI(conversation.user_message, 'user', conversation.timestamp);
+                addMessageToUI(conversation.agent_response, 'agent', conversation.timestamp);
+            });
+            
+            scrollToBottom();
+        }
+        
+        async function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const sendButton = document.getElementById('sendButton');
+            const message = messageInput.value.trim();
+            
+            if (!message) return;
+            
+            // Clear empty state
+            const emptyState = document.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
+            }
+            
+            // Add user message to UI
+            addMessageToUI(message, 'user');
+            
+            // Clear input and disable button
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+            sendButton.disabled = true;
+            sendButton.textContent = 'Sending...';
+            
+            // Show typing indicator
+            showTypingIndicator();
+            
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        session_id: currentSession
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // Hide typing indicator
+                hideTypingIndicator();
+                
+                if (data.success) {
+                    // Add agent response to UI
+                    setTimeout(() => {
+                        addMessageToUI(data.response, 'agent', data.timestamp);
+                        
+                        // Update chat history
+                        chatHistory.push({
+                            user_message: message,
+                            agent_response: data.response,
+                            timestamp: data.timestamp
+                        });
+                    }, 500);
+                } else {
+                    addMessageToUI('Sorry, I encountered an error. Please try again.', 'agent');
+                }
+                
+            } catch (error) {
+                hideTypingIndicator();
+                addMessageToUI('Sorry, I encountered an error. Please try again.', 'agent');
+                console.error('Error sending message:', error);
+            }
+            
+            // Re-enable button
+            sendButton.disabled = false;
+            sendButton.textContent = 'Send';
+            messageInput.focus();
+        }
+        
+        function addMessageToUI(message, sender, timestamp = null) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            
+            const time = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+            
+            // Parse Markdown for agent messages, keep plain text for user messages
+            let messageContent;
+            if (sender === 'agent') {
+                try {
+                    // Configure marked options for better rendering
+                    marked.setOptions({
+                        breaks: true,
+                        gfm: true,
+                        tables: true,
+                        sanitize: false,
+                        headerIds: false,
+                        mangle: false
+                    });
+                    messageContent = marked.parse(message);
+                } catch (error) {
+                    console.error('Error parsing markdown:', error);
+                    messageContent = message.replace(/\n/g, '<br>');
+                }
+            } else {
+                // For user messages, just convert line breaks to <br>
+                messageContent = message.replace(/\n/g, '<br>');
+            }
+            
+            messageDiv.innerHTML = `
+                <div class="message-avatar ${sender}-avatar">
+                    ${sender === 'user' ? 'You' : 'AI'}
+                </div>
+                <div class="message-content">
+                    ${messageContent}
+                    <div class="message-time">${time}</div>
+                </div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+        }
+        
+        function showTypingIndicator() {
+            document.getElementById('typingIndicator').style.display = 'flex';
+            scrollToBottom();
+        }
+        
+        function hideTypingIndicator() {
+            document.getElementById('typingIndicator').style.display = 'none';
+        }
+        
+        function scrollToBottom() {
+            const chatMessages = document.getElementById('chatMessages');
+            setTimeout(() => {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }, 100);
+        }
+        
+        function switchSession(sessionId) {
+            currentSession = sessionId;
+            
+            // Update active session in UI
+            document.querySelectorAll('.session-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.dataset.session === sessionId) {
+                    item.classList.add('active');
+                }
+            });
+            
+            // Load chat history for new session
+            loadChatHistory();
+        }
+        
+        function createNewSession() {
+            const sessionId = 'session_' + Date.now();
+            switchSession(sessionId);
+            loadSessions();
+        }
+        
+        async function storeMemory() {
+            const memoryInput = document.getElementById('memoryInput');
+            const content = memoryInput.value.trim();
+            
+            if (!content) return;
+            
+            try {
+                const response = await fetch('/api/memory/store', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        content: content,
+                        session_id: currentSession
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    memoryInput.value = '';
+                    addMessageToUI(`Memory stored: ${content}`, 'agent');
+                }
+            } catch (error) {
+                console.error('Error storing memory:', error);
+            }
+        }
+        
+        async function retrieveMemories() {
+            try {
+                const response = await fetch('/api/memory/retrieve', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        session_id: currentSession
+                    })
+                });
+                
+                const data = await response.json();
+                const memoriesList = document.getElementById('memoriesList');
+                memoriesList.innerHTML = '';
+                
+                if (data.memories && data.memories.length > 0) {
+                    data.memories.forEach(memory => {
+                        const memoryItem = document.createElement('div');
+                        memoryItem.className = 'memory-item';
+                        memoryItem.textContent = memory.content;
+                        memoriesList.appendChild(memoryItem);
+                    });
+                } else {
+                    memoriesList.innerHTML = '<div class="memory-item">No memories found</div>';
+                }
+            } catch (error) {
+                console.error('Error retrieving memories:', error);
+            }
+        }
+        
+        function clearChat() {
+            if (confirm('Clear the current chat?')) {
+                chatHistory = [];
+                displayChatHistory();
+            }
+        }
+        
+        function exportChat() {
+            if (chatHistory.length === 0) {
+                alert('No chat history to export!');
+                return;
+            }
+            
+            const chatText = chatHistory.map(conversation => 
+                `[${new Date(conversation.timestamp).toLocaleString()}]\nUser: ${conversation.user_message}\nAgent: ${conversation.agent_response}\n`
+            ).join('\n');
+            
+            const blob = new Blob([chatText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `computesphere-chat-${currentSession}-${new Date().toISOString().split('T')[0]}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        // Enter key to send message
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>

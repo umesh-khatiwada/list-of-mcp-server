@@ -1,0 +1,41 @@
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: sidecar-for-my-app
+  namespace: agenticai
+  labels:
+    app: my-app-otel
+spec:
+  mode: sidecar
+  replicas: 1
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc: {}   # OTLP gRPC
+          http: {}   # OTLP HTTP
+      jaeger:
+        protocols:
+          grpc: {}          # Jaeger gRPC
+          thrift_http: {}   # Jaeger HTTP (optional)
+    exporters:
+      debug: {}
+      jaeger:
+        endpoint: my-jaeger.monitoring.svc.cluster.local:14250
+        tls:
+          insecure: true
+    processors:
+      batch: {}
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp, jaeger]
+          processors: [batch]
+          exporters: [debug, jaeger]
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi

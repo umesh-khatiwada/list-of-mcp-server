@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: computesphere-agent
+  namespace: agenticai
+  labels:
+    app: computesphere-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: computesphere-agent
+  template:
+    metadata:
+      labels:
+        app: computesphere-agent
+    spec:
+      containers:
+        - name: computesphere-agent
+          image: umesh1212/mcp-http-server:v2
+          ports:
+            - containerPort: 8000
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: REDIS_URL
+              value: "redis://default:PLv1OZClyTpwBQZPOWANzYM@redis-12825.c302.asia-northeast1-1.gce.cloud.redislabs.com:12825"
+            - name: GOOGLE_API_KEY
+              value: "AIzaSyDCcZ0Akpzd7ReDoEgFrdQjAqx"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: computesphere-agent-svc
+  namespace: agenticai
+  labels:
+    app: computesphere-agent
+spec:
+  type: ClusterIP
+  selector:
+    app: computesphere-agent
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: computesphere-agent-ingress
+  namespace: agenticai
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: mcp-api.do.umeshkhatiwada.com.np
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: computesphere-agent-svc
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - mcp-api.do.umeshkhatiwada.com.np
+      secretName: computesphere-agent-tls

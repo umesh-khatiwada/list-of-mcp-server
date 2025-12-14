@@ -1,0 +1,15 @@
+[project]
+name = "6-02-a2a-mcp-server"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "strands>=0.1.0",
+    "strands-agents[a2a,mistral,openai]>=1.8.0",
+    "strands-agents-tools[a2a-client]>=0.2.7",
+    "mcp[tool]==1.14.0",
+    "fastmcp>=2.12.3",
+    "requests>=2.32.5",
+    "nest-asyncio>=1.6.0",
+]

@@ -1,0 +1,23 @@
+[project]
+name = "5-1-pp-data"
+version = "0.1.0"
+description = "Computesphere MCP Server with Strands Agents Client"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastmcp>=2.11.3",
+    "httpx>=0.28.1",
+    "ipykernel>=6.30.1",
+    "mcp[cli]>=1.13.1",
+    "nest-asyncio>=1.6.0",
+    "openai>=1.102.0",
+    "python-dotenv>=1.1.1",
+    "redis==6.4.0",
+    "strands-agents[openai,otel]",
+    "strands-agents-tools",
+    "mem0ai>=0.1.116",
+    "opensearch-py>=3.0.0",
+    "faiss-cpu>=1.12.0",
+    "fastapi>=0.116.1",
+    "langfuse>=3.3.4",
+]

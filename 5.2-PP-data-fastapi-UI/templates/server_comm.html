@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Communication - Port 8000</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .status-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-left: 5px solid #007bff;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        
+        .status-online { background-color: #28a745; }
+        .status-offline { background-color: #dc3545; }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .card h3 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,123,255,0.3);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #28a745, #1e7e34);
+        }
+        
+        .response-area {
+            background: #343a40;
+            color: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            min-height: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .logs {
+            background: #1a1a1a;
+            color: #00ff00;
+            border-radius: 8px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            height: 300px;
+            overflow-y: auto;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔗 Server Communication</h1>
+            <p>Communicate with server running on port 8000</p>
+        </div>
+        
+        <div class="status-card">
+            <h3>
+                <span id="statusIndicator" class="status-indicator status-offline"></span>
+                Server Status: <span id="statusText">Checking...</span>
+            </h3>
+            <p id="statusDetails">Initializing connection to port 8000...</p>
+        </div>
+        
+        <div class="grid">
+            <div class="card">
+                <h3>🚀 Quick Test</h3>
+                <button class="btn btn-success" onclick="checkServerStatus()">Check Server Status</button>
+                <button class="btn" onclick="testBasicEndpoint()">Test Basic Endpoint</button>
+                <button class="btn" onclick="testChatEndpoint()">Test Chat Endpoint</button>
+            </div>
+            
+            <div class="card">
+                <h3>📡 Custom Request</h3>
+                <div class="form-group">
+                    <label>Endpoint:</label>
+                    <input type="text" id="customEndpoint" value="/" placeholder="/api/endpoint">
+                </div>
+                <div class="form-group">
+                    <label>Method:</label>
+                    <select id="customMethod">
+                        <option value="GET">GET</option>
+                        <option value="POST">POST</option>
+                        <option value="PUT">PUT</option>
+                        <option value="DELETE">DELETE</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Request Body (JSON):</label>
+                    <textarea id="customData" rows="4" placeholder='{"key": "value"}'></textarea>
+                </div>
+                <button class="btn" onclick="sendCustomRequest()">Send Request</button>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h3>📄 Response</h3>
+            <div id="responseArea" class="response-area">
+                Ready to send requests...
+            </div>
+        </div>
+        
+        <div class="card">
+            <h3>📋 Request Logs</h3>
+            <div id="logsArea" class="logs">
+                [INFO] Server communication interface initialized
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let logCounter = 0;
+        
+        function addLog(message, type = 'INFO') {
+            const logs = document.getElementById('logsArea');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] [${type}] ${message}\n`;
+            logs.textContent += logEntry;
+            logs.scrollTop = logs.scrollHeight;
+            logCounter++;
+        }
+        
+        function updateResponse(data) {
+            document.getElementById('responseArea').textContent = JSON.stringify(data, null, 2);
+        }
+        
+        function updateServerStatus(accessible, details = '') {
+            const indicator = document.getElementById('statusIndicator');
+            const text = document.getElementById('statusText');
+            const detailsEl = document.getElementById('statusDetails');
+            
+            if (accessible) {
+                indicator.className = 'status-indicator status-online';
+                text.textContent = 'Online';
+                detailsEl.textContent = details || 'Server on port 8000 is accessible';
+            } else {
+                indicator.className = 'status-indicator status-offline';
+                text.textContent = 'Offline';
+                detailsEl.textContent = details || 'Server on port 8000 is not accessible';
+            }
+        }
+        
+        async function checkServerStatus() {
+            addLog('Checking server status...');
+            try {
+                const response = await fetch('/api/server-status');
+                const data = await response.json();
+                updateResponse(data);
+                updateServerStatus(data.server_accessible, data.message);
+                addLog(`Server status: ${data.server_accessible ? 'ONLINE' : 'OFFLINE'}`);
+            } catch (error) {
+                addLog(`Error checking server status: ${error.message}`, 'ERROR');
+                updateServerStatus(false, `Error: ${error.message}`);
+            }
+        }
+        
+        async function testBasicEndpoint() {
+            addLog('Testing basic endpoint (/) on port 8000...');
+            try {
+                const response = await fetch('/api/server/');
+                const data = await response.json();
+                updateResponse(data);
+                addLog('Basic endpoint test completed');
+            } catch (error) {
+                addLog(`Error testing basic endpoint: ${error.message}`, 'ERROR');
+                updateResponse({error: error.message});
+            }
+        }
+        
+        async function testChatEndpoint() {
+            addLog('Testing chat endpoint on port 8000...');
+            try {
+                const response = await fetch('/api/server/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: "Hello from port 8001!",
+                        session_id: "5c669c6f-911a-41ac-a5bd-e11c848f2215"
+                    })
+                });
+                const data = await response.json();
+                updateResponse(data);
+                addLog('Chat endpoint test completed');
+            } catch (error) {
+                addLog(`Error testing chat endpoint: ${error.message}`, 'ERROR');
+                updateResponse({error: error.message});
+            }
+        }
+        
+        async function sendCustomRequest() {
+            const endpoint = document.getElementById('customEndpoint').value;
+            const method = document.getElementById('customMethod').value;
+            const dataText = document.getElementById('customData').value;
+            
+            addLog(`Sending ${method} request to ${endpoint}...`);
+            
+            try {
+                let requestData = {
+                    endpoint: endpoint,
+                    method: method
+                };
+                
+                if (dataText && (method === 'POST' || method === 'PUT')) {
+                    try {
+                        requestData.data = JSON.parse(dataText);
+                    } catch (e) {
+                        addLog('Invalid JSON in request body', 'ERROR');
+                        return;
+                    }
+                }
+                
+                const response = await fetch('/api/proxy', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const data = await response.json();
+                updateResponse(data);
+                addLog(`Custom request completed with status: ${data.status_code}`);
+                
+            } catch (error) {
+                addLog(`Error sending custom request: ${error.message}`, 'ERROR');
+                updateResponse({error: error.message});
+            }
+        }
+        
+        // Auto-check server status on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(checkServerStatus, 1000);
+        });
+    </script>
+</body>
+</html>

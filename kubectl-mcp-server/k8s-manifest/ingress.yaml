@@ -1,0 +1,33 @@
+# Ingress for external access (optional)
+# Configure this based on your ingress controller (nginx, traefik, etc.)
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kubectl-mcp-server-ingress
+  namespace: kubectl-mcp-server
+  labels:
+    app: kubectl-mcp-server
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    kubernetes.io/ingress.class: "nginx"
+
+spec:
+  tls:
+  - hosts:
+    - kubectl-mcp-server.do.umeshkhatiwada.com.np
+    secretName: kubectl-mcp-server-tls
+  ingressClassName: nginx
+  rules:
+  - host: kubectl-mcp-server.do.umeshkhatiwada.com.np  # Replace with your actual domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: kubectl-mcp-server-service
+            port:
+              number: 80
