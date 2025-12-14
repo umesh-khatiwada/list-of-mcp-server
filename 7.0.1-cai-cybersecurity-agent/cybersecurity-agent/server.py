@@ -32,26 +32,11 @@ from strands.multiagent.a2a.server import A2AServer
 class DeepSeekOpenAIModel(OpenAIModel):
     """OpenAIModel subclass that flattens text content for DeepSeek compatibility."""
 
-    def format_request(
-        self,
-        messages,
-        tool_specs=None,
-        system_prompt=None,
-        tool_choice=None,
-        *,
-        system_prompt_content=None,
-        **kwargs,
-    ):
-        request = super().format_request(
-            messages,
-            tool_specs=tool_specs,
-            system_prompt=system_prompt,
-            tool_choice=tool_choice,
-            system_prompt_content=system_prompt_content,
-            **kwargs,
-        )
+    @staticmethod
+    def _flatten_text_content(payload: dict[str, Any]) -> None:
+        """Mutate the payload so text-only lists collapse into a single string."""
 
-        for message in request.get("messages", []):
+        for message in payload.get("messages", []):
             content = message.get("content")
             if isinstance(content, list) and content and all(
                 isinstance(part, dict) and part.get("type") == "text" and "text" in part
@@ -59,6 +44,9 @@ class DeepSeekOpenAIModel(OpenAIModel):
             ):
                 message["content"] = "\n\n".join(part["text"] for part in content)
 
+    def format_request(self, *args, **kwargs):
+        request = super().format_request(*args, **kwargs)
+        self._flatten_text_content(request)
         return request
 
 
@@ -122,7 +110,7 @@ def build_cai_model() -> OpenAIModel:
         },
         model_id=os.getenv("CAI_MODEL", "deepseek-chat"),
         params={
-            "max_tokens": 1800,
+            "max_tokens": 600,
             "temperature": float(os.getenv("CYBERSECURITY_AGENT_TEMPERATURE", "0.2")),
         },
     )

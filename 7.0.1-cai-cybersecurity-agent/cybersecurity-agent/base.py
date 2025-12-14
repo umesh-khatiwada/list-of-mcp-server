@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
+from typing import Optional, Tuple
 
 from cai.sdk.agents import Agent as CAIAgent, OpenAIChatCompletionsModel, Runner
 from openai import AsyncOpenAI
@@ -27,7 +27,8 @@ class BaseCAIAgent:
     ) -> None:
         self.agent_name = agent_name
         self.agent_type = agent_type
-        self.model_id = model_id or os.getenv("CAI_MODEL", "deepseek/deepseek-chat")
+        resolved_model, api_model = self._resolve_model_ids(model_id or os.getenv("CAI_MODEL"))
+        self.model_id = resolved_model
         self.instructions = (
             instructions
             or "You are a domain specialist operating under CAI orchestration."
@@ -57,6 +58,8 @@ class BaseCAIAgent:
             ),
         )
 
+        self._api_model_id = api_model
+
     @property
     def agent(self) -> CAIAgent:
         return self._agent
@@ -66,3 +69,26 @@ class BaseCAIAgent:
         run_result = await Runner.run(self._agent, message)
         logger.info("CAI chat complete")
         return str(run_result)
+
+    @staticmethod
+    def _resolve_model_ids(configured_model: Optional[str]) -> Tuple[str, str]:
+        """Return (litellm_model_id, api_model_id) based on the configured value."""
+
+        default_litellm = "deepseek/deepseek-chat"
+        default_api = "deepseek-chat"
+
+        if not configured_model:
+            return default_litellm, default_api
+
+        model = configured_model.strip()
+        if not model:
+            return default_litellm, default_api
+
+        if "/" in model:
+            provider, name = model.split("/", 1)
+            return model, name or default_api
+
+        if model.startswith("deepseek"):
+            return f"deepseek/{model}", model
+
+        return model, model

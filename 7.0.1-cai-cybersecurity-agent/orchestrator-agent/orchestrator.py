@@ -1,7 +1,7 @@
 import asyncio
 import os
 import logging
-from typing import Optional
+from typing import Any, Optional
 from strands import Agent
 from strands_tools.a2a_client import A2AClientToolProvider
 from dotenv import load_dotenv
@@ -40,26 +40,11 @@ if not urls:
 class DeepSeekOpenAIModel(OpenAIModel):
     """OpenAIModel variant that flattens text-only messages for DeepSeek."""
 
-    def format_request(
-        self,
-        messages,
-        tool_specs=None,
-        system_prompt=None,
-        tool_choice=None,
-        *,
-        system_prompt_content=None,
-        **kwargs,
-    ):
-        request = super().format_request(
-            messages,
-            tool_specs=tool_specs,
-            system_prompt=system_prompt,
-            tool_choice=tool_choice,
-            system_prompt_content=system_prompt_content,
-            **kwargs,
-        )
+    @staticmethod
+    def _flatten_text_content(payload: dict[str, Any]) -> None:
+        """Mutate the payload so pure-text lists collapse into a single string."""
 
-        for message in request.get("messages", []):
+        for message in payload.get("messages", []):
             content = message.get("content")
             if isinstance(content, list) and content and all(
                 isinstance(part, dict) and part.get("type") == "text" and "text" in part
@@ -67,6 +52,9 @@ class DeepSeekOpenAIModel(OpenAIModel):
             ):
                 message["content"] = "\n\n".join(part["text"] for part in content)
 
+    def format_request(self, *args, **kwargs):
+        request = super().format_request(*args, **kwargs)
+        self._flatten_text_content(request)
         return request
 
 

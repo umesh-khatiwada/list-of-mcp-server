@@ -28,8 +28,8 @@ class CyberSecurityAgent(BaseCAIAgent):
             agent_name="CyberSecurity",
             agent_type="security_specialist",
             instructions=(
-                "You are a senior cybersecurity analyst. Provide clear, actionable guidance, "
-                "prioritize defensive posture, and reference relevant industry frameworks when helpful."
+                "You are a cybersecurity specialist. Provide brief, actionable security guidance. "
+                "Focus on critical findings only. Be concise."
             ),
         )
         
@@ -65,50 +65,27 @@ class CyberSecurityAgent(BaseCAIAgent):
         security_findings = []
         risk_score = 0
         
-        # Analyze reconnaissance findings
+        # Quick reconnaissance analysis
         if recon_data.get("findings"):
-            security_findings.extend([
-                "Information disclosure through exposed services",
-                "Potential attack surface enumerated",
-                "Network topology partially revealed"
-            ])
-            risk_score += len(recon_data["findings"]) * 2
+            security_findings.append("Services identified and mapped")
+            risk_score += 5
         
-        # Analyze vulnerability scan results
+        # Quick vulnerability analysis
         if vuln_data.get("vulnerabilities"):
-            security_findings.extend([
-                "Critical vulnerabilities identified",
-                "Unpatched services detected",
-                "Weak security configurations found"
-            ])
-            risk_score += len(vuln_data["vulnerabilities"]) * 5
+            security_findings.append("Vulnerabilities found")
+            risk_score += 10
         
-        # Base security assessment
-        security_findings.extend([
-            "SSL/TLS configuration assessment needed",
-            "Access control mechanisms evaluation required",
-            "Security headers analysis recommended"
-        ])
-        
-        # Determine risk level
-        if risk_score > 50:
-            risk_level = "critical"
-        elif risk_score > 30:
+        # Determine risk level (simplified)
+        if risk_score > 10:
             risk_level = "high"
-        elif risk_score > 15:
-            risk_level = "medium"
         else:
-            risk_level = "low"
+            risk_level = "medium"
         
-        # Generate recommendations
+        # Generate top recommendations (limit to 3 for token efficiency)
         recommendations = [
-            "Implement Web Application Firewall (WAF)",
-            "Enable security headers (HSTS, CSP, X-Frame-Options)",
-            "Conduct regular vulnerability assessments",
-            "Implement intrusion detection system (IDS)",
-            "Establish security monitoring and logging",
-            "Perform penetration testing",
-            "Review and update security policies"
+            "Fix critical vulnerabilities immediately",
+            "Enable security headers (HSTS, CSP)",
+            "Implement Web Application Firewall"
         ]
         
         result = {
@@ -119,18 +96,9 @@ class CyberSecurityAgent(BaseCAIAgent):
             "risk_score": risk_score,
             "findings": security_findings,
             "recommendations": recommendations,
-            "frameworks_applied": self.security_frameworks,
             "compliance_status": {
-                "owasp_top_10": "partial_compliance",
-                "nist_framework": "needs_improvement",
-                "iso_27001": "non_compliant"
-            },
-            "next_actions": [
-                "Prioritize critical vulnerabilities",
-                "Implement security monitoring",
-                "Develop incident response plan",
-                "Schedule security training"
-            ]
+                "status": "needs_improvement"
+            }
         }
         
         print(f"✅ Security analysis completed - Risk Level: {risk_level.upper()}")
@@ -140,26 +108,18 @@ class CyberSecurityAgent(BaseCAIAgent):
         """Perform threat modeling analysis"""
         
         print(f"🚨 Performing threat modeling analysis")
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(0.5)
         
         threats = [
             {
                 "threat": "SQL Injection",
                 "likelihood": "medium",
-                "impact": "high",
-                "mitigation": "Input validation and parameterized queries"
+                "impact": "high"
             },
             {
                 "threat": "Cross-Site Scripting (XSS)", 
                 "likelihood": "high",
-                "impact": "medium",
-                "mitigation": "Output encoding and Content Security Policy"
-            },
-            {
-                "threat": "Authentication Bypass",
-                "likelihood": "low",
-                "impact": "critical",
-                "mitigation": "Multi-factor authentication and session management"
+                "impact": "medium"
             }
         ]
         
@@ -168,7 +128,6 @@ class CyberSecurityAgent(BaseCAIAgent):
             "analysis_type": "threat_modeling",
             "target": target_info,
             "identified_threats": threats,
-            "threat_count": len(threats),
             "overall_threat_level": "medium"
         }
     
@@ -176,20 +135,18 @@ class CyberSecurityAgent(BaseCAIAgent):
         """Assess compliance against security frameworks"""
         
         print(f"📋 Assessing {framework} compliance")
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.5)
         
         if framework.upper() == "OWASP":
             compliance_items = [
-                {"control": "A01:2021 – Broken Access Control", "status": "non_compliant", "priority": "high"},
-                {"control": "A02:2021 – Cryptographic Failures", "status": "partial", "priority": "medium"},
-                {"control": "A03:2021 – Injection", "status": "compliant", "priority": "low"},
-                {"control": "A04:2021 – Insecure Design", "status": "non_compliant", "priority": "high"},
-                {"control": "A05:2021 – Security Misconfiguration", "status": "partial", "priority": "medium"}
+                {"control": "A01 – Broken Access Control", "status": "non_compliant"},
+                {"control": "A03 – Injection", "status": "compliant"},
+                {"control": "A05 – Security Misconfiguration", "status": "partial"}
             ]
         else:
             compliance_items = [
-                {"control": "Generic Security Control 1", "status": "compliant", "priority": "low"},
-                {"control": "Generic Security Control 2", "status": "partial", "priority": "medium"}
+                {"control": "Security Control 1", "status": "compliant"},
+                {"control": "Security Control 2", "status": "partial"}
             ]
         
         return {
