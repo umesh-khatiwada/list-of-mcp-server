@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  # Orchestrator Agent with Registry Service
+  orchestrator:
+    build:
+      context: .
+      dockerfile: orchestrator-agent/Dockerfile
+    container_name: cai-orchestrator
+    ports:
+      - "8000:8000"
+    environment:
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.ai/v1/}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1/}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
+      ORCHESTRATOR_DEEPSEEK_TIMEOUT: ${ORCHESTRATOR_DEEPSEEK_TIMEOUT:-60}
+      ORCHESTRATOR_MAX_TOKENS: ${ORCHESTRATOR_MAX_TOKENS:-2000}
+      ORCHESTRATOR_TEMPERATURE: ${ORCHESTRATOR_TEMPERATURE:-0.7}
+      ORCHESTRATOR_REGISTRY_HOST: 0.0.0.0
+      ORCHESTRATOR_REGISTRY_PORT: 8000
+      AGENT_REGISTRY_FILE: /data/agent_registry.json
+      SESSION_ID: ${SESSION_ID:-default-session}
+      ORCHESTRATOR_ENABLE_MEMORY: ${ORCHESTRATOR_ENABLE_MEMORY:-false}
+    volumes:
+      - orchestrator_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - cai_network
+
+  # Cybersecurity Agent
+  cybersecurity:
+    build:
+      context: .
+      dockerfile: cybersecurity-agent/Dockerfile
+    container_name: cai-cybersecurity-agent
+    ports:
+      - "9003:9003"
+    environment:
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.ai/v1/}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1/}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
+      CAI_MODEL: ${CAI_MODEL:-deepseek-chat}
+      CYBERSECURITY_AGENT_TIMEOUT: ${CYBERSECURITY_AGENT_TIMEOUT:-60}
+      CYBERSECURITY_AGENT_MAX_TOKENS: ${CYBERSECURITY_AGENT_MAX_TOKENS:-600}
+      CYBERSECURITY_AGENT_TEMPERATURE: ${CYBERSECURITY_AGENT_TEMPERATURE:-0.2}
+      CYBERSECURITY_AGENT_HOST: 0.0.0.0
+      CYBERSECURITY_AGENT_PORT: 9003
+      CYBERSECURITY_AGENT_PUBLIC_URL: http://cybersecurity:9003
+      AGENT_NAME: ${AGENT_NAME:-cai-cybersecurity-agent}
+      AGENT_DESCRIPTION: ${AGENT_DESCRIPTION:-CAI cybersecurity specialist available via A2A}
+      DEBUG: ${DEBUG:-false}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - cai_network
+    depends_on:
+      orchestrator:
+        condition: service_healthy
+
+volumes:
+  orchestrator_data:
+    driver: local
+
+networks:
+  cai_network:
+    driver: bridge
