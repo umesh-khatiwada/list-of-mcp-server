@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cai-system
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cai-secrets
+  namespace: cai-system
+type: Opaque
+stringData:
+  DEEPSEEK_API_KEY: "sk-ca8184987cb04ce99f68bab700da0721"
+  OPENAI_API_KEY: ""
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cai-config
+  namespace: cai-system
+data:
+  DEEPSEEK_API_URL: "https://api.deepseek.com/v1"
+  CAI_STEAM: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cai-deployment
+  namespace: cai-system
+  labels:
+    app: cai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cai
+  template:
+    metadata:
+      labels:
+        app: cai
+    spec:
+      containers:
+      - name: cai
+        image: neptune1212/cai:arm64
+        imagePullPolicy: IfNotPresent
+        command:
+          - /bin/bash
+          - -c
+          - |
+            source /cai/bin/activate
+            cat << 'EOF' > /tmp/cai_commands.txt
+            /agent offsec_pattern
+            Find and exploit vulnerabilities in https://target.com. Perform full offensive security assessment: recon, scan ports/services, enumerate directories, test for common web vulns (SQLi, XSS, etc.), and report everything with evidence.
+            EOF
+            
+            # Execute CAI with piped commands
+            cat /tmp/cai_commands.txt | cai
+        env:
+        - name: DEEPSEEK_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: cai-secrets
+              key: DEEPSEEK_API_KEY
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: cai-secrets
+              key: OPENAI_API_KEY
+        - name: DEEPSEEK_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: cai-config
+              key: DEEPSEEK_API_URL
+        - name: CAI_MODEL
+          value: "deepseek-chat"
+        - name: CAI_STEAM
+          valueFrom:
+            configMapKeyRef:
+              name: cai-config
+              key: CAI_STEAM
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        stdin: true
+        tty: true
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cai-service
+  namespace: cai-system
+spec:
+  selector:
+    app: cai
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+  type: ClusterIP
