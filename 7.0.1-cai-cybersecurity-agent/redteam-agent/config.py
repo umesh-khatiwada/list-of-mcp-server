@@ -16,6 +16,15 @@ class ModelConfig:
 
 
 @dataclass
+class ServerConfig:
+    """Server configuration for A2A protocol."""
+    host: str = os.getenv("REDTEAM_AGENT_HOST", "127.0.0.1")
+    port: int = int(os.getenv("REDTEAM_AGENT_PORT", "9093"))
+    public_url: str = os.getenv("REDTEAM_AGENT_PUBLIC_URL", "")
+    version: str = os.getenv("REDTEAM_AGENT_VERSION", "0.1.0")
+
+
+@dataclass
 class AgentConfig:
     """Agent configuration."""
     name: str = os.getenv("AGENT_NAME", "redteam-agent")
@@ -27,6 +36,7 @@ class AgentConfig:
 class RedTeamConfig:
     """Main red team configuration."""
     model: ModelConfig
+    server: ServerConfig
     agent: AgentConfig
 
     @classmethod
@@ -34,6 +44,7 @@ class RedTeamConfig:
         """Create configuration from environment variables."""
         return cls(
             model=ModelConfig(),
+            server=ServerConfig(),
             agent=AgentConfig()
         )
 

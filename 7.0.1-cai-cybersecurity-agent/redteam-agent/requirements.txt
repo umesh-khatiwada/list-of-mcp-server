@@ -1,4 +1,8 @@
+strands-agents>=0.1.0
+strands-agents-tools>=0.1.0
 cai-framework>=0.5.9
+a2a
 python-dotenv>=1.0.0
 aiohttp>=3.8.0
 openai>=1.0.0
+httpx>=0.24.0
