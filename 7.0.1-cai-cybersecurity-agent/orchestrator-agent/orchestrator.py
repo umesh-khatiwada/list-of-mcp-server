@@ -118,10 +118,26 @@ def start_registry_service(host: str = "127.0.0.1", port: int = 8000):
     registry_app = create_registry_app(config)
     
     def run_server():
+        # Create a new event loop for this thread to avoid nest_asyncio conflicts
+        new_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(new_loop)
+        
         logger.info(f"Starting Agent Registry API on {host}:{port}")
         logger.info("Register agents via: POST http://{host}:{port}/register")
         logger.info("List agents via: GET http://{host}:{port}/agents")
-        uvicorn.run(registry_app, host=host, port=port, log_level="info")
+        
+        try:
+            config_obj = uvicorn.Config(
+                app=registry_app,
+                host=host,
+                port=port,
+                log_level="info",
+                use_colors=False
+            )
+            server = uvicorn.Server(config_obj)
+            new_loop.run_until_complete(server.serve())
+        finally:
+            new_loop.close()
     
     thread = threading.Thread(target=run_server, daemon=True)
     thread.start()
