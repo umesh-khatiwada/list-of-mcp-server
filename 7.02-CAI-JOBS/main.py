@@ -147,27 +147,29 @@ def create_k8s_job(session_id: str, session_name: str, prompt: str,
         args=[
             f"""source /home/kali/cai/bin/activate
 cat <<'EOF' >/tmp/cai_commands.txt
-/agent offsec_pattern
-/model deepseek/deepseek-chat
 {prompt}
-/exit
 EOF
 
-# Execute CAI with piped commands
-cat /tmp/cai_commands.txt | cai
+# Execute CAI with agents.yml and piped commands
+cat /tmp/cai_commands.txt | cai --yaml /config/agents.yml
 
 # Capture logs
 EXIT_CODE=$?
-if [ -d /app/logs ]; then
-  LOGFILE=$(find /app/logs -name "cai_*.jsonl" -type f 2>/dev/null | head -1)
+if [ -d /home/kali/logs ]; then
+  LOGFILE=$(find /home/kali/logs -name "cai_*.jsonl" -type f 2>/dev/null | head -1)
   if [ -n "$LOGFILE" ]; then
+    echo "LOG_FILE_PATH: $LOGFILE"
     echo "$LOGFILE" > /tmp/job_completion_signal
     cat "$LOGFILE" > /tmp/job_logs_content
   fi
 fi
 exit $EXIT_CODE
 """
-        ]
+        ],
+        volume_mounts=[client.V1VolumeMount(
+            name="agents-config",
+            mount_path="/config"
+        )]
     )
     
     # Define the pod template
@@ -180,7 +182,13 @@ exit $EXIT_CODE
         ),
         spec=client.V1PodSpec(
             restart_policy="Never",
-            containers=[container]
+            containers=[container],
+            volumes=[client.V1Volume(
+                name="agents-config",
+                config_map=client.V1ConfigMapVolumeSource(
+                    name="cai-agents-config"
+                )
+            )]
         )
     )
     
@@ -284,10 +292,10 @@ def get_pod_logs_with_path(session_id: str) -> tuple:
                 namespace=NAMESPACE
             )
             
-            if "/app/logs/" in signal_logs:
+            if "LOG_FILE_PATH:" in signal_logs:
                 for line in signal_logs.split('\n'):
-                    if "/app/logs/" in line and session_id in line:
-                        log_path = line.strip()
+                    if "LOG_FILE_PATH:" in line:
+                        log_path = line.replace("LOG_FILE_PATH:", "").strip()
                         break
         except:
             pass

@@ -1,0 +1,14 @@
+parallel_agents:
+  # Define 2 or more agents to run in parallel
+  - name: one_tool_agent
+    model: alias1
+    prompt: "Focus on finding vulnerabilities"
+    unified_context: true  # Each agent has its own message history
+  - name: blueteam_agent
+    model: alias1
+    prompt: "Focus on defensive security"
+    unified_context: true
+  - name: redteam_agent
+    model: alias1
+    prompt: "Focus on offensive security"
+    unified_context: false
