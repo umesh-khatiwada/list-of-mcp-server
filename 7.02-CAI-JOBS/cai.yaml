@@ -10,7 +10,7 @@ metadata:
   namespace: cai-system
 type: Opaque
 stringData:
-  DEEPSEEK_API_KEY: "sk-ca8184987cb04ce99f68bab700da0721"
+  DEEPSEEK_API_KEY: "sk-"
   OPENAI_API_KEY: ""
 ---
 apiVersion: v1

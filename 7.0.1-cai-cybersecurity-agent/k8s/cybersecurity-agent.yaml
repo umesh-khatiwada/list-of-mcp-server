@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cybersecurity-agent
+  labels:
+    app: cybersecurity-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cybersecurity-agent
+  template:
+    metadata:
+      labels:
+        app: cybersecurity-agent
+    spec:
+      containers:
+        - name: cybersecurity-agent
+          image: umesh1212/cybersecurity-agent:v2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9003
+          env:
+            - name: CYBERSECURITY_AGENT_HOST
+              value: "0.0.0.0"
+            - name: CYBERSECURITY_AGENT_PORT
+              value: "9003"
+            # Model configuration
+            - name: CAI_MODEL
+              value: "deepseek-chat"
+            - name: DEEPSEEK_BASE_URL
+              value: "https://api.deepseek.com/v1/"
+            - name: MODEL_TIMEOUT
+              value: "60"
+            - name: MODEL_MAX_TOKENS
+              value: "600"
+            - name: MODEL_TEMPERATURE
+              value: "0.2"
+            # Secrets example: mount your API key via a Secret
+            - name: DEEPSEEK_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ai-api-keys
+                  key: DEEPSEEK_API_KEY
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 9003
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 9003
+            initialDelaySeconds: 10
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cybersecurity-agent
+  labels:
+    app: cybersecurity-agent
+spec:
+  type: ClusterIP
+  selector:
+    app: cybersecurity-agent
+  ports:
+    - name: http
+      port: 9003
+      targetPort: 9003
