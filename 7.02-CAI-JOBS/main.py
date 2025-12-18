@@ -8,6 +8,12 @@ import logging
 from datetime import datetime
 import asyncio
 import os
+import requests
+import json
+from concurrent.futures import ThreadPoolExecutor
+
+# Thread pool for async webhook sending
+webhook_executor = ThreadPoolExecutor(max_workers=5)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -57,8 +63,45 @@ class JobLogs(BaseModel):
     status: str
 
 # Kubernetes configuration
-NAMESPACE = "default"  # Change to your namespace
-CAI_IMAGE = "docker.io/neptune1212/cai:arm64"
+NAMESPACE = os.getenv("NAMESPACE", "default")
+CAI_IMAGE = os.getenv("CAI_IMAGE", "docker.io/neptune1212/cai:amd64")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")  # Optional webhook for job completion
+
+def _send_webhook_sync(session_id: str, job_name: str, status: str, log_path: str = None, logs_content: str = None, file_content: str = None):
+    """Send webhook notification synchronously (runs in thread pool)"""
+    if not WEBHOOK_URL:
+        logger.info(f"No webhook URL configured, skipping notification for session {session_id}")
+        return
+    
+    try:
+        payload = {
+            "session_id": session_id,
+            "job_name": job_name,
+            "status": status,
+            "timestamp": datetime.now().isoformat(),
+            "log_path": log_path,
+            "pod_logs": logs_content,
+            "file_content": file_content
+        }
+        
+        response = requests.post(WEBHOOK_URL, json=payload, timeout=30)
+        logger.info(f"Webhook sent for session {session_id}: {response.status_code}")
+    except Exception as e:
+        logger.error(f"Failed to send webhook for session {session_id}: {str(e)}")
+
+async def send_webhook(session_id: str, job_name: str, status: str, log_path: str = None, logs_content: str = None, file_content: str = None):
+    """Send webhook notification asynchronously"""
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(
+        webhook_executor,
+        _send_webhook_sync,
+        session_id,
+        job_name,
+        status,
+        log_path,
+        logs_content,
+        file_content
+    )
 
 def sanitize_label(value: str) -> str:
     """Sanitize a string to be used as a Kubernetes label"""
@@ -100,19 +143,30 @@ def create_k8s_job(session_id: str, session_name: str, prompt: str,
         image=CAI_IMAGE,
         env=env_vars,
         image_pull_policy="Always",
-        command=["/bin/bash"],
+        command=["/bin/bash", "-c"],
         args=[
-            "-c",
-            f"""
-            source /cai/bin/activate
-            cat << 'EOF' > /tmp/cai_commands.txt
+            f"""source /home/kali/cai/bin/activate
+cat <<'EOF' >/tmp/cai_commands.txt
 /agent offsec_pattern
+/model deepseek/deepseek-chat
 {prompt}
+/exit
 EOF
-            
-            # Execute CAI with piped commands
-            cat /tmp/cai_commands.txt | cai
-            """
+
+# Execute CAI with piped commands
+cat /tmp/cai_commands.txt | cai
+
+# Capture logs
+EXIT_CODE=$?
+if [ -d /app/logs ]; then
+  LOGFILE=$(find /app/logs -name "cai_*.jsonl" -type f 2>/dev/null | head -1)
+  if [ -n "$LOGFILE" ]; then
+    echo "$LOGFILE" > /tmp/job_completion_signal
+    cat "$LOGFILE" > /tmp/job_logs_content
+  fi
+fi
+exit $EXIT_CODE
+"""
         ]
     )
     
@@ -199,6 +253,83 @@ def get_pod_logs(session_id: str) -> str:
         logger.error(f"Failed to get pod logs: {str(e)}")
         return f"Error fetching logs: {str(e)}"
 
+def get_pod_logs_with_path(session_id: str) -> tuple:
+    """Get logs from pod and extract log file path and content if available"""
+    try:
+        pods = core_v1.list_namespaced_pod(
+            namespace=NAMESPACE,
+            label_selector=f"session-id={session_id}"
+        )
+        
+        if not pods.items:
+            return "", None, None
+        
+        pod_name = pods.items[0].metadata.name
+        
+        # Get main pod logs
+        logs = core_v1.read_namespaced_pod_log(
+            name=pod_name,
+            namespace=NAMESPACE,
+            tail_lines=200
+        )
+        
+        log_path = None
+        log_content = None
+        
+        # Try to extract log file path and content
+        try:
+            # Read signal file with path
+            signal_logs = core_v1.read_namespaced_pod_log(
+                name=pod_name,
+                namespace=NAMESPACE
+            )
+            
+            if "/app/logs/" in signal_logs:
+                for line in signal_logs.split('\n'):
+                    if "/app/logs/" in line and session_id in line:
+                        log_path = line.strip()
+                        break
+        except:
+            pass
+        
+        # Try to read the actual log file content
+        try:
+            log_content = core_v1.read_namespaced_pod_log(
+                name=pod_name,
+                namespace=NAMESPACE,
+                container="cai-chat"
+            )
+            
+            # Look for /tmp/job_logs_content (from the script)
+            # We'll try to exec into the pod to read files
+            if log_path:
+                from kubernetes import stream
+                try:
+                    exec_command = [
+                        "/bin/sh",
+                        "-c",
+                        f"cat {log_path} 2>/dev/null || echo 'File not accessible'"
+                    ]
+                    log_content = stream(
+                        core_v1.connect_get_namespaced_pod_exec,
+                        pod_name,
+                        NAMESPACE,
+                        command=exec_command,
+                        stderr=True,
+                        stdin=False,
+                        stdout=True,
+                        tty=False
+                    )
+                except:
+                    pass
+        except:
+            pass
+        
+        return logs, log_path, log_content
+    except Exception as e:
+        logger.error(f"Failed to get pod logs: {str(e)}")
+        return f"Error fetching logs: {str(e)}", None, None
+
 @app.post("/api/sessions", response_model=Session)
 async def create_session(session_data: SessionCreate, background_tasks: BackgroundTasks):
     """Create a new chat session and start a Kubernetes job"""
@@ -253,14 +384,19 @@ async def get_session(session_id: str):
 
 @app.get("/api/sessions/{session_id}/logs", response_model=JobLogs)
 async def get_session_logs(session_id: str):
-    """Get logs for a specific session"""
+    """Get logs for a specific session and trigger webhook on completion"""
     
     if session_id not in sessions_store:
         raise HTTPException(status_code=404, detail="Session not found")
     
     session = sessions_store[session_id]
-    logs = get_pod_logs(session_id)
     status = get_job_status(session["jobName"])
+    logs, log_path, log_content = get_pod_logs_with_path(session_id)
+    
+    # Send webhook if job completed and not yet notified
+    if status == "Completed" and not session.get("webhook_sent"):
+        send_webhook(session_id, session["jobName"], status, log_path, logs, log_content)
+        sessions_store[session_id]["webhook_sent"] = True
     
     return {"logs": logs, "status": status}
 
@@ -289,10 +425,61 @@ async def delete_session(session_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete session: {str(e)}")
 
+@app.post("/api/webhooks")
+async def receive_webhook(payload: dict):
+    """Receive webhook notifications from completed jobs"""
+    try:
+        session_id = payload.get("session_id")
+        status = payload.get("status")
+        log_path = payload.get("log_path")
+        file_content = payload.get("file_content")
+        
+        logger.info(f"Webhook received for session {session_id} with status {status}")
+        logger.info(f"Log path: {log_path}")
+        
+        if file_content:
+            logger.info(f"File content length: {len(file_content)} bytes")
+        
+        # You can process the webhook data here
+        # For example: save to database, trigger notifications, etc.
+        
+        return {
+            "status": "received",
+            "session_id": session_id,
+            "processed": True
+        }
+    except Exception as e:
+        logger.error(f"Error processing webhook: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
+
+async def monitor_jobs():
+    """Background task to monitor job completions and send webhooks"""
+    while True:
+        try:
+            await asyncio.sleep(10)  # Check every 10 seconds
+            
+            for session_id, session in list(sessions_store.items()):
+                if session.get("webhook_sent"):
+                    continue
+                
+                status = get_job_status(session["jobName"])
+                session["status"] = status
+                
+                # Send webhook when job completes
+                if status in ["Completed", "Failed"]:
+                    logger.info(f"Job {session['jobName']} completed with status: {status}")
+                    logs, log_path, log_content = get_pod_logs_with_path(session_id)
+                    await send_webhook(session_id, session["jobName"], status, log_path, logs, log_content)
+                    sessions_store[session_id]["webhook_sent"] = True
+                    
+        except Exception as e:
+            logger.error(f"Error in job monitor: {str(e)}")
+            await asyncio.sleep(5)
 
 @app.on_event("startup")
 async def startup_event():
@@ -317,6 +504,10 @@ async def startup_event():
         logger.info(f"Synced {len(sessions_store)} existing sessions")
     except Exception as e:
         logger.error(f"Failed to sync existing jobs: {str(e)}")
+    
+    # Start background job monitor
+    asyncio.create_task(monitor_jobs())
+    logger.info("Background job monitor started")
 
 if __name__ == "__main__":
     import uvicorn

@@ -15,7 +15,7 @@ spec:
       serviceAccountName: cai-manager-sa
       containers:
       - name: api
-        image: docker.io/umesh1212/cai-manager:v5
+        image: docker.io/umesh1212/cai-manager:v25
         imagePullPolicy: IfNotPresent
         env:
         - name: DEEPSEEK_API_KEY
@@ -26,8 +26,25 @@ spec:
           value: "sk-..."
         - name: CAI_STEAM
           value: "true"
+        - name: CAI_IMAGE
+          value: "neptune1212/kali-cai:amd64"
+        - name: WEBHOOK_URL
+          value: "http://cai-manager:8000/api/webhooks"
         ports:
         - containerPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cai-manager
+spec:
+  selector:
+    app: cai-manager
+  ports:
+  - protocol: TCP
+    port: 8000
+    targetPort: 8000
+  type: ClusterIP
 ---
 apiVersion: v1
 kind: ServiceAccount

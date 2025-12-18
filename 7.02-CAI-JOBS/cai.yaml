@@ -10,7 +10,7 @@ metadata:
   namespace: cai-system
 type: Opaque
 stringData:
-  DEEPSEEK_API_KEY: "sk-"
+  DEEPSEEK_API_KEY: "sk-ca8184987cb04ce99f68bab700da0721"
   OPENAI_API_KEY: ""
 ---
 apiVersion: v1
@@ -41,7 +41,7 @@ spec:
     spec:
       containers:
       - name: cai
-        image: neptune1212/cai:arm64
+        image: umesh1212/cai-agent:latest
         imagePullPolicy: IfNotPresent
         command:
           - /bin/bash
@@ -50,7 +50,9 @@ spec:
             source /cai/bin/activate
             cat << 'EOF' > /tmp/cai_commands.txt
             /agent offsec_pattern
+            /model deepseek/deepseek-chat
             Find and exploit vulnerabilities in https://target.com. Perform full offensive security assessment: recon, scan ports/services, enumerate directories, test for common web vulns (SQLi, XSS, etc.), and report everything with evidence.
+            /exit
             EOF
             
             # Execute CAI with piped commands
