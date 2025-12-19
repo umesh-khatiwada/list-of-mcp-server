@@ -38,7 +38,7 @@ curl -X GET http://localhost:8000/api/sessions
 curl -X GET http://localhost:8000/api/sessions/d463885-3a89-45f1-a4dd-eb9caa565b6d
 
 # 4. Get session logs (replace {session_id} with actual ID)
-curl -X GET http://localhost:8000/api/sessions/8cf2a003-1f5d-4d80-a828-460bf6c7ca89/logs
+curl -X GET http://172.18.254.200:8000/api/sessions/d5e76d1c-ec0d-42dd-9036-2c8cfcc22618/logs
 
 # 5. Get complete job result with file content
 curl -X GET http://localhost:8000/api/sessions/a94ff95b-dbf6-4c59-b532-91f94341ae59/result

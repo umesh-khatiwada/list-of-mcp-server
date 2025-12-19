@@ -10,7 +10,7 @@ metadata:
   namespace: cai-system
 type: Opaque
 stringData:
-  DEEPSEEK_API_KEY: "sk-ca8184987cb04ce99f68bab700da0721"
+  DEEPSEEK_API_KEY: "sk-"
   OPENAI_API_KEY: ""
 ---
 apiVersion: v1
@@ -41,22 +41,15 @@ spec:
     spec:
       containers:
       - name: cai
-        image: umesh1212/cai-agent:latest
+        image: neptune1212/kali-cai:amd64
         imagePullPolicy: IfNotPresent
         command:
           - /bin/bash
           - -c
           - |
-            source /cai/bin/activate
-            cat << 'EOF' > /tmp/cai_commands.txt
-            /agent offsec_pattern
-            /model deepseek/deepseek-chat
-            Find and exploit vulnerabilities in https://target.com. Perform full offensive security assessment: recon, scan ports/services, enumerate directories, test for common web vulns (SQLi, XSS, etc.), and report everything with evidence.
-            /exit
-            EOF
-            
-            # Execute CAI with piped commands
-            cat /tmp/cai_commands.txt | cai
+            source /home/kali/cai/bin/activate
+            cai --yaml /config/agents.yaml --prompt "perform comprehensive security assessment of target.com"
+            sleep 300
         env:
         - name: DEEPSEEK_API_KEY
           valueFrom:
@@ -87,8 +80,13 @@ spec:
           limits:
             memory: "2Gi"
             cpu: "1000m"
-        stdin: true
-        tty: true
+        volumeMounts:
+        - name: agents-config
+          mountPath: /config
+      volumes:
+      - name: agents-config
+        configMap:
+          name: cai-agents-config
       restartPolicy: Always
 ---
 apiVersion: v1
@@ -100,7 +98,8 @@ spec:
   selector:
     app: cai
   ports:
-  - protocol: TCP
+  - name: http
+    protocol: TCP
     port: 8080
     targetPort: 8080
   type: ClusterIP

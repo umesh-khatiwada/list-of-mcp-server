@@ -2,19 +2,26 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: cai-agents-config
+  namespace: cai-system
 data:
-  agents.yml: |
-    parallel_agents:
-      # Define 2 or more agents to run in parallel
-      - name: one_tool_agent
-        model: alias1
-        prompt: "Focus on finding vulnerabilities"
-        unified_context: true  # Each agent has its own message history
-      - name: blueteam_agent
-        model: alias1
-        prompt: "Focus on defensive security"
-        unified_context: false
-      - name: redteam_agent
-        model: alias1
-        prompt: "Focus on offensive security"
-        unified_context: false
+  agents.yaml: |
+    metadata:
+      description: "Multi-perspective security analysis"
+      auto_run: true
+
+    agents:
+      - name: offensive
+        agent_type: redteam_agent
+        model: deepseek/deepseek-chat
+        
+      - name: defensive
+        agent_type: blueteam_agent
+        model: deepseek/deepseek-chat
+        
+      - name: bug_hunter
+        agent_type: bug_bounter_agent
+        model: deepseek/deepseek-chat
+        
+      - name: forensics
+        agent_type: dfir_agent
+        model: deepseek/deepseek-chat
