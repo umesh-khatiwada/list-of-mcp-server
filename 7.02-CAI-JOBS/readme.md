@@ -23,7 +23,7 @@ View last 100 log lines
 
 API Endpoints
 
-curl -X POST http://localhost:8000/api/sessions \
+curl -X POST http://172.18.254.200:8000/api/sessions \
   -H "Content-Type: application/json" \
   -d '{
     "name": "My Test Session",
@@ -40,7 +40,22 @@ curl -X GET http://localhost:8000/api/sessions/d463885-3a89-45f1-a4dd-eb9caa565b
 # 4. Get session logs (replace {session_id} with actual ID)
 curl -X GET http://localhost:8000/api/sessions/8cf2a003-1f5d-4d80-a828-460bf6c7ca89/logs
 
-# 5. Delete session and job (replace {session_id} with actual ID)
+# 5. Get complete job result with file content
+curl -X GET http://localhost:8000/api/sessions/a94ff95b-dbf6-4c59-b532-91f94341ae59/result
+
+# 6. Get output file content (JSON format - parsed JSONL)
+curl -X GET http://localhost:8000/api/sessions/a94ff95b-dbf6-4c59-b532-91f94341ae59/file
+
+# 7. Get output file content (raw format)
+curl -X GET http://localhost:8000/api/sessions/a94ff95b-dbf6-4c59-b532-91f94341ae59/file?format=raw
+
+# 8. Pretty print JSON output
+curl -X GET http://localhost:8000/api/sessions/a94ff95b-dbf6-4c59-b532-91f94341ae59/file | jq .
+
+# 9. Save output to file
+curl -X GET http://localhost:8000/api/sessions/a94ff95b-dbf6-4c59-b532-91f94341ae59/file?format=raw -o output.jsonl
+
+# 10. Delete session and job (replace {session_id} with actual ID)
 curl -X DELETE http://localhost:8000/api/sessions/{session_id}
 
 
@@ -48,4 +63,7 @@ POST /api/sessions - Create new session
 GET /api/sessions - List all sessions
 GET /api/sessions/{id} - Get specific session
 GET /api/sessions/{id}/logs - Get session logs
+GET /api/sessions/{id}/result - Get complete job result with file content
+GET /api/sessions/{id}/file - Get output file (JSON parsed)
+GET /api/sessions/{id}/file?format=raw - Get output file (raw text)
 DELETE /api/sessions/{id} - Delete session and job

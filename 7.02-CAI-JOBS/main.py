@@ -62,6 +62,14 @@ class JobLogs(BaseModel):
     logs: str
     status: str
 
+class JobResult(BaseModel):
+    session_id: str
+    status: str
+    log_path: Optional[str] = None
+    pod_logs: Optional[str] = None
+    file_content: Optional[str] = None
+    file_size: Optional[int] = None
+
 # Kubernetes configuration
 NAMESPACE = os.getenv("NAMESPACE", "default")
 CAI_IMAGE = os.getenv("CAI_IMAGE", "docker.io/neptune1212/cai:amd64")
@@ -408,6 +416,73 @@ async def get_session_logs(session_id: str):
     
     return {"logs": logs, "status": status}
 
+@app.get("/api/sessions/{session_id}/result", response_model=JobResult)
+async def get_session_result(session_id: str):
+    """Get complete job result including file content"""
+    
+    if session_id not in sessions_store:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    session = sessions_store[session_id]
+    status = get_job_status(session["jobName"])
+    
+    # Try to get from stored result first
+    if "result" in session and session["result"].get("file_content"):
+        return {
+            "session_id": session_id,
+            "status": status,
+            "log_path": session["result"].get("log_path"),
+            "pod_logs": session["result"].get("pod_logs"),
+            "file_content": session["result"].get("file_content"),
+            "file_size": len(session["result"].get("file_content", ""))
+        }
+    
+    # Fetch fresh logs
+    logs, log_path, log_content = get_pod_logs_with_path(session_id)
+    
+    return {
+        "session_id": session_id,
+        "status": status,
+        "log_path": log_path,
+        "pod_logs": logs,
+        "file_content": log_content,
+        "file_size": len(log_content) if log_content else 0
+    }
+
+@app.get("/api/sessions/{session_id}/file")
+async def get_session_file(session_id: str, format: str = "json"):
+    """Get the output file content from completed job"""
+    
+    if session_id not in sessions_store:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    session = sessions_store[session_id]
+    status = get_job_status(session["jobName"])
+    
+    if status != "Completed":
+        raise HTTPException(status_code=400, detail=f"Job not completed yet. Status: {status}")
+    
+    # Try to get from stored result first
+    if "result" in session and session["result"].get("file_content"):
+        file_content = session["result"]["file_content"]
+    else:
+        # Fetch fresh logs
+        logs, log_path, file_content = get_pod_logs_with_path(session_id)
+    
+    if not file_content:
+        raise HTTPException(status_code=404, detail="No output file found")
+    
+    if format == "raw":
+        from fastapi.responses import PlainTextResponse
+        return PlainTextResponse(content=file_content)
+    
+    # Return as JSON (parse if it's JSONL)
+    try:
+        lines = [json.loads(line) for line in file_content.strip().split('\n') if line.strip()]
+        return {"data": lines, "count": len(lines)}
+    except:
+        return {"data": file_content, "format": "text"}
+
 @app.delete("/api/sessions/{session_id}")
 async def delete_session(session_id: str):
     """Delete a session and its associated Kubernetes job"""
@@ -441,6 +516,7 @@ async def receive_webhook(payload: dict):
         status = payload.get("status")
         log_path = payload.get("log_path")
         file_content = payload.get("file_content")
+        pod_logs = payload.get("pod_logs")
         
         logger.info(f"Webhook received for session {session_id} with status {status}")
         logger.info(f"Log path: {log_path}")
@@ -448,8 +524,14 @@ async def receive_webhook(payload: dict):
         if file_content:
             logger.info(f"File content length: {len(file_content)} bytes")
         
-        # You can process the webhook data here
-        # For example: save to database, trigger notifications, etc.
+        # Store the results in session store for later retrieval
+        if session_id in sessions_store:
+            sessions_store[session_id]["result"] = {
+                "log_path": log_path,
+                "file_content": file_content,
+                "pod_logs": pod_logs,
+                "status": status
+            }
         
         return {
             "status": "received",
