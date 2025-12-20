@@ -4,12 +4,12 @@ A production-ready multi-agent system for cybersecurity operations with dynamic 
 
 ## Features
 
-✅ **Dynamic Agent Registration** - Register agents via HTTP API without configuration changes  
-✅ **Flexible Configuration** - All settings via environment variables with sensible defaults  
-✅ **Multi-Agent Orchestration** - Intelligent routing of security requests to specialized agents  
-✅ **A2A Protocol** - Agent-to-Agent communication via Strands framework  
-✅ **Persistent Registry** - Agent registrations persist across restarts  
-✅ **Backward Compatible** - Legacy environment variable configuration still supported  
+✅ **Dynamic Agent Registration** - Register agents via HTTP API without configuration changes
+✅ **Flexible Configuration** - All settings via environment variables with sensible defaults
+✅ **Multi-Agent Orchestration** - Intelligent routing of security requests to specialized agents
+✅ **A2A Protocol** - Agent-to-Agent communication via Strands framework
+✅ **Persistent Registry** - Agent registrations persist across restarts
+✅ **Backward Compatible** - Legacy environment variable configuration still supported
 ✅ **Production Ready** - Async/await, error handling, logging, and type safety
 
 ## Quick Start

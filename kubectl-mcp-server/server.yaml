@@ -13,4 +13,4 @@ config:
         type: string
         default: $HOME/.kube
     required:
-      - kubeconfig 
+      - kubeconfig

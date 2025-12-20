@@ -194,27 +194,27 @@ RUN apt-get install -y --no-install-recommends <specific-packages>
 ```bash
 docker-compose build
 ```
-✅ Recommended for production  
-✅ Uses docker-compose.yml  
-✅ All services together  
+✅ Recommended for production
+✅ Uses docker-compose.yml
+✅ All services together
 
 ### Build from Root (Manual)
 ```bash
 docker build -t cai-cybersecurity-agent -f cybersecurity-agent/Dockerfile .
 docker build -t cai-orchestrator -f orchestrator-agent/Dockerfile .
 ```
-✅ Full control over images  
-✅ Can use custom tags  
-✅ Good for CI/CD  
+✅ Full control over images
+✅ Can use custom tags
+✅ Good for CI/CD
 
 ### Build from Agent Directory
 ```bash
 cd cybersecurity-agent && docker build -t cai-cybersecurity-agent -f Dockerfile.local .
 cd orchestrator-agent && docker build -t cai-orchestrator -f Dockerfile.local .
 ```
-✅ Simpler commands  
-✅ Works from agent dir  
-✅ Good for development  
+✅ Simpler commands
+✅ Works from agent dir
+✅ Good for development
 
 ---
 
@@ -338,10 +338,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-      
+
       - name: Build cybersecurity agent
         uses: docker/build-push-action@v4
         with:
@@ -349,7 +349,7 @@ jobs:
           file: ./cybersecurity-agent/Dockerfile
           tags: myregistry/cai-cybersecurity-agent:latest
           push: false
-      
+
       - name: Build orchestrator
         uses: docker/build-push-action@v4
         with:

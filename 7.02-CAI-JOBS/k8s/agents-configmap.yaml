@@ -15,12 +15,12 @@ data:
           model: deepseek/deepseek-chat
           prompt: "Focus on finding vulnerabilities and security issues"
           unified_context: true  # Each agent has its own message history (default)
-          
+
         - name: blueteam_agent
           model: deepseek/deepseek-chat
           prompt: "Focus on defensive security and mitigation strategies"
           unified_context: true
-          
+
         - name: bug_bounter_agent
           model: deepseek/deepseek-chat
           prompt: "Search for bugs and create detailed reports"

@@ -1,6 +1,8 @@
-from fastmcp import Client
 import asyncio
+
 import httpx
+from fastmcp import Client
+
 
 async def main():
     try:
@@ -9,7 +11,7 @@ async def main():
 
             # List available tools
             tools = await client.list_tools()
-            print("Available tools:", [t['name'] for t in tools])
+            print("Available tools:", [t["name"] for t in tools])
 
             # Call the protected tool
             result = await client.call_tool("get_user_info")
@@ -25,6 +27,7 @@ async def main():
         else:
             print(f"HTTP error: {e}")
         exit(1)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

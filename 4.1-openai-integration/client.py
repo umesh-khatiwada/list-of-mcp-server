@@ -1,13 +1,13 @@
 import asyncio
 import json
-from contextlib import AsyncExitStack
 import os
+from contextlib import AsyncExitStack
 from typing import Any, Dict, List, Optional
 
 import nest_asyncio
 from dotenv import load_dotenv
-from mcp.client.stdio import stdio_client
 from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
 from openai import AsyncOpenAI
 
 # Apply nest_asyncio to allow nested event loops (needed for Jupyter/IPython)
@@ -31,7 +31,7 @@ class MCPOpenAIClient:
         self.exit_stack = AsyncExitStack()
         self.openai_client = AsyncOpenAI(
             api_key=os.getenv("GOOGLE_API_KEY"),
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
         )
         self.model = model
         self.stdio: Optional[Any] = None

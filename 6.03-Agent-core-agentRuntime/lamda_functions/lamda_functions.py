@@ -1,6 +1,7 @@
 import json
-import os
 import logging
+import os
+
 import urllib3
 
 # Setup logger
@@ -12,6 +13,7 @@ http = urllib3.PoolManager()
 
 # MCP server endpoint (must include path like: https://<host>/mcp/execute)
 MCP_SERVER_ENDPOINT = os.environ.get("MCP_SERVER_ENDPOINT")
+
 
 def lambda_handler(event, context):
     logger.info("Received event: %s", json.dumps(event))
@@ -27,7 +29,9 @@ def lambda_handler(event, context):
         )
 
         if not command_json_string:
-            return format_response_for_agent("Missing 'command_json_string' in the request", success=False)
+            return format_response_for_agent(
+                "Missing 'command_json_string' in the request", success=False
+            )
 
         logger.info("Forwarding command to MCP: %s", command_json_string)
 
@@ -36,17 +40,19 @@ def lambda_handler(event, context):
             method="POST",
             url=MCP_SERVER_ENDPOINT,
             headers={"Content-Type": "application/json"},
-            body=command_json_string.encode("utf-8")
+            body=command_json_string.encode("utf-8"),
         )
 
         # Check for non-200 status codes from MCP server
         if mcp_response.status != 200:
-            error_detail = mcp_response.data.decode('utf-8')
-            logger.error(f"MCP server returned non-200 status: {mcp_response.status}, Detail: {error_detail}")
+            error_detail = mcp_response.data.decode("utf-8")
+            logger.error(
+                f"MCP server returned non-200 status: {mcp_response.status}, Detail: {error_detail}"
+            )
             return format_response_for_agent(
                 f"Failed to get valid response from MCP server (Status: {mcp_response.status}). Detail: {error_detail}",
                 success=False,
-                http_status_code=mcp_response.status
+                http_status_code=mcp_response.status,
             )
 
         # Parse MCP server response (it's a JSON string)
@@ -64,15 +70,21 @@ def lambda_handler(event, context):
             if mcp_result.get("status") == "success":
                 result_data = mcp_result.get("result", {})
                 if "pods" in result_data:
-                    pod_names = [p.get("name") for p in result_data["pods"] if p.get("name")]
+                    pod_names = [
+                        p.get("name") for p in result_data["pods"] if p.get("name")
+                    ]
                     if pod_names:
                         formatted_message = f"Found pods: {', '.join(pod_names)}."
                     else:
                         formatted_message = "No pods found."
                 elif "services" in result_data:
-                    service_names = [s.get("name") for s in result_data["services"] if s.get("name")]
+                    service_names = [
+                        s.get("name") for s in result_data["services"] if s.get("name")
+                    ]
                     if service_names:
-                        formatted_message = f"Found services: {', '.join(service_names)}."
+                        formatted_message = (
+                            f"Found services: {', '.join(service_names)}."
+                        )
                     else:
                         formatted_message = "No services found."
                 elif "pod" in result_data:
@@ -81,7 +93,11 @@ def lambda_handler(event, context):
                 elif "logs" in result_data:
                     logs_content = result_data["logs"]
                     # Truncate logs if very long for summary, provide full in body if needed
-                    formatted_message = f"Logs retrieved: {logs_content[:200]}..." if len(logs_content) > 200 else f"Logs retrieved: {logs_content}"
+                    formatted_message = (
+                        f"Logs retrieved: {logs_content[:200]}..."
+                        if len(logs_content) > 200
+                        else f"Logs retrieved: {logs_content}"
+                    )
                 else:
                     formatted_message = "Kubernetes command executed successfully with unknown result format."
             else:
@@ -91,12 +107,18 @@ def lambda_handler(event, context):
             return format_response_for_agent(formatted_message, success=True)
 
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse MCP response as JSON: {e}, Raw response: {mcp_result_json_str}")
-            return format_response_for_agent(f"Failed to parse MCP server response: {str(e)}", success=False)
+            logger.error(
+                f"Failed to parse MCP response as JSON: {e}, Raw response: {mcp_result_json_str}"
+            )
+            return format_response_for_agent(
+                f"Failed to parse MCP server response: {str(e)}", success=False
+            )
 
     except Exception as e:
         logger.exception("Unexpected error occurred in Lambda handler")
-        return format_response_for_agent(f"An unexpected error occurred: {str(e)}", success=False)
+        return format_response_for_agent(
+            f"An unexpected error occurred: {str(e)}", success=False
+        )
 
 
 def format_response_for_agent(message: str, success: bool, http_status_code: int = 200):
@@ -110,12 +132,12 @@ def format_response_for_agent(message: str, success: bool, http_status_code: int
             "apiPath": "/process_k8s_command",
             "httpMethod": "POST",
             "httpStatusCode": http_status_code,
-            "responseBody": { # Changed from 'content' to 'responseBody' for direct JSON
+            "responseBody": {  # Changed from 'content' to 'responseBody' for direct JSON
                 "application/json": {
-                    "body": { # The schema expects a JSON object here
-                        "message": message # This is the 'message' property the schema expects
+                    "body": {  # The schema expects a JSON object here
+                        "message": message  # This is the 'message' property the schema expects
                     }
                 }
-            }
-        }
+            },
+        },
     }

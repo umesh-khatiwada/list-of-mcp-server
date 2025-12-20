@@ -265,7 +265,7 @@ api_key = os.getenv("DEEPSEEK_API_KEY") or os.getenv("OPENAI_API_KEY") or defaul
 
 **Problem**: No API key configured
 
-**Solution**: 
+**Solution**:
 ```bash
 export DEEPSEEK_API_KEY=your-key
 # or
@@ -276,7 +276,7 @@ export OPENAI_API_KEY=your-key
 
 **Problem**: Orchestrator can't reach cybersecurity agent
 
-**Solution**: 
+**Solution**:
 ```bash
 # Check that agent is running
 # Check that CYBERSECURITY_AGENT_URL or ORCHESTRATOR_AGENT_URLS is correct

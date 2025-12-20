@@ -6,7 +6,8 @@ import logging
 import os
 from typing import Optional, Tuple
 
-from cai.sdk.agents import Agent as CAIAgent, OpenAIChatCompletionsModel, Runner
+from cai.sdk.agents import Agent as CAIAgent
+from cai.sdk.agents import OpenAIChatCompletionsModel, Runner
 from openai import AsyncOpenAI
 
 logger = logging.getLogger("cai.cybersecurity.base")
@@ -27,14 +28,18 @@ class BaseCAIAgent:
     ) -> None:
         self.agent_name = agent_name
         self.agent_type = agent_type
-        resolved_model, api_model = self._resolve_model_ids(model_id or os.getenv("CAI_MODEL"))
+        resolved_model, api_model = self._resolve_model_ids(
+            model_id or os.getenv("CAI_MODEL")
+        )
         self.model_id = resolved_model
         self.instructions = (
             instructions
             or "You are a domain specialist operating under CAI orchestration."
         )
 
-        self._api_key = api_key or os.getenv("DEEPSEEK_API_KEY") or os.getenv("OPENAI_API_KEY")
+        self._api_key = (
+            api_key or os.getenv("DEEPSEEK_API_KEY") or os.getenv("OPENAI_API_KEY")
+        )
         if not self._api_key:
             raise RuntimeError(
                 "Set DEEPSEEK_API_KEY (or OPENAI_API_KEY) for CAI agents before starting the service."
@@ -46,7 +51,9 @@ class BaseCAIAgent:
             or os.getenv("OPENAI_BASE_URL")
             or "https://api.deepseek.ai/v1/"
         )
-        logger.info("BaseCAIAgent init model_id=%s base_url=%s", self.model_id, self._base_url)
+        logger.info(
+            "BaseCAIAgent init model_id=%s base_url=%s", self.model_id, self._base_url
+        )
         self._client = AsyncOpenAI(api_key=self._api_key, base_url=self._base_url)
 
         self._agent = CAIAgent(

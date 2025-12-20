@@ -1,0 +1,45 @@
+repos:
+  # General hooks for file hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        files: ^7\.02-CAI-JOBS/
+      - id: end-of-file-fixer
+        files: ^7\.02-CAI-JOBS/
+      - id: check-added-large-files
+        files: ^7\.02-CAI-JOBS/
+      - id: check-case-conflict
+        files: ^7\.02-CAI-JOBS/
+      - id: check-merge-conflict
+        files: ^7\.02-CAI-JOBS/
+
+  # Python code formatting
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        language_version: python3
+        args: [--line-length=88]
+        files: ^7\.02-CAI-JOBS/.*\.py$
+
+  # Python import sorting
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: [--profile=black]
+        files: ^7\.02-CAI-JOBS/.*\.py$
+
+  # Remove unused imports
+  - repo: https://github.com/PyCQA/autoflake
+    rev: v2.2.1
+    hooks:
+      - id: autoflake
+        args:
+          - --in-place
+          - --remove-all-unused-imports
+          - --remove-unused-variables
+          - --remove-duplicate-keys
+          - --ignore-init-module-imports
+        files: ^7\.02-CAI-JOBS/.*\.py$

@@ -24,7 +24,7 @@
    - Better signal handling for graceful shutdown
    - Fixed memory leaks during server restart
    - Enhanced server resilience during connection failures
-   
+
 ## Key Improvements
 
 1. **Simplified MCP Server Implementation**
@@ -117,4 +117,4 @@ python -m kubectl_mcp_tool.minimal_wrapper
 bash install.sh
 ```
 
-Then try using your AI assistant to interact with your Kubernetes cluster. 
+Then try using your AI assistant to interact with your Kubernetes cluster.

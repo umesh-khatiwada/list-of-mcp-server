@@ -1,16 +1,17 @@
 import asyncio
-import os
 import logging
-from typing import Any, Optional
-from strands import Agent
-from strands_tools.a2a_client import A2AClientToolProvider
-from dotenv import load_dotenv
-from strands.models.openai import OpenAIModel
-import nest_asyncio
-from config import get_config
-from agent_registry_service import create_registry_app
-import uvicorn
+import os
 import threading
+from typing import Any, Optional
+
+import nest_asyncio
+import uvicorn
+from agent_registry_service import create_registry_app
+from config import get_config
+from dotenv import load_dotenv
+from strands import Agent
+from strands.models.openai import OpenAIModel
+from strands_tools.a2a_client import A2AClientToolProvider
 
 load_dotenv()
 nest_asyncio.apply()
@@ -28,6 +29,7 @@ if not urls:
         "No A2A agent URLs pre-configured. Use /register endpoint to add agents dynamically."
     )
 
+
 class DeepSeekOpenAIModel(OpenAIModel):
     """OpenAIModel variant that flattens text-only messages for DeepSeek."""
 
@@ -37,9 +39,15 @@ class DeepSeekOpenAIModel(OpenAIModel):
 
         for message in payload.get("messages", []):
             content = message.get("content")
-            if isinstance(content, list) and content and all(
-                isinstance(part, dict) and part.get("type") == "text" and "text" in part
-                for part in content
+            if (
+                isinstance(content, list)
+                and content
+                and all(
+                    isinstance(part, dict)
+                    and part.get("type") == "text"
+                    and "text" in part
+                    for part in content
+                )
             ):
                 message["content"] = "\n\n".join(part["text"] for part in content)
 
@@ -53,7 +61,13 @@ class OrchestratorAgentWithMemory:
     """
     A Strands Agent client that communicates with the mcp with memory capabilities.
     """
-    def __init__(self, mistral_api_key: Optional[str] = None, session_id: Optional[str] = None, enable_memory: bool = True):
+
+    def __init__(
+        self,
+        mistral_api_key: Optional[str] = None,
+        session_id: Optional[str] = None,
+        enable_memory: bool = True,
+    ):
         """
         Initialize the Orchestrator Agent.
 
@@ -62,7 +76,7 @@ class OrchestratorAgentWithMemory:
             session_id: Session ID for MCP server authentication
             enable_memory: Whether to enable conversation memory
         """
-        self.session_id = session_id or os.getenv('SESSION_ID', 'default-session')
+        self.session_id = session_id or os.getenv("SESSION_ID", "default-session")
         self.enable_memory = enable_memory
         self.user_id = f"research_user_{self.session_id}"  # Unique user ID for memory
         self.agent = None
@@ -82,7 +96,7 @@ class OrchestratorAgentWithMemory:
             params={
                 "max_tokens": 2000,
                 "temperature": 0.7,
-            }
+            },
         )
         return model
 
@@ -90,7 +104,9 @@ class OrchestratorAgentWithMemory:
         """
         Set up the DeepSeek model for the agent using configuration.
         """
-        logger.info(f"Orchestrator DeepSeek base_url={config.model.base_url} timeout={config.model.timeout}")
+        logger.info(
+            f"Orchestrator DeepSeek base_url={config.model.base_url} timeout={config.model.timeout}"
+        )
 
         model = DeepSeekOpenAIModel(
             client_args={
@@ -102,7 +118,7 @@ class OrchestratorAgentWithMemory:
             params={
                 "max_tokens": config.model.max_tokens,
                 "temperature": config.model.temperature,
-            }
+            },
         )
         return model
 
@@ -116,29 +132,29 @@ async def get_async_input(prompt: str) -> str:
 def start_registry_service(host: str = "127.0.0.1", port: int = 8000):
     """Start the agent registry service in a background thread."""
     registry_app = create_registry_app(config)
-    
+
     def run_server():
         # Create a new event loop for this thread to avoid nest_asyncio conflicts
         new_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(new_loop)
-        
+
         logger.info(f"Starting Agent Registry API on {host}:{port}")
         logger.info("Register agents via: POST http://{host}:{port}/register")
         logger.info("List agents via: GET http://{host}:{port}/agents")
-        
+
         try:
             config_obj = uvicorn.Config(
                 app=registry_app,
                 host=host,
                 port=port,
                 log_level="info",
-                use_colors=False
+                use_colors=False,
             )
             server = uvicorn.Server(config_obj)
             new_loop.run_until_complete(server.serve())
         finally:
             new_loop.close()
-    
+
     thread = threading.Thread(target=run_server, daemon=True)
     thread.start()
     logger.info(f"Registry service started on http://{host}:{port}")
@@ -150,13 +166,13 @@ async def main():
         registry_host = os.getenv("ORCHESTRATOR_REGISTRY_HOST", "127.0.0.1")
         registry_port = int(os.getenv("ORCHESTRATOR_REGISTRY_PORT", "8000"))
         start_registry_service(registry_host, registry_port)
-        
+
         # Wait for registry to start
         await asyncio.sleep(2)
-        
+
         # Use dynamically registered agents
         urls = config.agent.urls
-        
+
         if urls:
             provider = A2AClientToolProvider(known_agent_urls=urls)
             agents = await provider._list_discovered_agents()
@@ -165,16 +181,20 @@ async def main():
 
             # Dynamically build agent/server list for the system prompt
             agent_lines = []
-            for agent in agents['agents']:
-                name = agent.get('name', 'unknown_agent')
-                url = agent.get('url', 'unknown_url')
-                skills = ', '.join([s.get('name', '') for s in agent.get('skills', [])])
-                desc = agent.get('description', '')
+            for agent in agents["agents"]:
+                name = agent.get("name", "unknown_agent")
+                url = agent.get("url", "unknown_url")
+                skills = ", ".join([s.get("name", "") for s in agent.get("skills", [])])
+                desc = agent.get("description", "")
                 agent_lines.append(f"- {name} at {url} ({skills}) {desc}")
-            agent_list_str = '\n'.join(agent_lines)
+            agent_list_str = "\n".join(agent_lines)
         else:
-            logger.warning("No agents registered yet. Register agents via the /register endpoint.")
-            agent_list_str = "No agents currently available. Register agents using the registry API."
+            logger.warning(
+                "No agents registered yet. Register agents via the /register endpoint."
+            )
+            agent_list_str = (
+                "No agents currently available. Register agents using the registry API."
+            )
             provider = None
 
         orchestrator_config = OrchestratorAgentWithMemory(
@@ -195,7 +215,7 @@ async def main():
                     "Do not require the user to specify agent names or URLs. "
                     "Always use the available tools to answer user queries, with a preference for routing security requests to the CAI cybersecurity agent."
                 ),
-                tools=provider.tools
+                tools=provider.tools,
             )
             print("Type your request (or 'exit' to quit):")
             while True:
@@ -210,7 +230,9 @@ async def main():
                         print(response)
                     except Exception as e:
                         logger.error(f"Error processing request '{user_input}': {e}")
-                        print(f"Sorry, I encountered an error processing your request: {e}")
+                        print(
+                            f"Sorry, I encountered an error processing your request: {e}"
+                        )
                 except KeyboardInterrupt:
                     logger.info("Received interrupt signal, shutting down...")
                     break
@@ -221,9 +243,11 @@ async def main():
             print("Registry service is running. Register agents at:")
             print(f"  POST http://{registry_host}:{registry_port}/register")
             print("Example:")
-            print('  curl -X POST http://localhost:8000/register \\')
+            print("  curl -X POST http://localhost:8000/register \\")
             print('    -H "Content-Type: application/json" \\')
-            print('    -d \'{"name": "cybersecurity-agent", "url": "http://127.0.0.1:9003"}\'')
+            print(
+                '    -d \'{"name": "cybersecurity-agent", "url": "http://127.0.0.1:9003"}\''
+            )
             print("\nPress Ctrl+C to exit.")
             while True:
                 try:
@@ -231,11 +255,12 @@ async def main():
                 except KeyboardInterrupt:
                     logger.info("Received interrupt signal, shutting down...")
                     break
-                
+
     except Exception as e:
         logger.error(f"Failed to initialize orchestrator: {e}")
         print(f"Failed to start orchestrator: {e}")
         raise
+
 
 if __name__ == "__main__":
     asyncio.run(main())

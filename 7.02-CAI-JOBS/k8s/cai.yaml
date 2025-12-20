@@ -47,12 +47,12 @@ spec:
             source /home/kali/cai/bin/activate
             echo "Starting CAI security assessment..."
             cp /config/agents.yml .
-            
+
             # Set environment variables
             export TARGET="${TARGET:-target.com}"
             export OUTPUT_DIR="${OUTPUT_DIR:-/tmp}"
             export TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-            
+
             cai --prompt "
             /agent redteam_agent
             Perform comprehensive security scan on $TARGET
@@ -61,7 +61,7 @@ spec:
             /cost
             /exit
             " 2>&1 | tee /tmp/cai-results.log
-            
+
             echo "Scan completed. Results saved to $OUTPUT_DIR/scan_${TIMESTAMP}.json"
         env:
         - name: DEEPSEEK_API_KEY

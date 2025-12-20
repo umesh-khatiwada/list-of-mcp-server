@@ -1,14 +1,13 @@
 import asyncio
-import json
-from contextlib import AsyncExitStack
 import os
-from typing import Any, Dict, List, Optional
+from contextlib import AsyncExitStack
+from typing import Any, List, Optional
 
+import google.generativeai as genai
 import nest_asyncio
 from dotenv import load_dotenv
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-import google.generativeai as genai
 
 # Apply nest_asyncio for Jupyter/IPython compatibility
 nest_asyncio.apply()
@@ -19,6 +18,7 @@ load_dotenv(".env")
 
 class MCPGeminiClient:
     """Client for interacting with Gemini models using MCP tools."""
+
     def __init__(self, model: str = "gemini-1.5-pro"):
         """Initialize the Gemini MCP client.
         Args:
@@ -59,24 +59,19 @@ class MCPGeminiClient:
     async def get_mcp_tools(self) -> List[genai.protos.FunctionDeclaration]:
         """Get available tools from the MCP server in Gemini function format."""
         tools_result = await self.session.list_tools()
-        
+
         gemini_tools = []
         for tool in tools_result.tools:
             # Create a simple schema that Gemini accepts
             # Use an empty schema for tools that don't need parameters
-            schema = genai.protos.Schema(
-                type=genai.protos.Type.OBJECT,
-                properties={}
-            )
-            
+            schema = genai.protos.Schema(type=genai.protos.Type.OBJECT, properties={})
+
             function_decl = genai.protos.FunctionDeclaration(
-                name=tool.name,
-                description=tool.description,
-                parameters=schema
+                name=tool.name, description=tool.description, parameters=schema
             )
-            
+
             gemini_tools.append(function_decl)
-            
+
         return gemini_tools
 
     async def process_query(self, query: str) -> str:
@@ -89,8 +84,7 @@ class MCPGeminiClient:
                 tool_config = genai.protos.Tool(function_declarations=tools)
                 # Ask Gemini with tool awareness
                 response = self.gemini.generate_content(
-                    contents=query,
-                    tools=[tool_config]
+                    contents=query, tools=[tool_config]
                 )
             else:
                 response = self.gemini.generate_content(contents=query)
@@ -98,22 +92,25 @@ class MCPGeminiClient:
                 return "No response from Gemini."
             candidate = response.candidates[0]
             # Check if there are function calls
-            if hasattr(candidate, 'content') and candidate.content.parts:
+            if hasattr(candidate, "content") and candidate.content.parts:
                 for part in candidate.content.parts:
-                    if hasattr(part, 'function_call') and part.function_call:
+                    if hasattr(part, "function_call") and part.function_call:
                         fn_call = part.function_call
                         fn_name = fn_call.name
                         fn_args = dict(fn_call.args) if fn_call.args else {}
-                        
+
                         print(f"🚀 Calling tool: {fn_name} with args: {fn_args}")
 
                         # Call MCP tool
                         result = await self.session.call_tool(fn_name, fn_args)
-                        
+
                         # Extract result content
                         tool_result = ""
-                        if hasattr(result, 'content') and result.content:
-                            if isinstance(result.content, list) and len(result.content) > 0:
+                        if hasattr(result, "content") and result.content:
+                            if (
+                                isinstance(result.content, list)
+                                and len(result.content) > 0
+                            ):
                                 tool_result = result.content[0].text
                             else:
                                 tool_result = str(result.content)
@@ -132,12 +129,17 @@ class MCPGeminiClient:
                         final_response = self.gemini.generate_content(follow_up_prompt)
                         return final_response.text
             # No function calls, return the direct response
-            if hasattr(candidate, 'content') and candidate.content.parts:
-                return candidate.content.parts[0].text if candidate.content.parts else "No content returned."
-            
+            if hasattr(candidate, "content") and candidate.content.parts:
+                return (
+                    candidate.content.parts[0].text
+                    if candidate.content.parts
+                    else "No content returned."
+                )
+
             return "No response generated."
         except Exception as e:
             import traceback
+
             print(f"Error details: {traceback.format_exc()}")
             return f"Error processing query: {str(e)}"
 
@@ -156,5 +158,7 @@ async def main():
         await client.cleanup()
     except Exception as e:
         print(f"Main error: {e}")
+
+
 if __name__ == "__main__":
     asyncio.run(main())

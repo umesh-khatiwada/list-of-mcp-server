@@ -1,4 +1,5 @@
 import os
+
 from fastmcp import FastMCP
 from fastmcp.server.auth.providers.google import GoogleProvider
 
@@ -6,19 +7,20 @@ from fastmcp.server.auth.providers.google import GoogleProvider
 auth = GoogleProvider(
     client_id=os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID") or "",
     client_secret=os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_SECRET") or "",
-    base_url="http://localhost:8000",   # 🔑 not 127.0.0.1
+    base_url="http://localhost:8000",  # 🔑 not 127.0.0.1
     required_scopes=["openid", "email", "profile"],
-    redirect_path="/callback"
+    redirect_path="/callback",
 )
 
 mcp = FastMCP(name="Google Secured App", auth=auth)
+
 
 # Add a protected tool to test authentication
 @mcp.tool
 async def get_user_info() -> dict:
     """Returns information about the authenticated Google user."""
     from fastmcp.server.dependencies import get_access_token
-    
+
     token = get_access_token()
     # The GoogleProvider stores user data in token claims
     return {
@@ -26,5 +28,5 @@ async def get_user_info() -> dict:
         "email": token.claims.get("email"),
         "name": token.claims.get("name"),
         "picture": token.claims.get("picture"),
-        "locale": token.claims.get("locale")
+        "locale": token.claims.get("locale"),
     }

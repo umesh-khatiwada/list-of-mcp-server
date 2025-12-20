@@ -449,12 +449,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      
+
       - name: Build images
         run: |
           docker build -t cai-cybersecurity-agent:${{ github.sha }} ./cybersecurity-agent
           docker build -t cai-orchestrator:${{ github.sha }} ./orchestrator-agent
-      
+
       - name: Push to registry
         run: |
           docker push cai-cybersecurity-agent:${{ github.sha }}

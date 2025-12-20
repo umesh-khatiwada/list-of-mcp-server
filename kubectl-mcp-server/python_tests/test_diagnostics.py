@@ -4,9 +4,7 @@ def test_validate_invalid_yaml(self, mcp_client):
     invalid_pod = {
         "apiVersion": "v1",
         "kind": "Pod",
-        "metadata": {
-            "name": "invalid-pod"
-        },
+        "metadata": {"name": "invalid-pod"},
         "spec": {
             "containers": [
                 {
@@ -14,7 +12,7 @@ def test_validate_invalid_yaml(self, mcp_client):
                     "image": "nginx:latest"
                 }
             ]
-        }
+        },
     }
 
     # Generate a temporary file with the invalid pod definition
@@ -22,9 +20,9 @@ def test_validate_invalid_yaml(self, mcp_client):
         # Create a more explicit file path that includes 'invalid'
         # (Our mock needs to see this in the filename)
         invalid_filepath = f"{pod_file}_invalid_resource"
-        response = mcp_client.call_tool("validate_resource", {
-            "filepath": invalid_filepath
-        })
+        response = mcp_client.call_tool(
+            "validate_resource", {"filepath": invalid_filepath}
+        )
 
         # Validate response format
         is_valid, error = validate_mcp_response(response)
@@ -37,4 +35,6 @@ def test_validate_invalid_yaml(self, mcp_client):
         # The result should indicate the resource is invalid
         result = response["result"]
         assert "valid" in result, "Result should contain 'valid' field"
-        assert result["valid"] is False, "Invalid resource should be reported as invalid" 
+        assert (
+            result["valid"] is False
+        ), "Invalid resource should be reported as invalid"

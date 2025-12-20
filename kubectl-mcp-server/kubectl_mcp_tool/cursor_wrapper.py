@@ -4,15 +4,13 @@ Debug wrapper for kubectl-mcp server when run by Cursor.
 This script captures detailed logs and handles common errors.
 """
 
-import os
-import sys
-import time
-import traceback
-import logging
-import shutil
-import signal
 import atexit
 import json
+import logging
+import os
+import shutil
+import sys
+import traceback
 
 # Set up debug logging to a file
 log_dir = os.path.expanduser("~/.cursor/logs")
@@ -22,13 +20,11 @@ log_file = os.path.join(log_dir, "kubectl_mcp_debug.log")
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler(log_file),
-        logging.StreamHandler(sys.stdout)
-    ]
+    handlers=[logging.FileHandler(log_file), logging.StreamHandler(sys.stdout)],
 )
 
 logger = logging.getLogger("cursor-wrapper")
+
 
 def check_environment():
     """Check environment variables and file permissions."""
@@ -37,44 +33,43 @@ def check_environment():
     logger.info(f"Python executable: {sys.executable}")
     logger.info(f"Python version: {sys.version}")
     logger.info(f"Python path: {sys.path}")
-    
+
     # Check kubectl
     kubectl_path = shutil.which("kubectl")
     if kubectl_path:
         logger.info(f"kubectl found at: {kubectl_path}")
     else:
         logger.error("kubectl not found in PATH")
-    
+
     # Check kubeconfig
-    kube_config = os.environ.get('KUBECONFIG', '~/.kube/config')
+    kube_config = os.environ.get("KUBECONFIG", "~/.kube/config")
     expanded_path = os.path.expanduser(kube_config)
     logger.info(f"KUBECONFIG: {kube_config} (expanded: {expanded_path})")
-    
+
     if os.path.exists(expanded_path):
         logger.info(f"Kubernetes config exists at {expanded_path}")
         # Check permissions
         try:
-            with open(expanded_path, 'r') as f:
+            with open(expanded_path, "r") as f:
                 logger.info("Successfully opened kubeconfig file")
         except Exception as e:
             logger.error(f"Failed to read kubeconfig: {e}")
     else:
         logger.error(f"Kubernetes config does not exist at {expanded_path}")
-    
+
     # List all environment variables
     logger.info("Environment variables:")
     for key, value in sorted(os.environ.items()):
-        if key.lower() in ('path', 'pythonpath', 'kubeconfig'):
+        if key.lower() in ("path", "pythonpath", "kubeconfig"):
             logger.info(f"{key}: {value}")
         # Skip logging other env vars for security
 
     # Test kubectl
     try:
         import subprocess
+
         result = subprocess.run(
-            ["kubectl", "version", "--client"],
-            capture_output=True,
-            text=True
+            ["kubectl", "version", "--client"], capture_output=True, text=True
         )
         logger.info(f"kubectl version result: {result.returncode}")
         logger.info(f"kubectl version output: {result.stdout}")
@@ -83,18 +78,19 @@ def check_environment():
     except Exception as e:
         logger.error(f"Failed to run kubectl: {e}")
 
+
 def run_direct_mcp_server():
     """Run a direct FastMCP server for better compatibility with Cursor."""
     try:
         logger.info("Creating direct FastMCP server for Cursor")
         # Import the modules needed for the server
-        from mcp.server.fastmcp import FastMCP
         from kubectl_mcp_tool.natural_language import process_query
-        
+        from mcp.server.fastmcp import FastMCP
+
         # Create a FastMCP server with explicit name
         server = FastMCP(name="kubectl-mcp")
         logger.info("FastMCP server created successfully")
-        
+
         # Register the natural language processing tool
         @server.tool(
             name="process_natural_language",
@@ -104,11 +100,11 @@ def run_direct_mcp_server():
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "The natural language query to process"
+                        "description": "The natural language query to process",
                     }
                 },
-                "required": ["query"]
-            }
+                "required": ["query"],
+            },
         )
         async def process_natural_language(query: str):
             """Process natural language query for kubectl."""
@@ -116,27 +112,27 @@ def run_direct_mcp_server():
             result = process_query(query)
             logger.info(f"Result: {result}")
             return json.dumps(result)
-        
+
         # Register a simple ping tool to help with debugging
         @server.tool(
             name="kubernetes_ping",
-            description="Ping the kubernetes server to check if it's working"
+            description="Ping the kubernetes server to check if it's working",
         )
         async def kubernetes_ping():
             """Simple ping tool for testing connectivity."""
             logger.info("Ping received from Cursor")
             return "Kubernetes MCP server is working!"
-        
+
         # Start the server using stdio transport
         logger.info("Starting FastMCP server with stdio transport")
         import asyncio
-        
+
         # Handle clean exit
         def cleanup():
             logger.info("Shutting down MCP server")
-        
+
         atexit.register(cleanup)
-        
+
         # Run the server
         asyncio.run(server.run_stdio_async())
     except Exception as e:
@@ -144,12 +140,13 @@ def run_direct_mcp_server():
         logger.error(traceback.format_exc())
         raise
 
+
 def run_mcp_server():
     """Run the MCP server with error handling - old version."""
     try:
         logger.info("Importing kubectl_mcp_tool.cli.cli...")
         from kubectl_mcp_tool.cli import cli
-        
+
         logger.info("Starting MCP server...")
         sys.argv = [sys.argv[0], "serve"]
         cli.main()
@@ -162,6 +159,7 @@ def run_mcp_server():
             sys.path.insert(0, project_root)
             logger.info(f"Added {project_root} to sys.path")
             from kubectl_mcp_tool.cli import cli
+
             sys.argv = [sys.argv[0], "serve"]
             cli.main()
         except Exception as inner_e:
@@ -171,8 +169,9 @@ def run_mcp_server():
         logger.error(f"Error starting MCP server: {e}")
         logger.error(traceback.format_exc())
 
+
 if __name__ == "__main__":
     logger.info("===== Starting kubectl-mcp debug wrapper =====")
     check_environment()
     # Use the direct FastMCP implementation for better Cursor compatibility
-    run_direct_mcp_server() 
+    run_direct_mcp_server()

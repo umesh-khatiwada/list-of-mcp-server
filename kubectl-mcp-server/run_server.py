@@ -4,14 +4,16 @@ Main executable script for running the kubectl MCP server.
 This file can be executed directly, avoiding module import issues.
 """
 
-import asyncio
 import argparse
+import asyncio
 import logging
-import sys
 import os
+import sys
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger("mcp-server-runner")
 
 # Add the project root to sys.path
@@ -20,6 +22,7 @@ sys.path.insert(0, project_root)
 
 # Import after setting up path
 from kubectl_mcp_tool.mcp_server import MCPServer
+
 
 def main():
     """Run the kubectl MCP server."""
@@ -48,7 +51,9 @@ def main():
             logger.info(f"Starting {server_name} with stdio transport.")
             loop.run_until_complete(mcp_server.serve_stdio())
         elif args.transport == "sse":
-            logger.info(f"Starting {server_name} with SSE transport on port {args.port}.")
+            logger.info(
+                f"Starting {server_name} with SSE transport on port {args.port}."
+            )
             loop.run_until_complete(mcp_server.serve_sse(port=args.port))
     except KeyboardInterrupt:
         logger.info("Server shutdown requested by user.")
@@ -56,6 +61,7 @@ def main():
         logger.error(f"Server exited with error: {e}", exc_info=True)
     finally:
         logger.info("Shutting down server.")
+
 
 if __name__ == "__main__":
     main()

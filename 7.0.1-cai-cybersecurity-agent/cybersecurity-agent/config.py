@@ -7,9 +7,12 @@ from dataclasses import dataclass
 @dataclass
 class ModelConfig:
     """Model configuration."""
+
     model_id: str = os.getenv("CAI_MODEL", "deepseek-chat")
     api_key: str = os.getenv("DEEPSEEK_API_KEY") or os.getenv("OPENAI_API_KEY", "")
-    base_url: str = os.getenv("DEEPSEEK_BASE_URL") or os.getenv("OPENAI_BASE_URL", "https://api.deepseek.ai/v1/")
+    base_url: str = os.getenv("DEEPSEEK_BASE_URL") or os.getenv(
+        "OPENAI_BASE_URL", "https://api.deepseek.ai/v1/"
+    )
     timeout: float = float(os.getenv("MODEL_TIMEOUT", "60"))
     max_tokens: int = int(os.getenv("MODEL_MAX_TOKENS", "600"))
     temperature: float = float(os.getenv("MODEL_TEMPERATURE", "0.2"))
@@ -17,12 +20,15 @@ class ModelConfig:
     def validate(self) -> None:
         """Validate configuration."""
         if not self.api_key:
-            raise RuntimeError("Set DEEPSEEK_API_KEY (or OPENAI_API_KEY) environment variable.")
+            raise RuntimeError(
+                "Set DEEPSEEK_API_KEY (or OPENAI_API_KEY) environment variable."
+            )
 
 
 @dataclass
 class ServerConfig:
     """Server configuration."""
+
     host: str = os.getenv("CYBERSECURITY_AGENT_HOST", "127.0.0.1")
     port: int = int(os.getenv("CYBERSECURITY_AGENT_PORT", "9003"))
     public_url: str = os.getenv("CYBERSECURITY_AGENT_PUBLIC_URL", "")
@@ -33,18 +39,22 @@ class ServerConfig:
 @dataclass
 class AgentConfig:
     """Agent configuration."""
+
     name: str = os.getenv("AGENT_NAME", "cai-cybersecurity-agent")
-    description: str = os.getenv("AGENT_DESCRIPTION", "CAI cybersecurity specialist available via A2A")
+    description: str = os.getenv(
+        "AGENT_DESCRIPTION", "CAI cybersecurity specialist available via A2A"
+    )
     system_prompt: str = os.getenv(
         "AGENT_SYSTEM_PROMPT",
         "You are a cybersecurity specialist. Provide brief, actionable security guidance. "
-        "Focus on critical findings only. Be concise."
+        "Focus on critical findings only. Be concise.",
     )
 
 
 @dataclass
 class Config:
     """Main configuration container."""
+
     model: ModelConfig
     server: ServerConfig
     agent: AgentConfig
@@ -52,11 +62,7 @@ class Config:
     @classmethod
     def from_env(cls) -> "Config":
         """Create configuration from environment variables."""
-        config = cls(
-            model=ModelConfig(),
-            server=ServerConfig(),
-            agent=AgentConfig()
-        )
+        config = cls(model=ModelConfig(), server=ServerConfig(), agent=AgentConfig())
         config.model.validate()
         return config
 

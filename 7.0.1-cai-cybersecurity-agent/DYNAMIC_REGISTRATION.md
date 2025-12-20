@@ -303,15 +303,15 @@ def register_with_orchestrator():
         "ORCHESTRATOR_REGISTRY_URL",
         "http://127.0.0.1:8000"
     )
-    
+
     agent_name = os.getenv("AGENT_NAME", "my-agent")
     agent_url = os.getenv("AGENT_URL", "http://127.0.0.1:9003")
-    
+
     response = requests.post(
         f"{orchestrator_registry}/register",
         json={"name": agent_name, "url": agent_url}
     )
-    
+
     if response.status_code == 200:
         print(f"Registered with orchestrator: {agent_name}")
     else:

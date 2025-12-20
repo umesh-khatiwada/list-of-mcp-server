@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -27,7 +27,7 @@ setup(
         "cryptography>=42.0.2",
         "rich>=13.0.0",
         "aiohttp>=3.8.0",
-        "aiohttp-sse>=2.1.0"
+        "aiohttp-sse>=2.1.0",
     ],
     entry_points={
         "console_scripts": [
@@ -42,4 +42,4 @@ setup(
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.9",
-) 
+)

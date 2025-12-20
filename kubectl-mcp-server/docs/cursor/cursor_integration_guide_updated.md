@@ -46,7 +46,7 @@ python cursor_compatible_mcp_server.py
       "command": "python",
       "args": ["-m", "kubectl_mcp_tool.minimal_wrapper"],
       "env": {
-        "KUBECONFIG": "/path/to/your/.kube/config", 
+        "KUBECONFIG": "/path/to/your/.kube/config",
         "PATH": "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin"
       }
     }
@@ -54,7 +54,7 @@ python cursor_compatible_mcp_server.py
 }
 ```
 
-Replace `/path/to/your/.kube/config` with the actual path to your kubeconfig file. 
+Replace `/path/to/your/.kube/config` with the actual path to your kubeconfig file.
 On most systems, this is `~/.kube/config`.
 
 Save this configuration to `~/.cursor/mcp.json` for global settings.

@@ -1,13 +1,14 @@
 import asyncio
-import os
 import logging
+import os
 from typing import Optional
-from strands import Agent
-from strands_tools.a2a_client import A2AClientToolProvider
-from strands.models.mistral import MistralModel
-from dotenv import load_dotenv
-from strands.models.openai import OpenAIModel
+
 import nest_asyncio
+from dotenv import load_dotenv
+from strands import Agent
+from strands.models.mistral import MistralModel
+from strands.models.openai import OpenAIModel
+from strands_tools.a2a_client import A2AClientToolProvider
 
 load_dotenv()
 nest_asyncio.apply()
@@ -24,11 +25,18 @@ urls = [
     "http://127.0.0.1:9002",  # research_agent
 ]
 
+
 class OrchestratorAgentWithMemory:
     """
     A Strands Agent client that communicates with the mcp with memory capabilities.
     """
-    def __init__(self, mistral_api_key: Optional[str] = None, session_id: Optional[str] = None, enable_memory: bool = True):
+
+    def __init__(
+        self,
+        mistral_api_key: Optional[str] = None,
+        session_id: Optional[str] = None,
+        enable_memory: bool = True,
+    ):
         """
         Initialize the Orchestrator Agent.
 
@@ -37,17 +45,19 @@ class OrchestratorAgentWithMemory:
             session_id: Session ID for MCP server authentication
             enable_memory: Whether to enable conversation memory
         """
-        self.mistral_api_key = mistral_api_key or os.getenv('MISTRAL_API_KEY')
-        self.session_id = session_id or os.getenv('SESSION_ID', 'default-session')
+        self.mistral_api_key = mistral_api_key or os.getenv("MISTRAL_API_KEY")
+        self.session_id = session_id or os.getenv("SESSION_ID", "default-session")
         self.enable_memory = enable_memory
         self.user_id = f"research_user_{self.session_id}"  # Unique user ID for memory
         self.agent = None
         self.mcp_client = None
         self.conversation_history = []  # Local conversation history
-        
+
         if not self.mistral_api_key:
-            raise ValueError("MISTRAL_API_KEY key is required. Set MISTRAL_API_KEY environment variable or pass it directly.")
-    
+            raise ValueError(
+                "MISTRAL_API_KEY key is required. Set MISTRAL_API_KEY environment variable or pass it directly."
+            )
+
     def setup_mistral_model(self) -> MistralModel:
         """
         Set up the Mistral model for the agent.
@@ -72,7 +82,7 @@ class OrchestratorAgentWithMemory:
             params={
                 "max_tokens": 2000,
                 "temperature": 0.7,
-            }
+            },
         )
         return model
 
@@ -89,7 +99,7 @@ class OrchestratorAgentWithMemory:
             params={
                 "max_tokens": 2000,
                 "temperature": 0.7,
-            }
+            },
         )
         return model
 
@@ -98,6 +108,7 @@ async def get_async_input(prompt: str) -> str:
     """Get input asynchronously to avoid blocking the event loop."""
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, input, prompt)
+
 
 async def main():
     try:
@@ -108,19 +119,19 @@ async def main():
 
         # Dynamically build agent/server list for the system prompt
         agent_lines = []
-        for agent in agents['agents']:
-            name = agent.get('name', 'unknown_agent')
-            url = agent.get('url', 'unknown_url')
-            skills = ', '.join([s.get('name', '') for s in agent.get('skills', [])])
-            desc = agent.get('description', '')
+        for agent in agents["agents"]:
+            name = agent.get("name", "unknown_agent")
+            url = agent.get("url", "unknown_url")
+            skills = ", ".join([s.get("name", "") for s in agent.get("skills", [])])
+            desc = agent.get("description", "")
             agent_lines.append(f"- {name} at {url} ({skills}) {desc}")
-        agent_list_str = '\n'.join(agent_lines)
+        agent_list_str = "\n".join(agent_lines)
 
         orchestrator = Agent(
             name="orchestrator",
             model=OrchestratorAgentWithMemory(
                 mistral_api_key=os.getenv("GOOGLE_API_KEY"),
-                session_id=os.getenv("SESSION_ID")
+                session_id=os.getenv("SESSION_ID"),
             ).setup_openai_model(),
             system_prompt=(
                 "You are an orchestrator agent in a multi-agent system. "
@@ -130,7 +141,7 @@ async def main():
                 "Do not require the user to specify agent names or URLs. "
                 "Always use the available tools to answer user queries, and respond with clear, helpful answers."
             ),
-            tools=provider.tools
+            tools=provider.tools,
         )
         print("Using DEEPSEEK_API_KEY:", os.getenv("DEEPSEEK_API_KEY"))
         print("Type your request (or 'exit' to quit):")
@@ -152,11 +163,12 @@ async def main():
             except Exception as e:
                 logger.error(f"Unexpected error in main loop: {e}")
                 print(f"An unexpected error occurred: {e}")
-                
+
     except Exception as e:
         logger.error(f"Failed to initialize orchestrator: {e}")
         print(f"Failed to start orchestrator: {e}")
         raise
+
 
 if __name__ == "__main__":
     asyncio.run(main())

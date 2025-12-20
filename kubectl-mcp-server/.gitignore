@@ -107,4 +107,4 @@ celerybeat-schedule
 
 # Local config files
 config.yaml
-config.yaml.local 
+config.yaml.local

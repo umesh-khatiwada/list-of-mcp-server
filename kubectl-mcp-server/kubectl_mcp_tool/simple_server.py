@@ -7,28 +7,27 @@ import asyncio
 import logging
 import os
 import sys
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict
+
+from kubernetes import client, config
 
 # Use FastMCP for the higher-level API
 from mcp.server.fastmcp import FastMCP
-from kubernetes import client, config
 
 # Configure logging
 log_file = os.path.expanduser("~/kubectl-mcp.log")
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(log_file),
-        logging.StreamHandler(sys.stdout)
-    ]
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[logging.FileHandler(log_file), logging.StreamHandler(sys.stdout)],
 )
-logger = logging.getLogger('kubectl-mcp')
+logger = logging.getLogger("kubectl-mcp")
+
 
 class KubectlServer:
     def __init__(self):
         # Use FastMCP instead of Server
-        self.mcp = FastMCP(name='kubectl-mcp')
+        self.mcp = FastMCP(name="kubectl-mcp")
         try:
             config.load_kube_config()
             self.v1 = client.CoreV1Api()
@@ -38,7 +37,7 @@ class KubectlServer:
             logger.error(f"Failed to initialize Kubernetes client: {e}")
             self.v1 = None
             self.apps_v1 = None
-        
+
         # Register tools using FastMCP's decorator
         self.setup_tools()
 
@@ -72,6 +71,7 @@ class KubectlServer:
         logger.info("Starting kubectl MCP server with stdio transport")
         await self.mcp.run_stdio_async()
 
+
 async def main():
     logger.info("Starting kubectl MCP server")
     server = KubectlServer()
@@ -80,5 +80,6 @@ async def main():
     except Exception as e:
         logger.error(f"Server error: {e}")
 
+
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    asyncio.run(main())

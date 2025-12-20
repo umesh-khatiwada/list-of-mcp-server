@@ -4,13 +4,15 @@ Kubectl MCP Tool - A Model Context Protocol server for Kubernetes.
 
 __version__ = "1.1.0"
 
+from .mcp_server import MCPServer as _RootMCPServer
+
 # Import implementations with correct FastMCP
 from .simple_server import KubectlServer, main
-from .mcp_server import MCPServer as _RootMCPServer
 
 # Re-export key symbols for easier import paths in tests
 try:
     from .core import KubernetesOperations, MCPServer  # type: ignore
+
     __all__ = [
         "KubectlServer",
         "MCPServer",

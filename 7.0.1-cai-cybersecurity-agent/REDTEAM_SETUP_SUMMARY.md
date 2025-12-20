@@ -53,12 +53,12 @@ docker run -e DEEPSEEK_API_KEY=your-key redteam-agent
 
 ## Features
 
-✅ **Configurable** - All settings via environment variables  
-✅ **Extensible** - Easy to add new security tools  
-✅ **Multi-Mode** - Normal and streaming execution  
-✅ **Containerized** - Docker support included  
-✅ **Documented** - Comprehensive guides  
-✅ **Local-Ready** - Run immediately without Docker  
+✅ **Configurable** - All settings via environment variables
+✅ **Extensible** - Easy to add new security tools
+✅ **Multi-Mode** - Normal and streaming execution
+✅ **Containerized** - Docker support included
+✅ **Documented** - Comprehensive guides
+✅ **Local-Ready** - Run immediately without Docker
 
 ---
 
@@ -69,7 +69,7 @@ Run shell commands for security testing:
 ```python
 # Examples from agent
 - "List the files in the current directory?"
-- "nmap -p 80,443 target.com" 
+- "nmap -p 80,443 target.com"
 - "curl http://target.com"
 - "python exploit.py"
 ```

@@ -148,7 +148,7 @@ FastMCP handles all the complex protocol details and server management, so you c
 
 (\*emphasis on *aims*)
 
-🚨 🚧 🏗️ *FastMCP is under active development, as is the MCP specification itself. Core features are working but some advanced capabilities are still in progress.* 
+🚨 🚧 🏗️ *FastMCP is under active development, as is the MCP specification itself. Core features are working but some advanced capabilities are still in progress.*
 
 
 <!-- omit in toc -->
@@ -372,7 +372,7 @@ def create_thumbnail(image_path: str) -> Image:
     """Create a thumbnail from an image"""
     img = PILImage.open(image_path)
     img.thumbnail((100, 100))
-    
+
     # FastMCP automatically handles conversion and MIME types
     return Image(data=img.tobytes(), format="png")
 
@@ -398,10 +398,10 @@ async def long_task(files: list[str], ctx: Context) -> str:
     for i, file in enumerate(files):
         ctx.info(f"Processing {file}")
         await ctx.report_progress(i, len(files))
-        
+
         # Read another resource if needed
         data = await ctx.read_resource(f"file://{file}")
-        
+
     return "Processing complete"
 ```
 
@@ -430,7 +430,7 @@ This launches a web interface where you can:
 - Set environment variables for testing
 
 During development, you can:
-- Add dependencies with `--with`: 
+- Add dependencies with `--with`:
   ```bash
   fastmcp dev server.py --with pandas --with numpy
   ```
@@ -460,7 +460,7 @@ Your server will run in an isolated environment with:
   ```bash
   # Set variables individually
   fastmcp install server.py -e API_KEY=abc123 -e DB_URL=postgres://...
-  
+
   # Or load from a .env file
   fastmcp install server.py -f .env
   ```
@@ -569,7 +569,7 @@ def analyze_table(table: str) -> str:
     """Create a prompt template for analyzing tables"""
     return f"""Please analyze this database table:
 Table: {table}
-Schema: 
+Schema:
 {get_schema()}
 
 What insights can you provide about the structure and relationships?"""
@@ -614,7 +614,7 @@ pytest -vv
 
 ### Formatting
 
-FastMCP enforces a variety of required formats, which you can automatically enforce with pre-commit. 
+FastMCP enforces a variety of required formats, which you can automatically enforce with pre-commit.
 
 Install the pre-commit hooks:
 
@@ -699,8 +699,8 @@ This will install the package in editable mode, and install the development depe
 
 # Fixing `AttributeError: module 'collections' has no attribute 'Callable'`
 - open `.venv\Lib\site-packages\pyreadline\py3k_compat.py`
-- change `return isinstance(x, collections.Callable)` to 
-``` 
+- change `return isinstance(x, collections.Callable)` to
+```
 from collections.abc import Callable
 return isinstance(x, Callable)
 ```
@@ -741,7 +741,7 @@ This will launch a web app on http://localhost:5173/ that you can use to inspect
 - Verify that it was added correctly by running `git remote -v`
 - Commit your changes
 - Push your changes to your fork `git push fork <branch>`
-- Create your pull request on GitHub 
+- Create your pull request on GitHub
 
 
 

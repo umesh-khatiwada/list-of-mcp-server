@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib.util
 import logging
-import os
 import time
 from pathlib import Path
 from typing import Any
@@ -34,6 +33,7 @@ from strands.multiagent.a2a.server import A2AServer
 # Load configuration
 config = get_config()
 
+
 class DeepSeekOpenAIModel(OpenAIModel):
     """OpenAIModel subclass that flattens text content for DeepSeek compatibility."""
 
@@ -43,9 +43,15 @@ class DeepSeekOpenAIModel(OpenAIModel):
 
         for message in payload.get("messages", []):
             content = message.get("content")
-            if isinstance(content, list) and content and all(
-                isinstance(part, dict) and part.get("type") == "text" and "text" in part
-                for part in content
+            if (
+                isinstance(content, list)
+                and content
+                and all(
+                    isinstance(part, dict)
+                    and part.get("type") == "text"
+                    and "text" in part
+                    for part in content
+                )
             ):
                 message["content"] = "\n\n".join(part["text"] for part in content)
 
@@ -58,7 +64,10 @@ class DeepSeekOpenAIModel(OpenAIModel):
 cybersecurity_agent = CyberSecurityAgent()
 
 
-@tool(name="cybersecurity_consult", description="Run an open-ended CAI cybersecurity consultation.")
+@tool(
+    name="cybersecurity_consult",
+    description="Run an open-ended CAI cybersecurity consultation.",
+)
 async def cybersecurity_consult(question: str) -> dict[str, Any]:
     start = time.monotonic()
     logger.info("cybersecurity_consult start")
@@ -79,7 +88,10 @@ async def security_posture_analysis(analysis_context: dict[str, Any]) -> dict[st
     return result
 
 
-@tool(name="threat_modeling", description="Run threat modeling for the supplied target context.")
+@tool(
+    name="threat_modeling",
+    description="Run threat modeling for the supplied target context.",
+)
 async def threat_modeling(target: dict[str, Any]) -> dict[str, Any]:
     start = time.monotonic()
     logger.info("threat_modeling start")
@@ -88,8 +100,13 @@ async def threat_modeling(target: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-@tool(name="compliance_assessment", description="Evaluate compliance against a named framework.")
-async def compliance_assessment(target: dict[str, Any], framework: str = "OWASP") -> dict[str, Any]:
+@tool(
+    name="compliance_assessment",
+    description="Evaluate compliance against a named framework.",
+)
+async def compliance_assessment(
+    target: dict[str, Any], framework: str = "OWASP"
+) -> dict[str, Any]:
     start = time.monotonic()
     logger.info("compliance_assessment start")
     result = await cybersecurity_agent.assess_compliance(target, framework)
@@ -101,9 +118,15 @@ def build_cai_model() -> OpenAIModel:
     """Build the CAI model using configuration."""
     api_key = config.model.api_key
     if not api_key:
-        raise RuntimeError("Set DEEPSEEK_API_KEY (or OPENAI_API_KEY) before starting the cybersecurity A2A server.")
+        raise RuntimeError(
+            "Set DEEPSEEK_API_KEY (or OPENAI_API_KEY) before starting the cybersecurity A2A server."
+        )
 
-    logger.info("Cybersecurity agent using DeepSeek base_url=%s timeout=%.1fs", config.model.base_url, config.model.timeout)
+    logger.info(
+        "Cybersecurity agent using DeepSeek base_url=%s timeout=%.1fs",
+        config.model.base_url,
+        config.model.timeout,
+    )
 
     return DeepSeekOpenAIModel(
         client_args={

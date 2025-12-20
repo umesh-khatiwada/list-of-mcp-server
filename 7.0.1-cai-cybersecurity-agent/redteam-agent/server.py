@@ -45,9 +45,15 @@ class DeepSeekOpenAIModel(OpenAIModel):
 
         for message in payload.get("messages", []):
             content = message.get("content")
-            if isinstance(content, list) and content and all(
-                isinstance(part, dict) and part.get("type") == "text" and "text" in part
-                for part in content
+            if (
+                isinstance(content, list)
+                and content
+                and all(
+                    isinstance(part, dict)
+                    and part.get("type") == "text"
+                    and "text" in part
+                    for part in content
+                )
             ):
                 message["content"] = "\n\n".join(part["text"] for part in content)
 
@@ -61,11 +67,14 @@ class DeepSeekOpenAIModel(OpenAIModel):
 config = get_config()
 
 
-@tool(name="red_team_assess", description="Run red team security assessment and CTF challenge analysis.")
+@tool(
+    name="red_team_assess",
+    description="Run red team security assessment and CTF challenge analysis.",
+)
 async def red_team_assess(target: str) -> dict[str, Any]:
     start = time.monotonic()
     logger.info("red_team_assess start")
-    
+
     # Use the existing ctf_agent to assess the target
     try:
         answer = ctf_agent.run(target)
@@ -76,13 +85,16 @@ async def red_team_assess(target: str) -> dict[str, Any]:
         return {"agent": "redteam", "error": str(e)}
 
 
-@tool(name="exploit_discovery", description="Discover and analyze potential security exploits.")
+@tool(
+    name="exploit_discovery",
+    description="Discover and analyze potential security exploits.",
+)
 async def exploit_discovery(context: str) -> dict[str, Any]:
     start = time.monotonic()
     logger.info("exploit_discovery start")
-    
+
     prompt = f"Analyze the following security context and identify potential exploits:\n\n{context}"
-    
+
     try:
         answer = ctf_agent.run(prompt)
         logger.info("exploit_discovery complete %.2fs", time.monotonic() - start)
@@ -92,11 +104,14 @@ async def exploit_discovery(context: str) -> dict[str, Any]:
         return {"agent": "redteam", "error": str(e)}
 
 
-@tool(name="ctf_challenge_solver", description="Solve CTF challenges and security puzzles.")
+@tool(
+    name="ctf_challenge_solver",
+    description="Solve CTF challenges and security puzzles.",
+)
 async def ctf_challenge_solver(challenge: str) -> dict[str, Any]:
     start = time.monotonic()
     logger.info("ctf_challenge_solver start")
-    
+
     try:
         answer = ctf_agent.run(challenge)
         logger.info("ctf_challenge_solver complete %.2fs", time.monotonic() - start)
@@ -110,9 +125,15 @@ def build_model() -> OpenAIModel:
     """Build the model using configuration."""
     api_key = config.model.api_key
     if not api_key:
-        raise RuntimeError("Set DEEPSEEK_API_KEY (or OPENAI_API_KEY) before starting the red team A2A server.")
+        raise RuntimeError(
+            "Set DEEPSEEK_API_KEY (or OPENAI_API_KEY) before starting the red team A2A server."
+        )
 
-    logger.info("Red team agent using DeepSeek base_url=%s timeout=%.1fs", config.model.base_url, config.model.timeout)
+    logger.info(
+        "Red team agent using DeepSeek base_url=%s timeout=%.1fs",
+        config.model.base_url,
+        config.model.timeout,
+    )
 
     return DeepSeekOpenAIModel(
         client_args={

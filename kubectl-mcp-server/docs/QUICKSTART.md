@@ -108,7 +108,7 @@ To verify your installation is working:
    ```bash
    python -m kubectl_mcp_tool.minimal_wrapper
    ```
-   
+
    It should start and wait for connections with no errors.
 
 3. Open your AI assistant (Cursor, Claude, or WindSurf) and ask a Kubernetes-related question:
@@ -147,4 +147,4 @@ If you encounter issues:
    pip install -e .
    ```
 
-For more details, see the [Installation Guide](./INSTALLATION.md) and [Troubleshooting](./INSTALLATION.md#troubleshooting) sections. 
+For more details, see the [Installation Guide](./INSTALLATION.md) and [Troubleshooting](./INSTALLATION.md#troubleshooting) sections.

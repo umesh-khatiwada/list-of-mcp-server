@@ -3,6 +3,7 @@
 
 import asyncio
 import sys
+
 from weather import get_alerts, get_forecast
 
 
@@ -12,7 +13,7 @@ async def test_alerts(state: str):
     result = await get_alerts(state)
     print("Alerts:")
     print(result)
-    print("\n" + "="*50 + "\n")
+    print("\n" + "=" * 50 + "\n")
 
 
 async def test_forecast(lat: float, lon: float):
@@ -21,7 +22,7 @@ async def test_forecast(lat: float, lon: float):
     result = await get_forecast(lat, lon)
     print("Forecast:")
     print(result)
-    print("\n" + "="*50 + "\n")
+    print("\n" + "=" * 50 + "\n")
 
 
 async def main():
@@ -36,14 +37,14 @@ async def main():
         return
 
     command = sys.argv[1].lower()
-    
+
     if command == "alerts":
         if len(sys.argv) < 3:
             print("Please provide a state code (e.g., NY)")
             return
         state = sys.argv[2].upper()
         await test_alerts(state)
-    
+
     elif command == "forecast":
         if len(sys.argv) < 4:
             print("Please provide latitude and longitude")
@@ -55,7 +56,7 @@ async def main():
         except ValueError:
             print("Latitude and longitude must be numbers")
             return
-    
+
     else:
         print(f"Unknown command: {command}")
         print("Available commands: alerts, forecast")

@@ -37,4 +37,4 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: |
             rohitghumare64/kubectl-mcp-server:latest
-            rohitghumare64/kubectl-mcp-server:${{ github.sha }} 
+            rohitghumare64/kubectl-mcp-server:${{ github.sha }}

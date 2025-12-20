@@ -293,7 +293,7 @@ Add the following to your Claude Desktop configuration at `~/Library/Application
   "mcpServers": {
     "kubernetes": {
       "command": "python",
-      "args": ["-m", "kubectl_mcp_tool.mcp_server"], 
+      "args": ["-m", "kubectl_mcp_tool.mcp_server"],
       "env": {
         "KUBECONFIG": "$HOME/.kube/config" // or whatever your path is for the config file
       }

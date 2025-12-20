@@ -86,14 +86,14 @@ docker build -t cai-orchestrator -f Dockerfile.local .
 
 ## Key Features
 
-✅ **Multi-Stage Builds** - Optimized image sizes (~400-500MB each)  
-✅ **Health Checks** - Both services have health endpoints  
-✅ **Persistent Storage** - Agent registry persists in volume  
-✅ **Service Networking** - Shared docker network  
-✅ **Environment Variables** - Full configuration via .env  
-✅ **Flexible Building** - Build from root or agent directory  
-✅ **Production Ready** - Restart policies, resource limits  
-✅ **CI/CD Ready** - GitHub Actions examples included  
+✅ **Multi-Stage Builds** - Optimized image sizes (~400-500MB each)
+✅ **Health Checks** - Both services have health endpoints
+✅ **Persistent Storage** - Agent registry persists in volume
+✅ **Service Networking** - Shared docker network
+✅ **Environment Variables** - Full configuration via .env
+✅ **Flexible Building** - Build from root or agent directory
+✅ **Production Ready** - Restart policies, resource limits
+✅ **CI/CD Ready** - GitHub Actions examples included
 
 ---
 
@@ -274,22 +274,22 @@ Health check: 1 second
 ## Production Considerations
 
 ### Security
-✅ Environment variables for secrets (not hardcoded)  
-✅ Non-root user recommended  
-✅ Health checks enabled  
-✅ Minimal base image (python:3.11-slim)  
+✅ Environment variables for secrets (not hardcoded)
+✅ Non-root user recommended
+✅ Health checks enabled
+✅ Minimal base image (python:3.11-slim)
 
 ### Reliability
-✅ Restart policies configured  
-✅ Health checks on both services  
-✅ Dependent service ordering  
-✅ Graceful shutdown handling  
+✅ Restart policies configured
+✅ Health checks on both services
+✅ Dependent service ordering
+✅ Graceful shutdown handling
 
 ### Monitoring
-✅ Health endpoints available  
-✅ Structured logging  
-✅ Container stats available  
-✅ Volume monitoring support  
+✅ Health endpoints available
+✅ Structured logging
+✅ Container stats available
+✅ Volume monitoring support
 
 ---
 

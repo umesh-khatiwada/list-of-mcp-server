@@ -29,9 +29,9 @@ def setup_test_namespace(max_retries=3, prefix="mcp-test-"):
     import time
     import uuid
     import subprocess
-    
+
     namespace = f"{prefix}{int(time.time())}"
-    
+
     for attempt in range(max_retries):
         try:
             result = subprocess.run(
@@ -86,28 +86,28 @@ def setup_test_namespace(max_retries=3, prefix="mcp-test-"):
 ```python
 class TestMCPKubectl:
     """Test MCP Kubectl Tool functionality through MCP protocol"""
-    
+
     @classmethod
     def setup_class(cls):
         """Set up test environment once for all tests"""
         # Start MCP server in test mode
         # Configure test client
-    
+
     def setup_method(self):
         """Set up before each test"""
         # Create test namespace
         # Set up test resources if needed
-    
+
     def teardown_method(self):
         """Clean up after each test"""
         # Delete test resources
         # Clean up namespace
-    
+
     # Test methods for different features
     def test_get_pods(self):
         """Test getting pods through MCP"""
         # Implementation
-    
+
     def test_create_deployment(self):
         """Test creating a deployment through MCP"""
         # Implementation
@@ -120,17 +120,17 @@ We'll implement a simple MCP client simulator to generate MCP-compliant requests
 ```python
 class MCPClientSimulator:
     """Simulate an MCP client for testing"""
-    
+
     def __init__(self, server_url=None, stdio_cmd=None):
         """Initialize the simulator"""
         self.server_url = server_url
         self.stdio_cmd = stdio_cmd
         self.session_id = str(uuid.uuid4())
-    
+
     def list_tools(self):
         """List available tools from the MCP server"""
         # Implementation
-    
+
     def call_tool(self, tool_name, arguments):
         """Call a tool on the MCP server"""
         # Implementation
@@ -186,7 +186,7 @@ def validate_kubernetes_state(resource_type, name, namespace, expected_state):
 4. Error handling and edge cases - 2 days
 5. CI integration - 1 day
 
-Total estimated time: 13 days 
+Total estimated time: 13 days
 
 ## Implementation Status
 
@@ -267,4 +267,4 @@ The implemented tests cover all five major feature categories:
 1. **CI Integration**: Add these tests to CI/CD pipeline
 2. **Performance Testing**: Implement load and performance test scenarios
 3. **Edge Cases**: Expand test coverage for error conditions and edge cases
-4. **Documentation**: Generate comprehensive test documentation from test executions 
+4. **Documentation**: Generate comprehensive test documentation from test executions

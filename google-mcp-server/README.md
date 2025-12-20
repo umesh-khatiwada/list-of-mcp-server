@@ -63,7 +63,7 @@ python server.py
 #### As HTTP Server (for testing)
 
 ```bash
-# Load environment variables  
+# Load environment variables
 source .env
 
 # Start HTTP server on port 8000
@@ -115,7 +115,7 @@ The server provides the following MCP tools:
 - `echo` - Echo a message back
 - `get_google_auth_status` - Check OAuth configuration status
 - `get_user_info` - Get authenticated user information
-- `health_check` - Check server health status  
+- `health_check` - Check server health status
 - `list_tools` - List all available tools
 
 ## Troubleshooting

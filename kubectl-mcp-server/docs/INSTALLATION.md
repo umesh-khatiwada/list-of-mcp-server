@@ -209,10 +209,10 @@ kubectl-mcp get pods
    ```bash
    # Uninstall conflicting packages
    pip uninstall -y kubectl-mcp-tool fastmcp mcp mcp-python
-   
+
    # Install the correct version
    pip install mcp>=1.5.0
-   
+
    # Reinstall kubectl-mcp-tool
    pip install kubectl-mcp-tool
    ```
@@ -256,7 +256,7 @@ kubectl-mcp get pods
      - We use the simple `@server.tool(name)` decorator format without complex parameters
      - The minimal wrapper has better compatibility across MCP SDK versions
      - For debugging issues, run: `python -m kubectl_mcp_tool.minimal_wrapper`
-     
+
 9. **Client closed or connection errors**:
    - If you see "client closed" errors in your AI assistant, check:
      - Your kubeconfig path is correct in the configuration
@@ -298,4 +298,4 @@ If installed with pipx:
 
 ```bash
 pipx uninstall kubectl-mcp-tool
-``` 
+```

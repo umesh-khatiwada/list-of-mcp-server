@@ -4,25 +4,24 @@ Simple Kubernetes MCP Server with enhanced features.
 """
 
 import json
-import sys
 import logging
+import sys
 import threading
 import time
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
 from kubectl_mcp_tool.core.kubernetes_ops import KubernetesOperations
-from kubectl_mcp_tool.security.security_ops import KubernetesSecurityOps
 from kubectl_mcp_tool.monitoring.diagnostics import KubernetesDiagnostics
-from kubernetes import client
+from kubectl_mcp_tool.security.security_ops import KubernetesSecurityOps
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stderr)
-    ]
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(sys.stderr)],
 )
 logger = logging.getLogger(__name__)
+
 
 class SimpleKubectlMcpServer:
     """Simple MCP server for Kubernetes operations."""
@@ -45,11 +44,9 @@ class SimpleKubectlMcpServer:
         """Send periodic heartbeat messages."""
         while self.running:
             try:
-                self.write_message({
-                    "jsonrpc": "2.0", 
-                    "method": "heartbeat", 
-                    "params": {}
-                })
+                self.write_message(
+                    {"jsonrpc": "2.0", "method": "heartbeat", "params": {}}
+                )
                 time.sleep(self.heartbeat_interval)
             except Exception as e:
                 logging.error(f"Error sending heartbeat: {str(e)}")
@@ -58,11 +55,11 @@ class SimpleKubectlMcpServer:
         """Set the current namespace for future operations."""
         old_namespace = self.current_namespace
         self.current_namespace = namespace
-        
+
         return {
             "status": "success",
             "message": f"Namespace changed from '{old_namespace}' to '{namespace}'",
-            "current_namespace": namespace
+            "current_namespace": namespace,
         }
 
     def handle_init(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -71,13 +68,11 @@ class SimpleKubectlMcpServer:
             return {
                 "name": "kubectl-mcp-server-simple",
                 "version": "0.1.0",
-                "capabilities": ["tools/list", "tools/call"]
+                "capabilities": ["tools/list", "tools/call"],
             }
         except Exception as e:
             logger.error(f"Error during initialization: {e}")
-            return {
-                "error": str(e)
-            }
+            return {"error": str(e)}
 
     def handle_tools_list(self) -> Dict[str, Any]:
         """List all the available tools."""
@@ -89,10 +84,13 @@ class SimpleKubectlMcpServer:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "config_path": {"type": "string", "description": "Path to the config file."},
+                            "config_path": {
+                                "type": "string",
+                                "description": "Path to the config file.",
+                            },
                         },
-                        "required": ["config_path"]
-                    }
+                        "required": ["config_path"],
+                    },
                 },
                 # Pod Management
                 {
@@ -101,17 +99,45 @@ class SimpleKubectlMcpServer:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "pod_name": {"type": "string", "description": "Name for the pod."},
-                            "namespace": {"type": "string", "description": "Namespace to create the pod in."},
-                            "image": {"type": "string", "description": "Container image to use for the pod."},
-                            "command": {"type": "array", "items": {"type": "string"}, "description": "Command to run in the container."},
-                            "args": {"type": "array", "items": {"type": "string"}, "description": "Arguments for the command."},
-                            "env_vars": {"type": "object", "description": "Environment variables to set in the container."},
-                            "ports": {"type": "array", "items": {"type": "integer"}, "description": "Ports to expose from the container."},
-                            "volume_mounts": {"type": "array", "items": {"type": "object"}, "description": "Volumes to mount in the container."},
+                            "pod_name": {
+                                "type": "string",
+                                "description": "Name for the pod.",
+                            },
+                            "namespace": {
+                                "type": "string",
+                                "description": "Namespace to create the pod in.",
+                            },
+                            "image": {
+                                "type": "string",
+                                "description": "Container image to use for the pod.",
+                            },
+                            "command": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Command to run in the container.",
+                            },
+                            "args": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Arguments for the command.",
+                            },
+                            "env_vars": {
+                                "type": "object",
+                                "description": "Environment variables to set in the container.",
+                            },
+                            "ports": {
+                                "type": "array",
+                                "items": {"type": "integer"},
+                                "description": "Ports to expose from the container.",
+                            },
+                            "volume_mounts": {
+                                "type": "array",
+                                "items": {"type": "object"},
+                                "description": "Volumes to mount in the container.",
+                            },
                         },
-                        "required": ["pod_name", "namespace", "image"]
-                    }
+                        "required": ["pod_name", "namespace", "image"],
+                    },
                 },
                 {
                     "name": "delete_pod",
@@ -121,9 +147,9 @@ class SimpleKubectlMcpServer:
                         "required": ["pod_name"],
                         "properties": {
                             "pod_name": {"type": "string"},
-                            "namespace": {"type": "string", "default": "default"}
-                        }
-                    }
+                            "namespace": {"type": "string", "default": "default"},
+                        },
+                    },
                 },
                 # Deployment Management
                 {
@@ -134,9 +160,9 @@ class SimpleKubectlMcpServer:
                         "required": ["deployment_spec"],
                         "properties": {
                             "deployment_spec": {"type": "object"},
-                            "namespace": {"type": "string", "default": "default"}
-                        }
-                    }
+                            "namespace": {"type": "string", "default": "default"},
+                        },
+                    },
                 },
                 {
                     "name": "scale_deployment",
@@ -147,9 +173,9 @@ class SimpleKubectlMcpServer:
                         "properties": {
                             "name": {"type": "string"},
                             "replicas": {"type": "integer"},
-                            "namespace": {"type": "string", "default": "default"}
-                        }
-                    }
+                            "namespace": {"type": "string", "default": "default"},
+                        },
+                    },
                 },
                 {
                     "name": "rollback_deployment",
@@ -160,9 +186,9 @@ class SimpleKubectlMcpServer:
                         "properties": {
                             "name": {"type": "string"},
                             "revision": {"type": "integer"},
-                            "namespace": {"type": "string", "default": "default"}
-                        }
-                    }
+                            "namespace": {"type": "string", "default": "default"},
+                        },
+                    },
                 },
                 # Service Management
                 {
@@ -173,9 +199,9 @@ class SimpleKubectlMcpServer:
                         "required": ["service_spec"],
                         "properties": {
                             "service_spec": {"type": "object"},
-                            "namespace": {"type": "string", "default": "default"}
-                        }
-                    }
+                            "namespace": {"type": "string", "default": "default"},
+                        },
+                    },
                 },
                 {
                     "name": "delete_service",
@@ -185,9 +211,9 @@ class SimpleKubectlMcpServer:
                         "required": ["name"],
                         "properties": {
                             "name": {"type": "string"},
-                            "namespace": {"type": "string", "default": "default"}
-                        }
-                    }
+                            "namespace": {"type": "string", "default": "default"},
+                        },
+                    },
                 },
                 # Configuration Management
                 {
@@ -199,9 +225,9 @@ class SimpleKubectlMcpServer:
                         "properties": {
                             "name": {"type": "string"},
                             "data": {"type": "object"},
-                            "namespace": {"type": "string", "default": "default"}
-                        }
-                    }
+                            "namespace": {"type": "string", "default": "default"},
+                        },
+                    },
                 },
                 {
                     "name": "create_secret",
@@ -213,9 +239,9 @@ class SimpleKubectlMcpServer:
                             "name": {"type": "string"},
                             "data": {"type": "object"},
                             "secret_type": {"type": "string", "default": "Opaque"},
-                            "namespace": {"type": "string", "default": "default"}
-                        }
-                    }
+                            "namespace": {"type": "string", "default": "default"},
+                        },
+                    },
                 },
                 # Network Operations
                 {
@@ -226,9 +252,9 @@ class SimpleKubectlMcpServer:
                         "required": ["policy_spec"],
                         "properties": {
                             "policy_spec": {"type": "object"},
-                            "namespace": {"type": "string", "default": "default"}
-                        }
-                    }
+                            "namespace": {"type": "string", "default": "default"},
+                        },
+                    },
                 },
                 {
                     "name": "create_ingress",
@@ -238,9 +264,9 @@ class SimpleKubectlMcpServer:
                         "required": ["ingress_spec"],
                         "properties": {
                             "ingress_spec": {"type": "object"},
-                            "namespace": {"type": "string", "default": "default"}
-                        }
-                    }
+                            "namespace": {"type": "string", "default": "default"},
+                        },
+                    },
                 },
                 # Security Operations
                 {
@@ -252,9 +278,9 @@ class SimpleKubectlMcpServer:
                         "properties": {
                             "name": {"type": "string"},
                             "rules": {"type": "array"},
-                            "namespace": {"type": "string", "default": "default"}
-                        }
-                    }
+                            "namespace": {"type": "string", "default": "default"},
+                        },
+                    },
                 },
                 {
                     "name": "create_cluster_role",
@@ -264,9 +290,9 @@ class SimpleKubectlMcpServer:
                         "required": ["name", "rules"],
                         "properties": {
                             "name": {"type": "string"},
-                            "rules": {"type": "array"}
-                        }
-                    }
+                            "rules": {"type": "array"},
+                        },
+                    },
                 },
                 {
                     "name": "create_service_account",
@@ -277,9 +303,9 @@ class SimpleKubectlMcpServer:
                         "properties": {
                             "name": {"type": "string"},
                             "namespace": {"type": "string", "default": "default"},
-                            "annotations": {"type": "object"}
-                        }
-                    }
+                            "annotations": {"type": "object"},
+                        },
+                    },
                 },
                 {
                     "name": "audit_rbac",
@@ -288,9 +314,9 @@ class SimpleKubectlMcpServer:
                         "type": "object",
                         "properties": {
                             "namespace": {"type": "string"},
-                            "audit_type": {"type": "string"}
-                        }
-                    }
+                            "audit_type": {"type": "string"},
+                        },
+                    },
                 },
                 # Monitoring and Diagnostics
                 {
@@ -304,9 +330,9 @@ class SimpleKubectlMcpServer:
                             "namespace": {"type": "string", "default": "default"},
                             "container": {"type": "string"},
                             "tail_lines": {"type": "integer", "default": 100},
-                            "since_seconds": {"type": "integer"}
-                        }
-                    }
+                            "since_seconds": {"type": "integer"},
+                        },
+                    },
                 },
                 {
                     "name": "analyze_pod_logs",
@@ -318,9 +344,9 @@ class SimpleKubectlMcpServer:
                             "pod_name": {"type": "string"},
                             "namespace": {"type": "string", "default": "default"},
                             "container": {"type": "string"},
-                            "tail_lines": {"type": "integer", "default": 1000}
-                        }
-                    }
+                            "tail_lines": {"type": "integer", "default": 1000},
+                        },
+                    },
                 },
                 {
                     "name": "get_pod_events",
@@ -330,9 +356,9 @@ class SimpleKubectlMcpServer:
                         "required": ["pod_name"],
                         "properties": {
                             "pod_name": {"type": "string"},
-                            "namespace": {"type": "string", "default": "default"}
-                        }
-                    }
+                            "namespace": {"type": "string", "default": "default"},
+                        },
+                    },
                 },
                 {
                     "name": "check_pod_health",
@@ -342,39 +368,33 @@ class SimpleKubectlMcpServer:
                         "required": ["pod_name"],
                         "properties": {
                             "pod_name": {"type": "string"},
-                            "namespace": {"type": "string", "default": "default"}
-                        }
-                    }
+                            "namespace": {"type": "string", "default": "default"},
+                        },
+                    },
                 },
                 {
                     "name": "get_resource_usage",
                     "description": "Get resource usage metrics for pods",
                     "inputSchema": {
                         "type": "object",
-                        "properties": {
-                            "namespace": {"type": "string"}
-                        }
-                    }
+                        "properties": {"namespace": {"type": "string"}},
+                    },
                 },
                 {
                     "name": "validate_resources",
                     "description": "Validate resource configurations and usage",
                     "inputSchema": {
                         "type": "object",
-                        "properties": {
-                            "namespace": {"type": "string"}
-                        }
-                    }
+                        "properties": {"namespace": {"type": "string"}},
+                    },
                 },
                 {
                     "name": "analyze_network_policies",
                     "description": "Analyze NetworkPolicies for security gaps",
                     "inputSchema": {
                         "type": "object",
-                        "properties": {
-                            "namespace": {"type": "string"}
-                        }
-                    }
+                        "properties": {"namespace": {"type": "string"}},
+                    },
                 },
                 {
                     "name": "check_pod_security",
@@ -382,19 +402,14 @@ class SimpleKubectlMcpServer:
                     "inputSchema": {
                         "type": "object",
                         "required": ["pod_spec"],
-                        "properties": {
-                            "pod_spec": {"type": "object"}
-                        }
-                    }
+                        "properties": {"pod_spec": {"type": "object"}},
+                    },
                 },
                 # Context Management
                 {
                     "name": "get_contexts",
                     "description": "Get available contexts",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {}
-                    }
+                    "inputSchema": {"type": "object", "properties": {}},
                 },
                 {
                     "name": "switch_context",
@@ -402,10 +417,8 @@ class SimpleKubectlMcpServer:
                     "inputSchema": {
                         "type": "object",
                         "required": ["context_name"],
-                        "properties": {
-                            "context_name": {"type": "string"}
-                        }
-                    }
+                        "properties": {"context_name": {"type": "string"}},
+                    },
                 },
                 # Resource Listing Tools
                 {
@@ -414,12 +427,21 @@ class SimpleKubectlMcpServer:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "namespace": {"type": "string", "description": "Namespace to list pods from."},
-                            "label_selector": {"type": "string", "description": "Label selector to filter pods (e.g. 'app=nginx')."},
-                            "field_selector": {"type": "string", "description": "Field selector to filter pods (e.g. 'status.phase=Running')."}
+                            "namespace": {
+                                "type": "string",
+                                "description": "Namespace to list pods from.",
+                            },
+                            "label_selector": {
+                                "type": "string",
+                                "description": "Label selector to filter pods (e.g. 'app=nginx').",
+                            },
+                            "field_selector": {
+                                "type": "string",
+                                "description": "Field selector to filter pods (e.g. 'status.phase=Running').",
+                            },
                         },
-                        "required": []
-                    }
+                        "required": [],
+                    },
                 },
                 {
                     "name": "list_deployments",
@@ -427,11 +449,17 @@ class SimpleKubectlMcpServer:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "namespace": {"type": "string", "description": "Namespace to list deployments from."},
-                            "label_selector": {"type": "string", "description": "Label selector to filter deployments (e.g. 'app=nginx')."}
+                            "namespace": {
+                                "type": "string",
+                                "description": "Namespace to list deployments from.",
+                            },
+                            "label_selector": {
+                                "type": "string",
+                                "description": "Label selector to filter deployments (e.g. 'app=nginx').",
+                            },
                         },
-                        "required": []
-                    }
+                        "required": [],
+                    },
                 },
                 {
                     "name": "list_services",
@@ -439,11 +467,17 @@ class SimpleKubectlMcpServer:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "namespace": {"type": "string", "description": "Namespace to list services from."},
-                            "label_selector": {"type": "string", "description": "Label selector to filter services (e.g. 'app=nginx')."}
+                            "namespace": {
+                                "type": "string",
+                                "description": "Namespace to list services from.",
+                            },
+                            "label_selector": {
+                                "type": "string",
+                                "description": "Label selector to filter services (e.g. 'app=nginx').",
+                            },
                         },
-                        "required": []
-                    }
+                        "required": [],
+                    },
                 },
                 {
                     "name": "list_nodes",
@@ -451,10 +485,13 @@ class SimpleKubectlMcpServer:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "label_selector": {"type": "string", "description": "Label selector to filter nodes."}
+                            "label_selector": {
+                                "type": "string",
+                                "description": "Label selector to filter nodes.",
+                            }
                         },
-                        "required": []
-                    }
+                        "required": [],
+                    },
                 },
                 {
                     "name": "list_namespaces",
@@ -462,10 +499,13 @@ class SimpleKubectlMcpServer:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "label_selector": {"type": "string", "description": "Label selector to filter namespaces."}
+                            "label_selector": {
+                                "type": "string",
+                                "description": "Label selector to filter namespaces.",
+                            }
                         },
-                        "required": []
-                    }
+                        "required": [],
+                    },
                 },
                 # Helm Chart Support
                 {
@@ -474,14 +514,29 @@ class SimpleKubectlMcpServer:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "name": {"type": "string", "description": "Release name for the chart installation."},
-                            "chart": {"type": "string", "description": "Chart name or path (e.g., 'stable/nginx' or 'nginx')."},
-                            "namespace": {"type": "string", "description": "Namespace to install the chart in."},
-                            "repo": {"type": "string", "description": "Chart repository URL (optional)."},
-                            "values": {"type": "object", "description": "Values to override in the chart (optional)."}
+                            "name": {
+                                "type": "string",
+                                "description": "Release name for the chart installation.",
+                            },
+                            "chart": {
+                                "type": "string",
+                                "description": "Chart name or path (e.g., 'stable/nginx' or 'nginx').",
+                            },
+                            "namespace": {
+                                "type": "string",
+                                "description": "Namespace to install the chart in.",
+                            },
+                            "repo": {
+                                "type": "string",
+                                "description": "Chart repository URL (optional).",
+                            },
+                            "values": {
+                                "type": "object",
+                                "description": "Values to override in the chart (optional).",
+                            },
                         },
-                        "required": ["name", "chart", "namespace"]
-                    }
+                        "required": ["name", "chart", "namespace"],
+                    },
                 },
                 {
                     "name": "upgrade_helm_chart",
@@ -489,14 +544,29 @@ class SimpleKubectlMcpServer:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "name": {"type": "string", "description": "Name of the Helm release to upgrade."},
-                            "chart": {"type": "string", "description": "Chart name or path to upgrade to."},
-                            "namespace": {"type": "string", "description": "Namespace of the release."},
-                            "repo": {"type": "string", "description": "Chart repository URL (optional)."},
-                            "values": {"type": "object", "description": "Values to override in the chart (optional)."}
+                            "name": {
+                                "type": "string",
+                                "description": "Name of the Helm release to upgrade.",
+                            },
+                            "chart": {
+                                "type": "string",
+                                "description": "Chart name or path to upgrade to.",
+                            },
+                            "namespace": {
+                                "type": "string",
+                                "description": "Namespace of the release.",
+                            },
+                            "repo": {
+                                "type": "string",
+                                "description": "Chart repository URL (optional).",
+                            },
+                            "values": {
+                                "type": "object",
+                                "description": "Values to override in the chart (optional).",
+                            },
                         },
-                        "required": ["name", "chart", "namespace"]
-                    }
+                        "required": ["name", "chart", "namespace"],
+                    },
                 },
                 {
                     "name": "uninstall_helm_chart",
@@ -504,11 +574,17 @@ class SimpleKubectlMcpServer:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "name": {"type": "string", "description": "Name of the Helm release to uninstall."},
-                            "namespace": {"type": "string", "description": "Namespace of the release."}
+                            "name": {
+                                "type": "string",
+                                "description": "Name of the Helm release to uninstall.",
+                            },
+                            "namespace": {
+                                "type": "string",
+                                "description": "Namespace of the release.",
+                            },
                         },
-                        "required": ["name", "namespace"]
-                    }
+                        "required": ["name", "namespace"],
+                    },
                 },
                 # Kubectl Utilities
                 {
@@ -517,12 +593,21 @@ class SimpleKubectlMcpServer:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "resource": {"type": "string", "description": "Resource to explain (e.g., 'pods', 'deployments.v1.apps')."},
-                            "api_version": {"type": "string", "description": "API version of the resource (optional)."},
-                            "recursive": {"type": "boolean", "description": "Whether to show all fields recursively."}
+                            "resource": {
+                                "type": "string",
+                                "description": "Resource to explain (e.g., 'pods', 'deployments.v1.apps').",
+                            },
+                            "api_version": {
+                                "type": "string",
+                                "description": "API version of the resource (optional).",
+                            },
+                            "recursive": {
+                                "type": "boolean",
+                                "description": "Whether to show all fields recursively.",
+                            },
                         },
-                        "required": ["resource"]
-                    }
+                        "required": ["resource"],
+                    },
                 },
                 {
                     "name": "list_api_resources",
@@ -530,12 +615,22 @@ class SimpleKubectlMcpServer:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "api_group": {"type": "string", "description": "API group to filter by (e.g., 'apps', 'networking.k8s.io')."},
-                            "namespaced": {"type": "boolean", "description": "Whether to show only namespaced resources."},
-                            "verbs": {"type": "array", "items": {"type": "string"}, "description": "Filter by verbs (e.g., ['get', 'list', 'watch'])."}
+                            "api_group": {
+                                "type": "string",
+                                "description": "API group to filter by (e.g., 'apps', 'networking.k8s.io').",
+                            },
+                            "namespaced": {
+                                "type": "boolean",
+                                "description": "Whether to show only namespaced resources.",
+                            },
+                            "verbs": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Filter by verbs (e.g., ['get', 'list', 'watch']).",
+                            },
                         },
-                        "required": []
-                    }
+                        "required": [],
+                    },
                 },
                 {
                     "name": "describe_pod",
@@ -543,11 +638,17 @@ class SimpleKubectlMcpServer:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "pod_name": {"type": "string", "description": "Name of the pod to describe."},
-                            "namespace": {"type": "string", "description": "Namespace of the pod."}
+                            "pod_name": {
+                                "type": "string",
+                                "description": "Name of the pod to describe.",
+                            },
+                            "namespace": {
+                                "type": "string",
+                                "description": "Namespace of the pod.",
+                            },
                         },
-                        "required": ["pod_name"]
-                    }
+                        "required": ["pod_name"],
+                    },
                 },
                 # Context and Namespace Management
                 {
@@ -556,11 +657,14 @@ class SimpleKubectlMcpServer:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "namespace": {"type": "string", "description": "The namespace to set as default."}
+                            "namespace": {
+                                "type": "string",
+                                "description": "The namespace to set as default.",
+                            }
                         },
-                        "required": ["namespace"]
-                    }
-                }
+                        "required": ["namespace"],
+                    },
+                },
             ]
         }
 
@@ -568,7 +672,7 @@ class SimpleKubectlMcpServer:
         """Handle tool call request."""
         name = params.get("name", "")
         arguments = params.get("arguments", {})
-        
+
         try:
             # Pod Management
             if name == "create_pod":
@@ -579,7 +683,7 @@ class SimpleKubectlMcpServer:
                 return self.k8s_ops.check_pod_health(**arguments)
             elif name == "get_pod_logs":
                 return self.k8s_ops.get_pod_logs(**arguments)
-            
+
             # Deployment Management
             elif name == "create_deployment":
                 return self.k8s_ops.create_deployment(**arguments)
@@ -587,13 +691,13 @@ class SimpleKubectlMcpServer:
                 return self.k8s_ops.delete_deployment(**arguments)
             elif name == "scale_deployment":
                 return self.k8s_ops.scale_deployment(**arguments)
-            
+
             # Service Management
             elif name == "create_service":
                 return self.k8s_ops.create_service(**arguments)
             elif name == "delete_service":
                 return self.k8s_ops.delete_service(**arguments)
-                
+
             # Resource Listing Tools
             elif name == "list_pods":
                 return self.k8s_ops.list_pods(**arguments)
@@ -605,7 +709,7 @@ class SimpleKubectlMcpServer:
                 return self.k8s_ops.list_nodes(**arguments)
             elif name == "list_namespaces":
                 return self.k8s_ops.list_namespaces(**arguments)
-                
+
             # Helm Chart Support
             elif name == "install_helm_chart":
                 return self.k8s_ops.install_helm_chart(**arguments)
@@ -613,7 +717,7 @@ class SimpleKubectlMcpServer:
                 return self.k8s_ops.upgrade_helm_chart(**arguments)
             elif name == "uninstall_helm_chart":
                 return self.k8s_ops.uninstall_helm_chart(**arguments)
-                
+
             # Kubectl Utilities
             elif name == "explain_resource":
                 return self.k8s_ops.explain_resource(**arguments)
@@ -621,7 +725,7 @@ class SimpleKubectlMcpServer:
                 return self.k8s_ops.list_api_resources(**arguments)
             elif name == "describe_pod":
                 return self.k8s_ops.describe_pod(**arguments)
-                
+
             # Security Operations
             elif name == "audit_rbac":
                 return self.handle_audit_rbac(
@@ -629,7 +733,7 @@ class SimpleKubectlMcpServer:
                     arguments.get("type", "all"),
                     arguments.get("chunk_number", 0),
                     arguments.get("chunks_total", 5),
-                    arguments.get("minimal_mode", False)
+                    arguments.get("minimal_mode", False),
                 )
             elif name == "create_role":
                 return self.k8s_ops.create_role(**arguments)
@@ -637,7 +741,7 @@ class SimpleKubectlMcpServer:
                 return self.k8s_ops.create_cluster_role(**arguments)
             elif name == "create_service_account":
                 return self.k8s_ops.create_service_account(**arguments)
-            
+
             # Context Operations
             elif name == "list_contexts":
                 return self.k8s_ops.list_contexts()
@@ -645,17 +749,17 @@ class SimpleKubectlMcpServer:
                 return self.k8s_ops.get_current_context()
             elif name == "switch_context":
                 return self.k8s_ops.switch_context(**arguments)
-            
+
             # Miscellaneous Operations
             elif name == "get_pod_events":
                 return self.k8s_ops.get_pod_events(**arguments)
             elif name == "analyze_pod_logs":
                 return self.k8s_ops.analyze_pod_logs(**arguments)
-            
+
             # Namespace Management
             elif name == "set_namespace":
                 return self.set_current_namespace(arguments.get("namespace", "default"))
-            
+
             else:
                 return {"error": f"Unknown tool: {name}"}
         except Exception as e:
@@ -668,13 +772,13 @@ class SimpleKubectlMcpServer:
             method = request.get("method")
             request_id = request.get("id")
             params = request.get("params", {})
-            
+
             logger.debug(f"Handling request: method={method}, id={request_id}")
-            
+
             # Skip heartbeat messages in response
             if method == "heartbeat":
                 return None
-            
+
             result = None
             if method == "initialize":
                 result = self.handle_init(params)
@@ -686,43 +790,30 @@ class SimpleKubectlMcpServer:
                 return {
                     "jsonrpc": "2.0",
                     "id": request_id,
-                    "error": {
-                        "code": -32601,
-                        "message": f"Method not found: {method}"
-                    }
+                    "error": {"code": -32601, "message": f"Method not found: {method}"},
                 }
-            
+
             if result is None:
                 return {
                     "jsonrpc": "2.0",
                     "id": request_id,
-                    "error": {
-                        "code": -32603,
-                        "message": "Internal error: null result"
-                    }
+                    "error": {"code": -32603, "message": "Internal error: null result"},
                 }
-            
-            return {
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "result": result
-            }
-            
+
+            return {"jsonrpc": "2.0", "id": request_id, "result": result}
+
         except Exception as e:
             logger.error(f"Error handling request: {str(e)}")
             return {
                 "jsonrpc": "2.0",
                 "id": request.get("id"),
-                "error": {
-                    "code": -32603,
-                    "message": f"Internal error: {str(e)}"
-                }
+                "error": {"code": -32603, "message": f"Internal error: {str(e)}"},
             }
 
     def run(self):
         """Run the server."""
         logger.info("Starting simplified kubectl MCP server...")
-        
+
         while self.running:
             try:
                 line = self.input_stream.readline()
@@ -731,7 +822,7 @@ class SimpleKubectlMcpServer:
 
                 request = json.loads(line)
                 response = self.handle_request(request)
-                
+
                 if response:
                     self.output_stream.write(json.dumps(response) + "\n")
                     self.output_stream.flush()
@@ -743,6 +834,7 @@ class SimpleKubectlMcpServer:
         self.running = False
         logger.info("Server stopped.")
 
+
 def main():
     """Main entry point."""
     server = SimpleKubectlMcpServer()
@@ -753,5 +845,6 @@ def main():
     finally:
         server.running = False
 
+
 if __name__ == "__main__":
-    main() 
+    main()

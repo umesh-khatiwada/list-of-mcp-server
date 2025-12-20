@@ -51,7 +51,7 @@ if [[ "$1" == "register" ]]; then
         echo "Usage: ./setup.sh register <name> <url>"
         exit 1
     fi
-    
+
     echo "Registering agent: $2 at $3"
     curl -X POST "${ORCHESTRATOR_URL}/register" \
         -H "Content-Type: application/json" \
@@ -76,7 +76,7 @@ if [[ "$1" == "get" ]]; then
         echo "Usage: ./setup.sh get <name>"
         exit 1
     fi
-    
+
     echo "Fetching agent: $2"
     curl -s "${ORCHESTRATOR_URL}/agents/$2" | python3 -m json.tool
     echo ""
@@ -90,7 +90,7 @@ if [[ "$1" == "unregister" ]]; then
         echo "Usage: ./setup.sh unregister <name>"
         exit 1
     fi
-    
+
     echo "Unregistering agent: $2"
     curl -X DELETE "${ORCHESTRATOR_URL}/unregister/$2" -s | python3 -m json.tool
     echo ""
@@ -126,7 +126,7 @@ fi
 if [[ "$1" == "all" ]]; then
     echo "Starting all services..."
     echo ""
-    
+
     # Start orchestrator in background
     echo "Starting Orchestrator..."
     cd orchestrator-agent
@@ -134,9 +134,9 @@ if [[ "$1" == "all" ]]; then
     ORCHESTRATOR_PID=$!
     echo "Orchestrator PID: $ORCHESTRATOR_PID"
     cd ..
-    
+
     sleep 2
-    
+
     # Start cybersecurity agent in background
     echo ""
     echo "Starting Cybersecurity Agent..."
@@ -145,9 +145,9 @@ if [[ "$1" == "all" ]]; then
     CYBERSECURITY_PID=$!
     echo "Cybersecurity Agent PID: $CYBERSECURITY_PID"
     cd ..
-    
+
     sleep 2
-    
+
     # Register cybersecurity agent
     echo ""
     echo "Registering Cybersecurity Agent with Orchestrator..."
@@ -155,7 +155,7 @@ if [[ "$1" == "all" ]]; then
         -H "Content-Type: application/json" \
         -d '{"name": "cybersecurity-agent", "url": "http://127.0.0.1:9003"}' \
         -s | python3 -m json.tool
-    
+
     echo ""
     echo "========================================"
     echo "All services started!"
@@ -170,7 +170,7 @@ if [[ "$1" == "all" ]]; then
     echo "To stop services:"
     echo "  kill $ORCHESTRATOR_PID $CYBERSECURITY_PID"
     echo ""
-    
+
     # Wait for services to finish
     wait
     exit 0

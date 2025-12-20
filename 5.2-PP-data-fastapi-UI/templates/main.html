@@ -12,14 +12,14 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
         }
-        
+
         .container {
             max-width: 1600px;
             margin: 0 auto;
@@ -31,7 +31,7 @@
             display: flex;
             flex-direction: column;
         }
-        
+
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -40,18 +40,18 @@
             justify-content: space-between;
             align-items: center;
         }
-        
+
         .header h1 {
             font-size: 2rem;
             margin: 0;
         }
-        
+
         .header-controls {
             display: flex;
             gap: 15px;
             align-items: center;
         }
-        
+
         .nav-btn {
             color: white;
             text-decoration: none;
@@ -61,17 +61,17 @@
             transition: all 0.3s;
             font-size: 0.9rem;
         }
-        
+
         .nav-btn:hover {
             background: rgba(255,255,255,0.2);
         }
-        
+
         .main-layout {
             flex: 1;
             display: flex;
             overflow: hidden;
         }
-        
+
         .sidebar {
             width: 300px;
             background: #f8f9ff;
@@ -79,13 +79,13 @@
             display: flex;
             flex-direction: column;
         }
-        
+
         .sidebar-tabs {
             display: flex;
             background: #e8eaff;
             border-bottom: 1px solid #d1d5ff;
         }
-        
+
         .sidebar-tab {
             flex: 1;
             padding: 12px;
@@ -97,31 +97,31 @@
             font-size: 0.9rem;
             transition: all 0.3s;
         }
-        
+
         .sidebar-tab.active {
             background: #f8f9ff;
             color: #667eea;
             font-weight: 600;
         }
-        
+
         .sidebar-content {
             flex: 1;
             padding: 20px;
             overflow-y: auto;
         }
-        
+
         .content-area {
             flex: 1;
             display: flex;
             flex-direction: column;
         }
-        
+
         .content-tabs {
             display: flex;
             background: #f0f2ff;
             border-bottom: 1px solid #e1e5ff;
         }
-        
+
         .content-tab {
             padding: 15px 25px;
             cursor: pointer;
@@ -132,25 +132,25 @@
             transition: all 0.3s;
             border-bottom: 3px solid transparent;
         }
-        
+
         .content-tab.active {
             background: white;
             color: #667eea;
             border-bottom-color: #667eea;
             font-weight: 600;
         }
-        
+
         .tab-content {
             flex: 1;
             padding: 20px;
             overflow-y: auto;
             display: none;
         }
-        
+
         .tab-content.active {
             display: block;
         }
-        
+
         /* Chat specific styles */
         .chat-messages {
             flex: 1;
@@ -158,47 +158,47 @@
             padding: 20px;
             background: #f8f9ff;
         }
-        
+
         .chat-input-area {
             padding: 20px;
             background: white;
             border-top: 1px solid #e1e5ff;
         }
-        
+
         .message {
             margin-bottom: 15px;
             display: flex;
             align-items: flex-start;
         }
-        
+
         .user-message {
             justify-content: flex-end;
         }
-        
+
         .agent-message {
             justify-content: flex-start;
         }
-        
+
         .message-content {
             max-width: 70%;
             padding: 12px 18px;
             border-radius: 18px;
             word-wrap: break-word;
         }
-        
+
         .user-message .message-content {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border-bottom-right-radius: 4px;
         }
-        
+
         .agent-message .message-content {
             background: white;
             color: #333;
             border: 1px solid #e1e5ff;
             border-bottom-left-radius: 4px;
         }
-        
+
         /* Markdown content styles for agent messages */
         .agent-message .message-content h1,
         .agent-message .message-content h2,
@@ -209,28 +209,28 @@
             margin: 10px 0 5px 0;
             color: #667eea;
         }
-        
+
         .agent-message .message-content h1 { font-size: 1.4em; }
         .agent-message .message-content h2 { font-size: 1.3em; }
         .agent-message .message-content h3 { font-size: 1.2em; }
         .agent-message .message-content h4 { font-size: 1.1em; }
-        
+
         .agent-message .message-content p {
             margin: 8px 0;
             line-height: 1.5;
         }
-        
+
         .agent-message .message-content ul,
         .agent-message .message-content ol {
             margin: 8px 0;
             padding-left: 20px;
         }
-        
+
         .agent-message .message-content li {
             margin: 4px 0;
             line-height: 1.4;
         }
-        
+
         .agent-message .message-content code {
             background: #f4f4f4;
             padding: 2px 4px;
@@ -239,7 +239,7 @@
             font-size: 0.9em;
             color: #d73a49;
         }
-        
+
         .agent-message .message-content pre {
             background: #f8f8f8;
             border: 1px solid #e1e1e1;
@@ -250,13 +250,13 @@
             font-family: 'Courier New', monospace;
             font-size: 0.9em;
         }
-        
+
         .agent-message .message-content pre code {
             background: none;
             padding: 0;
             color: #333;
         }
-        
+
         .agent-message .message-content blockquote {
             border-left: 4px solid #667eea;
             margin: 10px 0;
@@ -264,43 +264,43 @@
             background: #f8f9ff;
             font-style: italic;
         }
-        
+
         .agent-message .message-content table {
             border-collapse: collapse;
             width: 100%;
             margin: 10px 0;
         }
-        
+
         .agent-message .message-content th,
         .agent-message .message-content td {
             border: 1px solid #ddd;
             padding: 8px;
             text-align: left;
         }
-        
+
         .agent-message .message-content th {
             background: #f8f9ff;
             font-weight: bold;
         }
-        
+
         .agent-message .message-content a {
             color: #667eea;
             text-decoration: none;
         }
-        
+
         .agent-message .message-content a:hover {
             text-decoration: underline;
         }
-        
+
         .agent-message .message-content strong {
             font-weight: bold;
             color: #333;
         }
-        
+
         .agent-message .message-content em {
             font-style: italic;
         }
-        
+
         .message-input {
             width: 100%;
             padding: 12px 20px;
@@ -310,17 +310,17 @@
             outline: none;
             resize: none;
         }
-        
+
         .message-input:focus {
             border-color: #667eea;
         }
-        
+
         .input-form {
             display: flex;
             gap: 10px;
             align-items: flex-end;
         }
-        
+
         .send-btn {
             padding: 12px 24px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -331,11 +331,11 @@
             transition: all 0.3s;
             font-weight: 600;
         }
-        
+
         .send-btn:hover {
             transform: translateY(-2px);
         }
-        
+
         /* API Testing styles */
         .api-section {
             margin-bottom: 30px;
@@ -344,7 +344,7 @@
             border-radius: 10px;
             border: 1px solid #e1e5ff;
         }
-        
+
         .api-endpoint {
             background: white;
             padding: 15px;
@@ -352,7 +352,7 @@
             margin-bottom: 15px;
             border: 1px solid #e1e5ff;
         }
-        
+
         .method-badge {
             font-weight: bold;
             padding: 4px 8px;
@@ -360,11 +360,11 @@
             font-size: 0.8rem;
             margin-right: 10px;
         }
-        
+
         .get-method { background: #4CAF50; color: white; }
         .post-method { background: #2196F3; color: white; }
         .delete-method { background: #f44336; color: white; }
-        
+
         .test-btn {
             background: #667eea;
             color: white;
@@ -375,11 +375,11 @@
             margin-top: 10px;
             transition: background 0.3s;
         }
-        
+
         .test-btn:hover {
             background: #5a6fd8;
         }
-        
+
         .response-display {
             background: #1a1a1a;
             color: #00ff00;
@@ -392,7 +392,7 @@
             overflow-x: auto;
             font-size: 0.85rem;
         }
-        
+
         /* Session and tools styles */
         .list-item {
             padding: 12px;
@@ -403,12 +403,12 @@
             cursor: pointer;
             transition: all 0.3s;
         }
-        
+
         .list-item:hover, .list-item.active {
             background: #667eea;
             color: white;
         }
-        
+
         .tool-item {
             padding: 12px;
             background: white;
@@ -416,18 +416,18 @@
             border-radius: 8px;
             margin-bottom: 10px;
         }
-        
+
         .tool-name {
             font-weight: bold;
             color: #667eea;
             margin-bottom: 5px;
         }
-        
+
         .tool-desc {
             color: #666;
             font-size: 0.9rem;
         }
-        
+
         /* Memory panel styles */
         .memory-input {
             width: 100%;
@@ -436,7 +436,7 @@
             border-radius: 6px;
             margin-bottom: 10px;
         }
-        
+
         .memory-btn {
             padding: 8px 16px;
             background: #e53e3e;
@@ -447,7 +447,7 @@
             margin-right: 10px;
             margin-bottom: 10px;
         }
-        
+
         .memory-item {
             padding: 10px;
             background: white;
@@ -456,7 +456,7 @@
             margin-bottom: 8px;
             font-size: 0.9rem;
         }
-        
+
         /* Status indicators */
         .status-indicator {
             display: inline-flex;
@@ -466,46 +466,46 @@
             border-radius: 20px;
             font-size: 0.85rem;
         }
-        
+
         .status-online {
             background: #d4edda;
             color: #155724;
         }
-        
+
         .status-offline {
             background: #f8d7da;
             color: #721c24;
         }
-        
+
         .status-dot {
             width: 8px;
             height: 8px;
             border-radius: 50%;
             background: currentColor;
         }
-        
+
         /* Responsive design */
         @media (max-width: 1024px) {
             .sidebar {
                 width: 250px;
             }
         }
-        
+
         @media (max-width: 768px) {
             .main-layout {
                 flex-direction: column;
             }
-            
+
             .sidebar {
                 width: 100%;
                 max-height: 200px;
             }
-            
+
             .message-content {
                 max-width: 85%;
             }
         }
-        
+
         /* Typing indicator animation */
         @keyframes blink {
             0%, 50% { opacity: 1; }
@@ -527,7 +527,7 @@
                 <a href="/docs" class="nav-btn"> API Docs</a>
             </div>
         </div>
-        
+
         <div class="main-layout">
             <div class="sidebar">
                 <div class="sidebar-tabs">
@@ -535,7 +535,7 @@
                     <button class="sidebar-tab" onclick="switchSidebarTab('tools')">Tools</button>
                     <button class="sidebar-tab" onclick="switchSidebarTab('memory')">Memory</button>
                 </div>
-                
+
                 <div class="sidebar-content">
                     <!-- Sessions Tab -->
                     <div id="sessions-tab" class="sidebar-tab-content">
@@ -547,7 +547,7 @@
                             + New Session
                         </button>
                     </div>
-                    
+
                     <!-- Tools Tab -->
                     <div id="tools-tab" class="sidebar-tab-content" style="display: none;">
                         <h3 style="margin-bottom: 15px; color: #667eea;">Available Tools</h3>
@@ -555,7 +555,7 @@
                             <div class="tool-item">Loading tools...</div>
                         </div>
                     </div>
-                    
+
                     <!-- Memory Tab -->
                     <div id="memory-tab" class="sidebar-tab-content" style="display: none;">
                         <h3 style="margin-bottom: 15px; color: #667eea;">Memory Store</h3>
@@ -566,14 +566,14 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="content-area">
                 <div class="content-tabs">
                     <button class="content-tab active" onclick="switchContentTab('chat')">💬 Chat</button>
                     <button class="content-tab" onclick="switchContentTab('api')">🔗 API Testing</button>
                     <button class="content-tab" onclick="switchContentTab('monitor')"> Monitor</button>
                 </div>
-                
+
                 <!-- Chat Tab -->
                 <div id="chat-tab" class="tab-content active">
                     <div class="chat-messages" id="chatMessages">
@@ -589,90 +589,90 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- API Testing Tab -->
                 <div id="api-tab" class="tab-content">
                     <h2 style="margin-bottom: 20px; color: #333;">API Endpoint Testing</h2>
-                    
+
                     <div class="api-section">
                         <h3 style="margin-bottom: 15px; color: #667eea;">Chat Endpoints</h3>
-                        
+
                         <div class="api-endpoint">
                             <span class="method-badge post-method">POST</span>
                             <code>/api/chat</code> - Send message to agent
                             <button class="test-btn" onclick="testChatAPI()">Test Chat</button>
                         </div>
-                        
+
                         <div class="api-endpoint">
                             <span class="method-badge get-method">GET</span>
                             <code>/api/history/{session_id}</code> - Get conversation history
                             <button class="test-btn" onclick="testHistoryAPI()">Test History</button>
                         </div>
                     </div>
-                    
+
                     <div class="api-section">
                         <h3 style="margin-bottom: 15px; color: #667eea;">Memory Endpoints</h3>
-                        
+
                         <div class="api-endpoint">
                             <span class="method-badge post-method">POST</span>
                             <code>/api/memory/store</code> - Store information
                             <button class="test-btn" onclick="testMemoryStore()">Test Store</button>
                         </div>
-                        
+
                         <div class="api-endpoint">
                             <span class="method-badge post-method">POST</span>
                             <code>/api/memory/retrieve</code> - Retrieve memories
                             <button class="test-btn" onclick="testMemoryRetrieve()">Test Retrieve</button>
                         </div>
                     </div>
-                    
+
                     <div class="api-section">
                         <h3 style="margin-bottom: 15px; color: #667eea;">System Endpoints</h3>
-                        
+
                         <div class="api-endpoint">
                             <span class="method-badge get-method">GET</span>
                             <code>/health</code> - System health check
                             <button class="test-btn" onclick="testHealthAPI()">Test Health</button>
                         </div>
-                        
+
                         <div class="api-endpoint">
                             <span class="method-badge get-method">GET</span>
                             <code>/api/tools</code> - Get available tools
                             <button class="test-btn" onclick="testToolsAPI()">Test Tools</button>
                         </div>
                     </div>
-                    
+
                     <div class="response-display" id="apiResponse">
                         Click any test button to see API responses here...
                     </div>
                 </div>
-                
+
                 <!-- Monitor Tab -->
                 <div id="monitor-tab" class="tab-content">
                     <h2 style="margin-bottom: 20px; color: #333;">System Monitor</h2>
-                    
+
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px;">
                         <div style="background: #f8f9ff; padding: 20px; border-radius: 10px; border: 1px solid #e1e5ff;">
                             <h4 style="color: #667eea; margin-bottom: 10px;">Agent Status</h4>
                             <div id="agentStatusMonitor">Loading...</div>
                         </div>
-                        
+
                         <div style="background: #f8f9ff; padding: 20px; border-radius: 10px; border: 1px solid #e1e5ff;">
                             <h4 style="color: #667eea; margin-bottom: 10px;">Active Sessions</h4>
                             <div id="activeSessionsMonitor">Loading...</div>
                         </div>
-                        
+
                         <div style="background: #f8f9ff; padding: 20px; border-radius: 10px; border: 1px solid #e1e5ff;">
                             <h4 style="color: #667eea; margin-bottom: 10px;">Memory Usage</h4>
                             <div id="memoryUsageMonitor">Loading...</div>
                         </div>
-                        
+
                         <div style="background: #f8f9ff; padding: 20px; border-radius: 10px; border: 1px solid #e1e5ff;">
                             <h4 style="color: #667eea; margin-bottom: 10px;">Response Time</h4>
                             <div id="responseTimeMonitor">~250ms</div>
                         </div>
                     </div>
-                    
+
                     <div style="background: #f8f9ff; padding: 20px; border-radius: 10px; border: 1px solid #e1e5ff;">
                         <h4 style="color: #667eea; margin-bottom: 15px;">System Logs</h4>
                         <div id="systemLogs" style="background: #1a1a1a; color: #00ff00; padding: 15px; border-radius: 8px; font-family: 'Courier New', monospace; height: 200px; overflow-y: auto; font-size: 0.85rem;">
@@ -686,11 +686,11 @@
             </div>
         </div>
     </div>
-    
+
     <script>
         let currentSession = '5c669c6f-911a-41ac-a5bd-e11c848f2215';
         let chatHistory = [];
-        
+
         // Initialize the interface
         window.onload = function() {
             checkSystemHealth();
@@ -699,7 +699,7 @@
             loadChatHistory();
             autoResizeTextarea();
         };
-        
+
         function autoResizeTextarea() {
             const textarea = document.getElementById('messageInput');
             textarea.addEventListener('input', function() {
@@ -707,48 +707,48 @@
                 this.style.height = Math.min(this.scrollHeight, 120) + 'px';
             });
         }
-        
+
         function switchSidebarTab(tabName) {
             // Hide all sidebar tab contents
             document.querySelectorAll('.sidebar-tab-content').forEach(tab => {
                 tab.style.display = 'none';
             });
-            
+
             // Remove active class from all sidebar tabs
             document.querySelectorAll('.sidebar-tab').forEach(tab => {
                 tab.classList.remove('active');
             });
-            
+
             // Show selected tab content
             document.getElementById(tabName + '-tab').style.display = 'block';
-            
+
             // Add active class to clicked tab
             event.target.classList.add('active');
         }
-        
+
         function switchContentTab(tabName) {
             // Hide all content tabs
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
             });
-            
+
             // Remove active class from all content tab buttons
             document.querySelectorAll('.content-tab').forEach(tab => {
                 tab.classList.remove('active');
             });
-            
+
             // Show selected content
             document.getElementById(tabName + '-tab').classList.add('active');
-            
+
             // Add active class to clicked tab button
             event.target.classList.add('active');
         }
-        
+
         async function checkSystemHealth() {
             try {
                 const response = await fetch('/health');
                 const data = await response.json();
-                
+
                 const statusElement = document.getElementById('systemStatus');
                 if (data.agent_ready) {
                     statusElement.className = 'status-indicator status-online';
@@ -757,29 +757,29 @@
                     statusElement.className = 'status-indicator status-offline';
                     statusElement.innerHTML = '<div class="status-dot"></div><span>System Offline</span>';
                 }
-                
+
                 // Update monitor tab
                 document.getElementById('agentStatusMonitor').textContent = data.agent_ready ? 'Online' : 'Offline';
-                
+
             } catch (error) {
                 document.getElementById('systemStatus').className = 'status-indicator status-offline';
                 document.getElementById('systemStatus').innerHTML = '<div class="status-dot"></div><span>Connection Error</span>';
             }
         }
-        
+
         async function loadSessions() {
             try {
                 const response = await fetch('/api/sessions');
                 const data = await response.json();
-                
+
                 const sessionsList = document.getElementById('sessionsList');
                 sessionsList.innerHTML = '';
-                
+
                 data.sessions.forEach(session => {
                     const sessionItem = document.createElement('div');
                     sessionItem.className = 'list-item';
                     sessionItem.dataset.session = session;
-                    
+
                     // Display friendly names for sessions
                     if (session === '5c669c6f-911a-41ac-a5bd-e11c848f2215') {
                         sessionItem.textContent = 'Current Session';
@@ -788,31 +788,31 @@
                     } else {
                         sessionItem.textContent = session.substring(0, 12) + '...';
                     }
-                    
+
                     sessionItem.onclick = () => switchSession(session);
                     if (session === currentSession) {
                         sessionItem.classList.add('active');
                     }
                     sessionsList.appendChild(sessionItem);
                 });
-                
+
                 // Update monitor
                 document.getElementById('activeSessionsMonitor').textContent = data.sessions.length;
-                
+
             } catch (error) {
                 console.error('Error loading sessions:', error);
                 addLogMessage(`ERROR: Failed to load sessions - ${error.message}`);
             }
         }
-        
+
         async function loadTools() {
             try {
                 const response = await fetch('/api/tools');
                 const data = await response.json();
-                
+
                 const toolsList = document.getElementById('toolsList');
                 toolsList.innerHTML = '';
-                
+
                 data.tools.forEach(tool => {
                     const toolItem = document.createElement('div');
                     toolItem.className = 'tool-item';
@@ -822,12 +822,12 @@
                     `;
                     toolsList.appendChild(toolItem);
                 });
-                
+
             } catch (error) {
                 console.error('Error loading tools:', error);
             }
         }
-        
+
         async function loadChatHistory() {
             try {
                 const response = await fetch(`/api/history/${currentSession}`);
@@ -838,10 +838,10 @@
                 console.error('Error loading chat history:', error);
             }
         }
-        
+
         function displayChatHistory() {
             const chatMessages = document.getElementById('chatMessages');
-            
+
             if (chatHistory.length === 0) {
                 chatMessages.innerHTML = `
                     <div style="text-align: center; padding: 40px; color: #666;">
@@ -851,33 +851,33 @@
                 `;
                 return;
             }
-            
+
             chatMessages.innerHTML = '';
-            
+
             chatHistory.forEach(conversation => {
                 addMessageToUI(conversation.user_message, 'user', conversation.timestamp);
                 addMessageToUI(conversation.agent_response, 'agent', conversation.timestamp);
             });
-            
+
             scrollToBottom();
         }
-        
+
         async function sendMessage() {
             const messageInput = document.getElementById('messageInput');
             const message = messageInput.value.trim();
-            
+
             if (!message) return;
-            
+
             // Add user message to UI
             addMessageToUI(message, 'user');
-            
+
             // Clear input
             messageInput.value = '';
             messageInput.style.height = 'auto';
-            
+
             // Show typing indicator
             addTypingIndicator();
-            
+
             try {
                 const response = await fetch('/api/chat', {
                     method: 'POST',
@@ -887,31 +887,31 @@
                         session_id: currentSession
                     })
                 });
-                
+
                 // Remove typing indicator
                 removeTypingIndicator();
-                
+
                 console.log('Response status:', response.status);
                 const data = await response.json();
                 console.log('Response data:', data);
-                
+
                 if (response.ok && data.success && data.response) {
                     addMessageToUI(data.response, 'agent', data.timestamp);
-                    
+
                     // Update chat history
                     chatHistory.push({
                         user_message: message,
                         agent_response: data.response,
                         timestamp: data.timestamp
                     });
-                    
+
                     addLogMessage(`Agent responded: ${data.response.substring(0, 50)}...`);
                 } else {
                     console.error('Invalid response format:', data);
                     addMessageToUI('Sorry, I received an invalid response. Please try again.', 'agent');
                     addLogMessage('ERROR: Invalid response format from API');
                 }
-                
+
             } catch (error) {
                 removeTypingIndicator();
                 addMessageToUI('Sorry, I encountered an error. Please try again.', 'agent');
@@ -919,19 +919,19 @@
                 addLogMessage(`ERROR: ${error.message}`);
             }
         }
-        
+
         function addMessageToUI(message, sender, timestamp = null) {
             const chatMessages = document.getElementById('chatMessages');
-            
+
             // Remove welcome message if it exists
             const welcomeMsg = chatMessages.querySelector('div[style*="text-align: center"]');
             if (welcomeMsg) {
                 welcomeMsg.remove();
             }
-            
+
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}-message`;
-            
+
             // Parse Markdown for agent messages, keep plain text for user messages
             let messageContent;
             if (sender === 'agent') {
@@ -954,20 +954,20 @@
                 // For user messages, just convert line breaks to <br>
                 messageContent = message.replace(/\n/g, '<br>');
             }
-            
+
             messageDiv.innerHTML = `
                 <div class="message-content">
                     ${messageContent}
                 </div>
             `;
-            
+
             chatMessages.appendChild(messageDiv);
             scrollToBottom();
         }
-        
+
         function addTypingIndicator() {
             const chatMessages = document.getElementById('chatMessages');
-            
+
             const typingDiv = document.createElement('div');
             typingDiv.id = 'typing-indicator';
             typingDiv.className = 'message agent-message';
@@ -977,28 +977,28 @@
                     <span style="animation: blink 1s infinite;">...</span>
                 </div>
             `;
-            
+
             chatMessages.appendChild(typingDiv);
             scrollToBottom();
         }
-        
+
         function removeTypingIndicator() {
             const typingIndicator = document.getElementById('typing-indicator');
             if (typingIndicator) {
                 typingIndicator.remove();
             }
         }
-        
+
         function scrollToBottom() {
             const chatMessages = document.getElementById('chatMessages');
             setTimeout(() => {
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }, 100);
         }
-        
+
         function switchSession(sessionId) {
             currentSession = sessionId;
-            
+
             // Update active session in UI
             document.querySelectorAll('.list-item').forEach(item => {
                 item.classList.remove('active');
@@ -1006,71 +1006,71 @@
                     item.classList.add('active');
                 }
             });
-            
+
             loadChatHistory();
         }
-        
+
         function createNewSession() {
             const sessionId = 'session_' + Date.now();
             switchSession(sessionId);
             loadSessions();
         }
-        
+
         // API Testing Functions
         async function testAPI(method, endpoint, data = null) {
             const responseDisplay = document.getElementById('apiResponse');
             responseDisplay.textContent = 'Testing endpoint...';
-            
+
             try {
                 const options = {
                     method: method,
                     headers: { 'Content-Type': 'application/json' }
                 };
-                
+
                 if (data) {
                     options.body = JSON.stringify(data);
                 }
-                
+
                 const response = await fetch(endpoint, options);
                 const result = await response.json();
-                
+
                 responseDisplay.textContent = `Status: ${response.status}\nEndpoint: ${method} ${endpoint}\n\nResponse:\n${JSON.stringify(result, null, 2)}`;
             } catch (error) {
                 responseDisplay.textContent = `Error: ${error.message}`;
             }
         }
-        
+
         function testChatAPI() {
             testAPI('POST', '/api/chat', { message: 'Hello from API test!', session_id: 'test' });
         }
-        
+
         function testHistoryAPI() {
             testAPI('GET', '/api/history/default');
         }
-        
+
         function testMemoryStore() {
             testAPI('POST', '/api/memory/store', { content: 'Test memory from UI', session_id: 'test' });
         }
-        
+
         function testMemoryRetrieve() {
             testAPI('POST', '/api/memory/retrieve', { session_id: 'test' });
         }
-        
+
         function testHealthAPI() {
             testAPI('GET', '/health');
         }
-        
+
         function testToolsAPI() {
             testAPI('GET', '/api/tools');
         }
-        
+
         // Memory Functions
         async function storeMemory() {
             const memoryInput = document.getElementById('memoryInput');
             const content = memoryInput.value.trim();
-            
+
             if (!content) return;
-            
+
             try {
                 const response = await fetch('/api/memory/store', {
                     method: 'POST',
@@ -1080,7 +1080,7 @@
                         session_id: currentSession
                     })
                 });
-                
+
                 const data = await response.json();
                 if (data.success) {
                     memoryInput.value = '';
@@ -1090,7 +1090,7 @@
                 console.error('Error storing memory:', error);
             }
         }
-        
+
         async function retrieveMemories() {
             try {
                 const response = await fetch('/api/memory/retrieve', {
@@ -1098,11 +1098,11 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ session_id: currentSession })
                 });
-                
+
                 const data = await response.json();
                 const memoriesList = document.getElementById('memoriesList');
                 memoriesList.innerHTML = '';
-                
+
                 if (data.memories && data.memories.length > 0) {
                     data.memories.forEach(memory => {
                         const memoryItem = document.createElement('div');
@@ -1110,7 +1110,7 @@
                         memoryItem.textContent = memory.content;
                         memoriesList.appendChild(memoryItem);
                     });
-                    
+
                     // Update monitor
                     document.getElementById('memoryUsageMonitor').textContent = `${data.memories.length} items`;
                 } else {
@@ -1121,14 +1121,14 @@
                 console.error('Error retrieving memories:', error);
             }
         }
-        
+
         function addLogMessage(message) {
             const systemLogs = document.getElementById('systemLogs');
             const timestamp = new Date().toLocaleTimeString();
             systemLogs.innerHTML += `[${timestamp}] ${message}<br>`;
             systemLogs.scrollTop = systemLogs.scrollHeight;
         }
-        
+
         // Enter key to send message
         document.getElementById('messageInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -1136,7 +1136,7 @@
                 sendMessage();
             }
         });
-        
+
         // Auto-refresh system status every 30 seconds
         setInterval(checkSystemHealth, 30000);
         setInterval(loadSessions, 60000);

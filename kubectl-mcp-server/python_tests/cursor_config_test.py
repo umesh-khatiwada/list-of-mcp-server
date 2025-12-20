@@ -11,13 +11,14 @@ import subprocess
 import sys
 import time
 
+
 def load_cursor_config():
     """Load the Cursor MCP configuration file."""
     config_path = os.path.expanduser("~/.cursor/mcp.json")
     if not os.path.exists(config_path):
         print(f"❌ Cursor configuration file not found at {config_path}")
         return None
-    
+
     try:
         with open(config_path, "r") as f:
             config = json.load(f)
@@ -27,31 +28,32 @@ def load_cursor_config():
         print(f"❌ Error loading Cursor configuration: {e}")
         return None
 
+
 def test_cursor_config(config):
     """Test if the command in the Cursor configuration works."""
     if not config or "mcpServers" not in config:
         print("❌ No mcpServers found in configuration")
         return False
-    
+
     for server_name, server_config in config["mcpServers"].items():
         print(f"\nTesting server: {server_name}")
-        
+
         if "command" not in server_config:
             print(f"❌ No command specified for server {server_name}")
             continue
-        
+
         command = server_config["command"]
         args = server_config.get("args", [])
         env = server_config.get("env", {})
-        
+
         # Create environment variables dictionary
         env_dict = os.environ.copy()
         env_dict.update(env)
-        
+
         print(f"Command: {command}")
         print(f"Args: {args}")
         print(f"Environment variables: {env}")
-        
+
         # Try to execute the command
         try:
             print(f"Executing: {command} {' '.join(args)}")
@@ -60,12 +62,12 @@ def test_cursor_config(config):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                env=env_dict
+                env=env_dict,
             )
-            
+
             # Wait for a short time to see if it starts
             time.sleep(2)
-            
+
             # Check if the process is still running
             if process.poll() is None:
                 print(f"✅ Server {server_name} started successfully!")
@@ -82,24 +84,28 @@ def test_cursor_config(config):
             print(f"❌ Error executing command: {e}")
             return False
 
+
 def main():
     """Main function."""
     print("=== Cursor MCP Configuration Test ===")
-    
+
     config = load_cursor_config()
     if config:
         print("\nConfiguration content:")
         print(json.dumps(config, indent=2))
-        
+
         success = test_cursor_config(config)
-        
+
         if success:
             print("\n✅ Cursor configuration is valid and should work correctly!")
         else:
             print("\n❌ Cursor configuration is not working correctly.")
             print("\nRecommendation:")
-            print("1. Update the configuration to use the full path to the Python executable:")
-            print(f"""
+            print(
+                "1. Update the configuration to use the full path to the Python executable:"
+            )
+            print(
+                f"""
 {{
   "mcpServers": {{
     "kubernetes": {{
@@ -108,12 +114,13 @@ def main():
     }}
   }}
 }}
-            """)
+            """
+            )
             print("2. Or update it to use an absolute path to the kubectl-mcp script:")
             pip_cmd = subprocess.run(
                 [sys.executable, "-m", "pip", "show", "kubectl-mcp-tool"],
                 capture_output=True,
-                text=True
+                text=True,
             )
             if pip_cmd.returncode == 0:
                 location = None
@@ -121,11 +128,14 @@ def main():
                     if line.startswith("Location:"):
                         location = line.split(":", 1)[1].strip()
                         break
-                
+
                 if location:
-                    script_path = os.path.join(location, "kubectl_mcp_tool", "cli", "cli.py")
+                    script_path = os.path.join(
+                        location, "kubectl_mcp_tool", "cli", "cli.py"
+                    )
                     if os.path.exists(script_path):
-                        print(f"""
+                        print(
+                            f"""
 {{
   "mcpServers": {{
     "kubernetes": {{
@@ -134,7 +144,9 @@ def main():
     }}
   }}
 }}
-                        """)
+                        """
+                        )
+
 
 if __name__ == "__main__":
-    main() 
+    main()

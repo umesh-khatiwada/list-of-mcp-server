@@ -14,14 +14,14 @@ This guide explains how to integrate the kubectl-mcp-tool with Claude AI for nat
    ```bash
    # Install from PyPI (recommended)
    pip install kubectl-mcp-tool
-   
+
    # For a specific version
    pip install kubectl-mcp-tool==1.0.0
-   
+
    # Or install in development mode from local repository
    pip install -e /path/to/kubectl-mcp-tool
    ```
-   
+
    The package is available on PyPI: [https://pypi.org/project/kubectl-mcp-tool/1.0.0/](https://pypi.org/project/kubectl-mcp-tool/1.0.0/)
 
 2. **Start the MCP server**:

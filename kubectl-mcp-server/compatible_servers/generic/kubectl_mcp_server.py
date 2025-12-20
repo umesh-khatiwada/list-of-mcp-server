@@ -7,12 +7,11 @@ import asyncio
 import json
 import logging
 import os
+import select
 import subprocess
 import sys
-import uuid
-import select
 import time
-from typing import Any, Dict, List, Optional, TextIO, Tuple, Union
+from typing import Any, Dict, List
 
 # Set up logging
 LOG_DIR = "logs"
@@ -33,6 +32,7 @@ KUBECONFIG = os.environ.get("KUBECONFIG", DEFAULT_KUBECONFIG)
 
 logger.info(f"Using kubeconfig from: {KUBECONFIG}")
 
+
 class KubectlMcpServer:
     """
     A simple MCP server that executes kubectl commands based on natural language input.
@@ -50,22 +50,19 @@ class KubectlMcpServer:
                     "properties": {
                         "namespace": {
                             "type": "string",
-                            "description": "The namespace to get pods from, or 'all' for all namespaces"
+                            "description": "The namespace to get pods from, or 'all' for all namespaces",
                         },
                         "label_selector": {
                             "type": "string",
-                            "description": "Label selector to filter pods"
-                        }
-                    }
-                }
+                            "description": "Label selector to filter pods",
+                        },
+                    },
+                },
             },
             {
                 "name": "get_namespaces",
                 "description": "Get available namespaces",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {}
-                }
+                "inputSchema": {"type": "object", "properties": {}},
             },
             {
                 "name": "describe",
@@ -76,18 +73,18 @@ class KubectlMcpServer:
                     "properties": {
                         "resource_type": {
                             "type": "string",
-                            "description": "Type of resource (pod, deployment, service, etc.)"
+                            "description": "Type of resource (pod, deployment, service, etc.)",
                         },
                         "name": {
                             "type": "string",
-                            "description": "Name of the resource"
+                            "description": "Name of the resource",
                         },
                         "namespace": {
                             "type": "string",
-                            "description": "Namespace of the resource"
-                        }
-                    }
-                }
+                            "description": "Namespace of the resource",
+                        },
+                    },
+                },
             },
             {
                 "name": "kubectl",
@@ -98,10 +95,10 @@ class KubectlMcpServer:
                     "properties": {
                         "command": {
                             "type": "string",
-                            "description": "The kubectl command to run"
+                            "description": "The kubectl command to run",
                         }
-                    }
-                }
+                    },
+                },
             },
             {
                 "name": "switch_namespace",
@@ -112,29 +109,23 @@ class KubectlMcpServer:
                     "properties": {
                         "namespace": {
                             "type": "string",
-                            "description": "The namespace to switch to"
+                            "description": "The namespace to switch to",
                         }
-                    }
-                }
+                    },
+                },
             },
             {
                 "name": "get_current_context",
                 "description": "Get information about the current Kubernetes context and cluster",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {}
-                }
+                "inputSchema": {"type": "object", "properties": {}},
             },
             {
                 "name": "check_cluster_status",
                 "description": "Check if the Kubernetes cluster is accessible and running",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {}
-                }
-            }
+                "inputSchema": {"type": "object", "properties": {}},
+            },
         ]
-        
+
         # Check cluster connection on startup
         asyncio.get_event_loop().create_task(self.check_cluster_connection())
 
@@ -146,29 +137,28 @@ class KubectlMcpServer:
                 version_cmd = ["kubectl", "version", "--client"]
                 env = os.environ.copy()
                 env["KUBECONFIG"] = KUBECONFIG
-                
+
                 result = subprocess.run(
-                    version_cmd,
-                    capture_output=True,
-                    text=True,
-                    env=env
+                    version_cmd, capture_output=True, text=True, env=env
                 )
-                
+
                 if result.returncode == 0:
                     logger.info(f"kubectl client version: {result.stdout.strip()}")
                 else:
                     logger.warning(f"kubectl client check failed: {result.stderr}")
             except Exception as e:
                 logger.error(f"Error checking kubectl client: {str(e)}")
-            
+
             # Simple command to check if cluster is accessible
             max_retries = 3
             retry_count = 0
             connected = False
-            
+
             while retry_count < max_retries and not connected:
                 try:
-                    result = await self.run_kubernetes_command(["kubectl", "cluster-info"])
+                    result = await self.run_kubernetes_command(
+                        ["kubectl", "cluster-info"]
+                    )
                     if "Kubernetes control plane" in result and "Error" not in result:
                         logger.info("Successfully connected to Kubernetes cluster")
                         connected = True
@@ -177,16 +167,20 @@ class KubectlMcpServer:
                         retry_count += 1
                         await asyncio.sleep(2)  # Wait before retrying
                 except Exception as e:
-                    logger.error(f"Failed to connect to Kubernetes cluster (attempt {retry_count+1}): {str(e)}")
+                    logger.error(
+                        f"Failed to connect to Kubernetes cluster (attempt {retry_count+1}): {str(e)}"
+                    )
                     retry_count += 1
                     await asyncio.sleep(2)  # Wait before retrying
-                    
+
             # Log cluster status
             if connected:
                 logger.info("Kubernetes cluster is ready")
             else:
-                logger.warning("Could not connect to Kubernetes cluster after multiple attempts")
-                
+                logger.warning(
+                    "Could not connect to Kubernetes cluster after multiple attempts"
+                )
+
         except Exception as e:
             logger.error(f"Unexpected error checking cluster connection: {str(e)}")
 
@@ -196,19 +190,15 @@ class KubectlMcpServer:
         try:
             env = os.environ.copy()
             env["KUBECONFIG"] = KUBECONFIG
-            
+
             result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=True,
-                env=env
+                cmd, capture_output=True, text=True, check=True, env=env
             )
             return result.stdout
         except subprocess.CalledProcessError as e:
             error_msg = f"Command failed with exit code {e.returncode}: {e.stderr}"
             logger.error(error_msg)
-            
+
             # Provide more helpful error messages for common issues
             if "connection refused" in e.stderr.lower():
                 return f"Error: Could not connect to the Kubernetes cluster. Please check if the cluster is running and accessible.\n\nDetails: {e.stderr}"
@@ -226,18 +216,18 @@ class KubectlMcpServer:
     async def handle_get_pods(self, args: Dict[str, Any]) -> str:
         """Handle the get_pods tool call."""
         cmd = ["kubectl", "get", "pods"]
-        
+
         namespace = args.get("namespace")
         if namespace:
             if namespace.lower() == "all":
                 cmd.append("--all-namespaces")
             else:
                 cmd.extend(["-n", namespace])
-        
+
         label_selector = args.get("label_selector")
         if label_selector:
             cmd.extend(["-l", label_selector])
-        
+
         return await self.run_kubernetes_command(cmd)
 
     async def handle_get_namespaces(self, args: Dict[str, Any]) -> str:
@@ -248,11 +238,11 @@ class KubectlMcpServer:
     async def handle_describe(self, args: Dict[str, Any]) -> str:
         """Handle the describe tool call."""
         cmd = ["kubectl", "describe", args["resource_type"], args["name"]]
-        
+
         namespace = args.get("namespace")
         if namespace:
             cmd.extend(["-n", namespace])
-            
+
         return await self.run_kubernetes_command(cmd)
 
     async def handle_kubectl(self, args: Dict[str, Any]) -> str:
@@ -260,18 +250,19 @@ class KubectlMcpServer:
         # Split the command, respecting quoted strings
         cmd_string = args["command"].strip()
         logger.debug(f"Raw kubectl command: {cmd_string}")
-        
+
         if not cmd_string.startswith("kubectl"):
             cmd_string = "kubectl " + cmd_string
-            
+
         # Process command into appropriate pieces
         try:
             import shlex
+
             parts = shlex.split(cmd_string)
             # Ensure the first part is kubectl
             if parts[0] != "kubectl":
                 return f"Error: First command must be kubectl, got: {parts[0]}"
-                
+
             logger.debug(f"Parsed command parts: {parts}")
             return await self.run_kubernetes_command(parts)
         except Exception as e:
@@ -282,7 +273,14 @@ class KubectlMcpServer:
     async def handle_switch_namespace(self, args: Dict[str, Any]) -> str:
         """Handle the switch_namespace tool call."""
         namespace = args["namespace"]
-        cmd = ["kubectl", "config", "set-context", "--current", "--namespace", namespace]
+        cmd = [
+            "kubectl",
+            "config",
+            "set-context",
+            "--current",
+            "--namespace",
+            namespace,
+        ]
         result = await self.run_kubernetes_command(cmd)
         return f"Switched to namespace {namespace}. {result}"
 
@@ -291,20 +289,27 @@ class KubectlMcpServer:
         # Get current context
         context_cmd = ["kubectl", "config", "current-context"]
         context_result = await self.run_kubernetes_command(context_cmd)
-        
+
         # Get cluster info
         cluster_cmd = ["kubectl", "cluster-info"]
         cluster_result = await self.run_kubernetes_command(cluster_cmd)
-        
+
         # Get current namespace
-        namespace_cmd = ["kubectl", "config", "view", "--minify", "--output", "jsonpath={..namespace}"]
+        namespace_cmd = [
+            "kubectl",
+            "config",
+            "view",
+            "--minify",
+            "--output",
+            "jsonpath={..namespace}",
+        ]
         namespace_result = await self.run_kubernetes_command(namespace_cmd)
-        
+
         if not namespace_result or "Error:" in namespace_result:
             namespace_result = "default"
-        
+
         return f"Current context: {context_result}\nCurrent namespace: {namespace_result}\nCluster info:\n{cluster_result}"
-        
+
     async def handle_check_cluster_status(self, args: Dict[str, Any]) -> str:
         """Handle the check_cluster_status tool call."""
         # Check if the cluster is accessible
@@ -312,17 +317,17 @@ class KubectlMcpServer:
             # Check if we can connect to the cluster
             cluster_cmd = ["kubectl", "cluster-info"]
             cluster_result = await self.run_kubernetes_command(cluster_cmd)
-            
+
             # Check the status of nodes
             nodes_cmd = ["kubectl", "get", "nodes"]
             nodes_result = await self.run_kubernetes_command(nodes_cmd)
-            
+
             # Check the status of core services
             core_services_cmd = ["kubectl", "get", "pods", "-n", "kube-system"]
             core_services_result = await self.run_kubernetes_command(core_services_cmd)
-            
+
             return f"Cluster Status: Connected\n\nCluster Info:\n{cluster_result}\n\nNodes:\n{nodes_result}\n\nCore Services:\n{core_services_result}"
-            
+
         except Exception as e:
             return f"Cluster Status: Error - Not connected\n\nError Details: {str(e)}"
 
@@ -337,7 +342,7 @@ class KubectlMcpServer:
             "get_current_context": self.handle_get_current_context,
             "check_cluster_status": self.handle_check_cluster_status,
         }
-        
+
         if tool_name in handlers:
             return await handlers[tool_name](args)
         else:
@@ -352,85 +357,65 @@ class KubectlMcpServer:
         """Handle the initialize request."""
         logger.info(f"Handling initialize request: {params}")
         self.initialized = True
-        
+
         return {
             "id": params.get("id", self.get_next_request_id()),
             "jsonrpc": "2.0",
             "result": {
-                "serverInfo": {
-                    "name": "kubectl-mcp-server",
-                    "version": "0.1.0"
-                },
-                "capabilities": {
-                    "tools": {}
-                }
-            }
+                "serverInfo": {"name": "kubectl-mcp-server", "version": "0.1.0"},
+                "capabilities": {"tools": {}},
+            },
         }
 
     async def handle_list_tools(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle the tools/list request."""
         logger.info("Handling tools/list request")
-        
+
         return {
             "id": params.get("id", self.get_next_request_id()),
             "jsonrpc": "2.0",
-            "result": {
-                "tools": self.tools
-            }
+            "result": {"tools": self.tools},
         }
 
     async def handle_call_tool(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle the tools/call request."""
         logger.info(f"Handling tools/call request: {params}")
-        
+
         tool_name = params["params"]["name"]
         arguments = params["params"]["arguments"]
-        
+
         result = await self.handle_tool_call(tool_name, arguments)
-        
+
         return {
             "id": params.get("id", self.get_next_request_id()),
             "jsonrpc": "2.0",
-            "result": {
-                "result": [
-                    {
-                        "type": "text",
-                        "text": result
-                    }
-                ]
-            }
+            "result": {"result": [{"type": "text", "text": result}]},
         }
 
     async def handle_message(self, message: Dict[str, Any]) -> Dict[str, Any]:
         """Handle an incoming JSON-RPC message."""
         method = message.get("method")
-        
+
         if not self.initialized and method != "initialize":
             return {
                 "id": message.get("id", self.get_next_request_id()),
                 "jsonrpc": "2.0",
-                "error": {
-                    "code": -32002,
-                    "message": "Server not initialized"
-                }
+                "error": {"code": -32002, "message": "Server not initialized"},
             }
-        
+
         handlers = {
             "initialize": self.handle_initialize,
             "tools/list": self.handle_list_tools,
             "tools/call": self.handle_call_tool,
         }
-        
+
         if method in handlers:
             return await handlers[method](message)
         else:
             return {
                 "id": message.get("id", self.get_next_request_id()),
                 "jsonrpc": "2.0",
-                "error": {
-                    "code": -32601,
-                    "message": f"Method not found: {method}"
-                }
+                "error": {"code": -32601, "message": f"Method not found: {method}"},
             }
 
     async def process_stdin_line(self, line: str) -> None:
@@ -438,13 +423,13 @@ class KubectlMcpServer:
         if not line.strip():
             logger.debug("Received empty line, ignoring")
             return
-            
+
         logger.debug(f"Received: {line}")
-        
+
         try:
             message = json.loads(line)
             response = await self.handle_message(message)
-            
+
             if response:
                 response_str = json.dumps(response)
                 logger.debug(f"Sending: {response_str}")
@@ -453,37 +438,31 @@ class KubectlMcpServer:
                 except (BrokenPipeError, IOError) as e:
                     logger.error(f"Failed to write to stdout: {str(e)}")
                     # Don't exit, just log the error
-                
+
         except json.JSONDecodeError:
             logger.error(f"Failed to parse JSON: {line}")
             try:
                 error_response = {
                     "jsonrpc": "2.0",
-                    "error": {
-                        "code": -32700,
-                        "message": "Parse error"
-                    },
-                    "id": None
+                    "error": {"code": -32700, "message": "Parse error"},
+                    "id": None,
                 }
                 print(json.dumps(error_response), flush=True)
             except (BrokenPipeError, IOError) as e:
                 logger.error(f"Failed to write error to stdout: {str(e)}")
-        
+
         except Exception as e:
             logger.exception(f"Error handling message: {str(e)}")
             try:
                 error_response = {
                     "jsonrpc": "2.0",
-                    "error": {
-                        "code": -32603,
-                        "message": f"Internal error: {str(e)}"
-                    },
-                    "id": None
+                    "error": {"code": -32603, "message": f"Internal error: {str(e)}"},
+                    "id": None,
                 }
                 print(json.dumps(error_response), flush=True)
             except (BrokenPipeError, IOError) as e:
                 logger.error(f"Failed to write error to stdout: {str(e)}")
-                
+
     def _handle_stdin(self) -> None:
         """Read and process a line from stdin."""
         try:
@@ -493,12 +472,12 @@ class KubectlMcpServer:
                 # Don't exit immediately on EOF, give a chance for reconnection
                 asyncio.get_event_loop().call_later(5, self._check_stdin_status)
                 return
-                
+
             asyncio.create_task(self.process_stdin_line(line))
         except Exception as e:
             logger.error(f"Error reading from stdin: {str(e)}")
             # Don't exit, try to continue reading
-            
+
     def _check_stdin_status(self) -> None:
         """Check if stdin is still available after EOF."""
         try:
@@ -520,15 +499,15 @@ class KubectlMcpServer:
     async def run(self) -> None:
         """Run the MCP server, processing commands from stdin and responding to stdout."""
         logger.info("Starting kubectl MCP server")
-        
+
         loop = asyncio.get_event_loop()
-        
+
         # Set up non-blocking stdin reading
         loop.add_reader(sys.stdin.fileno(), self._handle_stdin)
-        
+
         # Set up a heartbeat to keep the connection alive
         heartbeat_task = asyncio.create_task(self._send_heartbeat())
-        
+
         try:
             # Just wait indefinitely until interrupted
             while True:
@@ -556,18 +535,19 @@ class KubectlMcpServer:
             except Exception as e:
                 logger.error(f"Error in heartbeat: {str(e)}")
 
+
 def main() -> None:
     """Main entry point."""
     logger.info(f"Starting kubectl MCP server, Python version: {sys.version}")
     logger.info(f"Current directory: {os.getcwd()}")
-    
+
     # Check if we can access kubectl before starting
     try:
         result = subprocess.run(
             ["kubectl", "version", "--client"],
             capture_output=True,
             text=True,
-            env=os.environ.copy()
+            env=os.environ.copy(),
         )
         if result.returncode == 0:
             logger.info(f"kubectl client check passed: {result.stdout.strip()}")
@@ -575,26 +555,27 @@ def main() -> None:
             logger.warning(f"kubectl client check warning: {result.stderr}")
     except Exception as e:
         logger.warning(f"kubectl availability check failed: {str(e)}")
-    
+
     # Create server instance
     server = KubectlMcpServer()
-    
+
     # Set up signal handlers for graceful shutdown
     try:
         import signal
+
         def signal_handler(sig, frame):
             logger.info(f"Received signal {sig}, shutting down gracefully")
             asyncio.get_event_loop().stop()
-        
+
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
     except Exception as e:
         logger.warning(f"Failed to set up signal handlers: {str(e)}")
-    
+
     # Run the server with retry logic
     max_retries = 3
     retry_count = 0
-    
+
     while retry_count < max_retries:
         try:
             logger.info(f"Starting server (attempt {retry_count + 1}/{max_retries})")
@@ -605,15 +586,18 @@ def main() -> None:
             break
         except Exception as e:
             retry_count += 1
-            logger.exception(f"Unhandled error (attempt {retry_count}/{max_retries}): {str(e)}")
+            logger.exception(
+                f"Unhandled error (attempt {retry_count}/{max_retries}): {str(e)}"
+            )
             if retry_count < max_retries:
                 logger.info(f"Retrying in 3 seconds...")
                 time.sleep(3)
             else:
                 logger.error("Maximum retry attempts reached, shutting down")
                 return 1
-    
+
     return 0
 
+
 if __name__ == "__main__":
-    sys.exit(main()) 
+    sys.exit(main())

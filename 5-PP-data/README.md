@@ -58,4 +58,4 @@ If you encounter connection issues:
 
 - The server is configured to use SSE (Server-Sent Events) transport and listens on port 8050.
 - The client connects to the server at `http://localhost:8050/sse`.
-- Make sure the server is running before starting the client. 
+- Make sure the server is running before starting the client.

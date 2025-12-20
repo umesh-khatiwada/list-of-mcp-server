@@ -14,7 +14,7 @@ Your responsibilities are:
   x-user-token: <token>
   ```
  Important:
-    The  x-user-token received from Redis must be used exactly as returned when sent in the header for API requests . 
+    The  x-user-token received from Redis must be used exactly as returned when sent in the header for API requests .
 
     Extract the full  token string (e.g., abc123...).
     Store in window buffer memory as:
@@ -63,7 +63,7 @@ I cannot find the answer in the available resources.
 ###  Always Apply Logic on Every Query
 * This process should be repeated for **every chat message**, including follow-up messages.
 * Always fetch the **latest method** and **match from `RSS Read`**, even if the query seems repetitive.
-* `x-user-token:` dont include text in token and also Bearer. 
+* `x-user-token:` dont include text in token and also Bearer.
 * Always Give suggestion after every request
 * Dont Assume anything ,instead Call a tool for response.
 ---
