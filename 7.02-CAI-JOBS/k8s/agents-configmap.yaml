@@ -2,41 +2,101 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: cai-agents-config
-  namespace: cai-system
+  namespace: default
 data:
   agents.yml: |
-      # Example agents.yml configuration file
-      # This file is auto-loaded when CAI starts
-      # Copy this to agents.yml and customize for your needs
+    # CAI Agents Configuration
+    # This configuration defines available agents for different security tasks
 
-      parallel_agents:
-        # Each agent can have a name, optional model, optional prompt, and optional unified_context
-        - name: one_tool_agent
-          model: deepseek/deepseek-chat
-          prompt: "Focus on finding vulnerabilities and security issues"
-          unified_context: true  # Each agent has its own message history (default)
+    # Default settings
+    default:
+      model: deepseek/deepseek-chat
+      temperature: 0.7
+      max_tokens: 4000
 
-        - name: blueteam_agent
-          model: deepseek/deepseek-chat
-          prompt: "Focus on defensive security and mitigation strategies"
-          unified_context: true
+    # Available agent types
+    agents:
+      redteam_agent:
+        description: "Offensive security and penetration testing"
+        model: deepseek/deepseek-chat
+        system_prompt: |
+          You are an expert offensive security specialist and penetration tester.
+          Focus on finding vulnerabilities, exploiting systems, and providing
+          detailed exploitation techniques. Always explain attack vectors clearly.
 
-        - name: bug_bounter_agent
-          model: deepseek/deepseek-chat
-          prompt: "Search for bugs and create detailed reports"
-          unified_context: true
+      blueteam_agent:
+        description: "Defensive security and incident response"
+        model: deepseek/deepseek-chat
+        system_prompt: |
+          You are an expert defensive security analyst and incident responder.
+          Focus on threat detection, mitigation strategies, and security hardening.
+          Provide defensive recommendations and security best practices.
 
-        - name: app_logic_mapper
-          model: deepseek/deepseek-chat
-          prompt: "Agent that specializes in web application penetration testing and vulnerability assessment."
-          unified_context: true
+      bug_bounter_agent:
+        description: "Bug bounty and web application security"
+        model: deepseek/deepseek-chat
+        system_prompt: |
+          You are an expert bug bounty hunter and web application security tester.
+          Focus on finding web vulnerabilities, API security issues, and client-side
+          attacks. Provide detailed reproduction steps and impact assessments.
 
-      # Example with unified context (agents share message history)
-      # parallel_agents:
-      #   - name: redteam_agent
-      #     unified_context: true  # Share message history with other unified agents
-      #   - name: blueteam_agent
-      #     unified_context: true  # Share message history with other unified agents
+      dfir_agent:
+        description: "Digital forensics and incident response"
+        model: deepseek/deepseek-chat
+        system_prompt: |
+          You are an expert digital forensics investigator and incident response specialist.
+          Focus on evidence collection, malware analysis, and forensic procedures.
+          Provide detailed analysis of digital artifacts and timeline reconstruction.
 
-      # When 2 or more agents are configured, parallel mode is automatically enabled
-      # The agents will be available for selection when you enter a prompt
+      network_security_analyzer_agent:
+        description: "Network security analysis and monitoring"
+        model: deepseek/deepseek-chat
+        system_prompt: |
+          You are an expert network security analyst and monitoring specialist.
+          Focus on network traffic analysis, intrusion detection, and network
+          security assessment. Provide insights on network-based attacks and defenses.
+
+      reverse_engineering_agent:
+        description: "Reverse engineering and malware analysis"
+        model: deepseek/deepseek-chat
+        system_prompt: |
+          You are an expert reverse engineer and malware analyst.
+          Focus on binary analysis, code decompilation, and malware behavior analysis.
+          Provide detailed technical analysis and exploitation techniques.
+
+      reporting_agent:
+        description: "Security reporting and documentation"
+        model: deepseek/deepseek-chat
+        system_prompt: |
+          You are an expert security consultant and technical writer.
+          Focus on creating comprehensive security reports, executive summaries,
+          and technical documentation. Provide clear, actionable recommendations.
+
+      selection_agent:
+        description: "Agent selection and task routing"
+        model: deepseek/deepseek-chat
+        system_prompt: |
+          You are an expert AI coordinator that helps select the most appropriate
+          security agent for specific tasks. Analyze the request and recommend
+          the best agent type for the job.
+
+    # Parallel execution configuration
+    parallel_config:
+      max_agents: 5
+      timeout: 1800  # 30 minutes
+      merge_results: true
+
+    # CTF specific configuration
+    ctf_config:
+      default_agents:
+        - redteam_agent
+        - reverse_engineering_agent
+        - dfir_agent
+      time_limit: 3600  # 1 hour
+      auto_flag_extraction: true
+
+    # Cost management
+    cost_config:
+      default_limit: 10.0
+      warning_threshold: 8.0
+      auto_stop_on_limit: true
