@@ -9,8 +9,9 @@ metadata:
   name: cai-secrets
   namespace: cai-system
 type: Opaque
-stringData:
-  DEEPSEEK_API_KEY: "sk-"
+data:
+  # Base64 encoded API keys (replace with your actual encoded keys)
+  DEEPSEEK_API_KEY: c2stY2E4MTg0OTg3Y2IwNGNlOTlmNjhiYWI3MDBkYTA3MjE=
   OPENAI_API_KEY: ""
 ---
 apiVersion: v1
@@ -22,34 +23,46 @@ data:
   DEEPSEEK_API_URL: "https://api.deepseek.com/v1"
   CAI_STEAM: "true"
 ---
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
-  name: cai-deployment
+  name: cai-security-assessment
   namespace: cai-system
-  labels:
-    app: cai
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: cai
   template:
     metadata:
       labels:
-        app: cai
+        app: cai-job
     spec:
+      restartPolicy: Never
       containers:
       - name: cai
-        image: neptune1212/kali-cai:amd64
+        image: neptune1212/kali-cai:arm64
         imagePullPolicy: IfNotPresent
         command:
           - /bin/bash
           - -c
           - |
+            set -e
             source /home/kali/cai/bin/activate
-            cai --yaml /config/agents.yaml --prompt "perform comprehensive security assessment of target.com"
-            sleep 300
+            echo "Starting CAI security assessment..."
+            cp /config/agents.yml .
+            
+            # Set environment variables
+            export TARGET="${TARGET:-target.com}"
+            export OUTPUT_DIR="${OUTPUT_DIR:-/tmp}"
+            export TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            
+            cai --prompt "
+            /agent redteam_agent
+            Perform comprehensive security scan on $TARGET
+            Test for common vulnerabilities
+            /save $OUTPUT_DIR/scan_${TIMESTAMP}.json
+            /cost
+            /exit
+            " 2>&1 | tee /tmp/cai-results.log
+            
+            echo "Scan completed. Results saved to $OUTPUT_DIR/scan_${TIMESTAMP}.json"
         env:
         - name: DEEPSEEK_API_KEY
           valueFrom:
@@ -67,7 +80,7 @@ spec:
               name: cai-config
               key: DEEPSEEK_API_URL
         - name: CAI_MODEL
-          value: "deepseek-chat"
+          value: "deepseek/deepseek-chat"
         - name: CAI_STEAM
           valueFrom:
             configMapKeyRef:
@@ -87,19 +100,6 @@ spec:
       - name: agents-config
         configMap:
           name: cai-agents-config
-      restartPolicy: Always
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: cai-service
-  namespace: cai-system
-spec:
-  selector:
-    app: cai
-  ports:
-  - name: http
-    protocol: TCP
-    port: 8080
-    targetPort: 8080
-  type: ClusterIP
+  backoffLimit: 3
+  completions: 1
+  parallelism: 1

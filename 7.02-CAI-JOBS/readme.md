@@ -67,3 +67,16 @@ GET /api/sessions/{id}/result - Get complete job result with file content
 GET /api/sessions/{id}/file - Get output file (JSON parsed)
 GET /api/sessions/{id}/file?format=raw - Get output file (raw text)
 DELETE /api/sessions/{id} - Delete session and job
+
+
+Configuration for mcp
+
+
+SSE (Server-Sent Events) - For web-based servers that push updates over HTTP connections:
+
+
+CAI>/mcp load http://localhost:9876/sse burp
+STDIO (Standard Input/Output) - For local inter-process communication:
+
+
+CAI>/mcp load stdio myserver python mcp_server.py

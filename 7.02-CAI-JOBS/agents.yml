@@ -1,6 +1,0 @@
-parallel_agents:
-  # Define 2 or more agents to run in parallel
-  - name: one_tool_agent
-    model: "deepseek/deepseek-chat"
-    prompt: "find the vuln in the 01cloud.com site"
-    unified_context: true  # Each agent has its own message history
