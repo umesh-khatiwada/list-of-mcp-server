@@ -37,7 +37,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: cai
-        image: neptune1212/kali-cai:arm64
+        image: neptune1212/kali-cai:amd64
         imagePullPolicy: IfNotPresent
         command:
           - /bin/bash

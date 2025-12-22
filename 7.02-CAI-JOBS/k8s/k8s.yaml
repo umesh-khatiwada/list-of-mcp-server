@@ -28,6 +28,8 @@ spec:
           value: "true"
         - name: CAI_IMAGE
           value: "neptune1212/kali-cai:amd64"
+        - name: CAI_AGENTS
+          value: "redteam_agent,blueteam_agent"
         - name: WEBHOOK_URL
           value: "http://cai-manager:8000/api/webhooks"
         ports:

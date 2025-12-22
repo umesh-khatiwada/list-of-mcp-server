@@ -9,6 +9,7 @@ from ..models.advanced import (
     AdvancedSessionCreate,
     AgentMCPMapping,
     AgentType,
+    ModelType,
     QueueItem,
     SessionMode,
 )
@@ -231,7 +232,7 @@ exit $EXIT_CODE
         self,
         prompt: str,
         agent_type: AgentType,
-        model: str,
+        model: ModelType,
         config: AdvancedSessionCreate,
         session_id: str,
     ) -> str:
@@ -243,9 +244,12 @@ exit $EXIT_CODE
             "source /home/kali/cai/bin/activate",
             "",
             "# Set up environment variables",
-            f"export CAI_MODEL={model}",
-            f"export CAI_AGENT_TYPE={agent_type}",
+            f"export CAI_MODEL={model.value}",
+            f"export CAI_AGENT_TYPE={agent_type.value}",
             f"export SESSION_ID={session_id}",
+            "export CAI_INTERACTIVE=false",
+            "export CAI_STREAM=false",
+            "export TERM=dumb",
         ]
 
         # Cost constraints
@@ -355,7 +359,7 @@ exit $EXIT_CODE
                 lines.append(f"# {item.description}")
 
             if item.agent_type:
-                lines.append(f"/agent {item.agent_type}")
+                lines.append(f"/agent {item.agent_type.value}")
 
             lines.append(item.command)
             lines.append("")
