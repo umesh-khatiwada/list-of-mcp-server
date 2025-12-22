@@ -48,6 +48,13 @@ class ParallelAgentConfig(BaseModel):
     alias: Optional[str] = None
 
 
+class AgentMCPMapping(BaseModel):
+    """Bind MCP servers to a specific agent type."""
+
+    agent_type: AgentType
+    mcp_servers: List[MCPServerConfig]
+
+
 class QueueItem(BaseModel):
     """Queue item for batch processing."""
 
@@ -92,6 +99,7 @@ class AdvancedSessionCreate(BaseModel):
 
     # MCP integrations
     mcp_servers: Optional[List[MCPServerConfig]] = None
+    mcp_agent_overrides: Optional[List[AgentMCPMapping]] = None
 
     # Parallel execution
     parallel_agents: Optional[List[ParallelAgentConfig]] = None

@@ -7,9 +7,12 @@ from kubernetes import client
 from ..config import settings
 from ..models.advanced import (
     AdvancedSessionCreate,
+    AgentMCPMapping,
+    AgentType,
     QueueItem,
     SessionMode,
 )
+from ..models.mcp import MCPServerConfig
 from ..utils import sanitize_label
 from .kubernetes_service import KubernetesService
 
@@ -227,13 +230,15 @@ exit $EXIT_CODE
     def _build_cai_command(
         self,
         prompt: str,
-        agent_type: str,
+        agent_type: AgentType,
         model: str,
         config: AdvancedSessionCreate,
         session_id: str,
     ) -> str:
         """Build CAI command with advanced features."""
-        mcp_block = self._render_mcp_load_commands(config.mcp_servers)
+        # Prefer agent-specific MCP overrides when provided, otherwise fall back.
+        mcp_servers = self._select_mcp_for_agent(agent_type, config)
+        mcp_block = self._render_mcp_load_commands(mcp_servers)
         command_parts = [
             "source /home/kali/cai/bin/activate",
             "",
@@ -327,6 +332,19 @@ exit $EXIT_CODE
         )
 
         return "\n".join(command_parts)
+
+    @staticmethod
+    def _select_mcp_for_agent(
+        agent_type: AgentType, config: AdvancedSessionCreate
+    ) -> Optional[List[MCPServerConfig]]:
+        """Select MCP servers for a given agent, honoring overrides."""
+
+        if config.mcp_agent_overrides:
+            for mapping in config.mcp_agent_overrides:
+                if mapping.agent_type == agent_type:
+                    return mapping.mcp_servers
+
+        return config.mcp_servers
 
     def _build_queue_from_items(self, queue_items: List[QueueItem]) -> str:
         """Build queue file content from queue items."""

@@ -1,15 +1,33 @@
 """Routes for testing MCP connectivity and configuration."""
 import logging
+import os
 import time
 from typing import List
 
 import requests
 from fastapi import APIRouter
 
+from ...config import settings
 from ...models.mcp import MCPTestRequest, MCPTestResult, MCPTransport
 
 router = APIRouter(prefix="/api/mcp", tags=["mcp"])
 logger = logging.getLogger(__name__)
+
+
+@router.get("/agents", response_model=List[str])
+def list_mcp_agents() -> List[str]:
+    """Return agent names configured via environment.
+
+    Prefers a comma-separated CAI_AGENTS env var; falls back to CAI_AGENT_TYPE
+    (single value) from settings/env. Empty or missing values yield an empty list.
+    """
+
+    env_value = os.getenv("CAI_AGENTS") or settings.cai_agent_type
+    if not env_value:
+        return []
+
+    agents = [item.strip() for item in env_value.split(",") if item.strip()]
+    return agents
 
 
 @router.post("/test", response_model=List[MCPTestResult])
