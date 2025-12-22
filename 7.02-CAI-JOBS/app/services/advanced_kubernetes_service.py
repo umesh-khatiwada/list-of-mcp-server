@@ -7,7 +7,6 @@ from kubernetes import client
 from ..config import settings
 from ..models.advanced import (
     AdvancedSessionCreate,
-    AgentMCPMapping,
     AgentType,
     ModelType,
     QueueItem,
@@ -251,7 +250,7 @@ exit $EXIT_CODE
             "export CAI_INTERACTIVE=false",
             "export CAI_STREAM=false",
             "export LITELLM_DISABLE_AUTH=true",
-            "export DEEPSEEK_API_KEY=" + settings.deepseek_api_key
+            "export DEEPSEEK_API_KEY=" + settings.deepseek_api_key,
         ]
 
         # Cost constraints
@@ -321,9 +320,14 @@ exit $EXIT_CODE
             [
                 "# Execute CAI",
                 "cp /config/agents.yml .",
-                "export CAI_MODEL={settings.cai_model}",
-                "export CAI_AGENT_TYPE={settings.cai_agent_type}",
+                "export CAI_AGENT_TYPE=redteam_agent",
                 "export CAI_STREAM=false",
+                "export CAI_DEBUG=2",
+                "export CAI_BRIEF=true",
+                "export CAI_MAX_TURNS=50",
+                "export CAI_PRICE_LIMIT=10.0",
+                "export CAI_INTERACTIVE=false",
+                "export TERM=dumb",
                 "cat /tmp/mcp_commands.txt /tmp/cai_prompt.txt | cai",
                 "",
                 "# Capture results",
