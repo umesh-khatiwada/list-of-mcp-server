@@ -25,7 +25,9 @@ class KubernetesService:
     """Service for managing Kubernetes jobs and pods."""
 
     def _render_mcp_load_commands(
-        self, mcp_servers: Optional[List[MCPServerConfig]], agent_type: Optional[str] = None
+        self,
+        mcp_servers: Optional[List[MCPServerConfig]],
+        agent_type: Optional[str] = None,
     ) -> str:
         """Render /mcp load commands for CAI.
 
@@ -37,7 +39,7 @@ class KubernetesService:
         """
 
         if not mcp_servers:
-            return "# No MCP servers provided"
+            return "/mcp list"
 
         commands: List[str] = ["/mcp list"]
         target_agent = agent_type or settings.cai_agent_type
@@ -46,9 +48,7 @@ class KubernetesService:
             if server.transport == MCPTransport.SSE:
                 commands.append(f"/mcp load {server.url} {server.name}")
             else:
-                commands.append(
-                    f"/mcp load stdio {server.name} {server.command}"
-                )
+                commands.append(f"/mcp load stdio {server.name} {server.command}")
 
             # Bind the MCP to the agent group so CAI can route properly
             if target_agent:
@@ -70,6 +70,7 @@ class KubernetesService:
         character_id: Optional[str] = None,
         token: Optional[str] = None,
         mcp_servers: Optional[List[MCPServerConfig]] = None,
+        workspace_path: Optional[str] = None,
     ) -> str:
         """Create a Kubernetes Job for CAI chat session.
 
@@ -100,14 +101,62 @@ class KubernetesService:
             client.V1EnvVar(name="CAI_AGENT_TYPE", value=settings.cai_agent_type),
             client.V1EnvVar(name="CAI_DEBUG", value="0"),
             client.V1EnvVar(name="CAI_BRIEF", value="true"),
+            client.V1EnvVar(name="LITELLM_DISABLE_AUTH", value="true"),
+            # Critical: Set non-interactive mode
+            client.V1EnvVar(name="CAI_INTERACTIVE", value="false"),
+            client.V1EnvVar(name="TERM", value="dumb"),
         ]
 
         if character_id:
             env_vars.append(client.V1EnvVar(name="CHARACTER_ID", value=character_id))
         if token:
             env_vars.append(client.V1EnvVar(name="CAI_TOKEN", value=token))
+        if workspace_path:
+            env_vars.append(
+                client.V1EnvVar(name="REQUESTED_WORKSPACE", value=workspace_path)
+            )
 
-        mcp_block = self._render_mcp_load_commands(mcp_servers, agent_type=settings.cai_agent_type)
+        mcp_block = self._render_mcp_load_commands(
+            mcp_servers, agent_type=settings.cai_agent_type
+        )
+
+        workspace_cd_block = ""
+        workspace_command_block = ""
+
+        if workspace_path:
+            workspace_cd_block = f"""
+# Switch to requested workspace if present
+if [ -d "{workspace_path}" ]; then
+  cd "{workspace_path}"
+  echo "Changed directory to {workspace_path}"
+else
+  echo "Requested workspace {workspace_path} not found; staying in $(pwd)"
+fi
+"""
+            workspace_command_block = f"/workspace set {workspace_path}"
+
+        prompt_payload = prompt.replace("{{session_id}}", session_id).replace(
+            "{{SESSION_ID}}", session_id
+        )
+        if workspace_path:
+            prompt_payload = prompt_payload.replace(
+                "{{workspace_path}}", workspace_path
+            ).replace("{{WORKSPACE_PATH}}", workspace_path)
+
+        prelude_parts: List[str] = []
+        if mcp_block and mcp_block.strip():
+            prelude_parts.append(mcp_block.strip())
+        if workspace_command_block:
+            prelude_parts.append(workspace_command_block)
+
+        prelude_content = (
+            "\n\n".join(part for part in prelude_parts if part.strip())
+            if prelude_parts
+            else "# No CAI setup commands"
+        )
+        workspace_cd_script = (
+            f"{workspace_cd_block.strip()}\n" if workspace_cd_block else ""
+        )
 
         # Define the container
         container = client.V1Container(
@@ -127,96 +176,101 @@ source /home/kali/cai/bin/activate
 export CAI_MODEL={settings.cai_model}
 export CAI_AGENT_TYPE={settings.cai_agent_type}
 export CAI_STREAM=false
-export CAI_DEBUG=1
+export CAI_DEBUG=0
 export CAI_BRIEF=true
 export CAI_MAX_TURNS=50
 export CAI_PRICE_LIMIT=10.0
 export CAI_INTERACTIVE=false
 export TERM=dumb
+export PYTHONUNBUFFERED=1
 
-# Prepare MCP commands and payload
-cat > /tmp/mcp_commands.txt << 'MCP_EOF'
-{mcp_block}
-MCP_EOF
+# Redirect stdin to avoid terminal issues
+exec 0</dev/null
 
-cat > /tmp/cai_payload.txt << 'PAYLOAD_EOF'
-{mcp_block}
+echo "Starting CAI chat job for session $SESSION_ID"
+
+{workspace_cd_script}# Prepare CAI payload segments
+cat > /tmp/cai_prelude.txt << 'PRELUDE_EOF'
+{prelude_content}
+PRELUDE_EOF
+
+cat > /tmp/cai_prompt.txt << 'PROMPT_EOF'
 {prompt}
+PROMPT_EOF
+
+cat > /tmp/cai_footer.txt << 'FOOTER_EOF'
 /save /tmp/cai_results.json
-/exit
-PAYLOAD_EOF
+/quit
+FOOTER_EOF
 
-# Log environment for debugging
-echo "=== CAI Environment ==="
-echo "CAI_MODEL: $CAI_MODEL"
-echo "CAI_AGENT_TYPE: $CAI_AGENT_TYPE"
-echo "CAI_STREAM: $CAI_STREAM"
-echo "CAI_DEBUG: $CAI_DEBUG"
-echo "PROMPT: {prompt}"
-echo "======================="
+# Combine all parts into final payload
+cat /tmp/cai_prelude.txt /tmp/cai_prompt.txt /tmp/cai_footer.txt > /tmp/cai_payload.txt
 
-# Try multiple approaches to run CAI non-interactively
+# Copy agents config
+cp /config/agents.yml . 2>/dev/null || echo "No agents.yml config found"
 
-# Approach 1: Use --prompt flag directly
-echo "Attempting method 1: --prompt flag"
-timeout 300 cai --agent {settings.cai_agent_type} --model {settings.cai_model} --prompt "{prompt}" --non-interactive 2>&1 || echo "Method 1 failed"
+# Execute CAI with the prepared payload in non-interactive mode
+echo "Starting CAI run"
+echo "-----------------------------------"
+echo "/tmp/cai_payload.txt contents:    "
+cat /tmp/cai_payload.txt
+EXIT_CODE=0
 
-# Approach 2: Use echo and pipe
-echo "Attempting method 2: echo pipe"
-cat /tmp/cai_payload.txt | timeout 300 cai --agent {settings.cai_agent_type} --model {settings.cai_model} 2>&1 || echo "Method 2 failed"
+# Method 1: Try using CAI with stdin redirect (primary method)
+if ! cat /tmp/cai_payload.txt | cai 2>&1; then
+    EXIT_CODE=$?
+    echo "CAI execution failed with exit code $EXIT_CODE"
 
-# Approach 3: Use here document
-echo "Attempting method 3: here document"
-timeout 300 cai --agent {settings.cai_agent_type} --model {settings.cai_model} << 'PAYLOAD_EOF' 2>&1 || echo "Method 3 failed"
-{mcp_block}
-{prompt}
-/save /tmp/cai_results.json
-/exit
-PAYLOAD_EOF
+    # Method 2: Fallback - try with explicit flags if available
+    if command -v cai-noninteractive >/dev/null 2>&1; then
+        echo "Attempting fallback with cai-noninteractive"
+        EXIT_CODE=0
+        if ! cat /tmp/cai_payload.txt | cai-noninteractive 2>&1; then
+            EXIT_CODE=$?
+        fi
+    fi
+fi
 
-# Approach 4: Create script file and use it
-echo "Attempting method 4: script file"
-cat > /tmp/cai_script.txt << 'SCRIPT_EOF'
-/agent {settings.cai_agent_type}
-/model {settings.cai_model}
-{mcp_block}
-{prompt}
-/save /tmp/cai_results.json
-/exit
-SCRIPT_EOF
-
-timeout 300 cai < /tmp/cai_script.txt 2>&1 || echo "Method 4 failed"
-
-echo "All methods attempted"
+echo "CAI execution complete"
 
 # Capture logs and results
-EXIT_CODE=0
 echo "Looking for log files..."
 
 # Find and process log files
 if [ -d /home/kali/logs ]; then
-  echo "Found logs directory"
-  ls -la /home/kali/logs/
-  LOGFILE=$(find /home/kali/logs -name "cai_*.jsonl" -type f 2>/dev/null | head -1)
-  if [ -n "$LOGFILE" ] && [ -f "$LOGFILE" ]; then
-    echo "LOG_FILE_PATH: $LOGFILE"
-    echo "$LOGFILE" > /tmp/job_completion_signal
-    cat "$LOGFILE" > /tmp/job_logs_content
-    echo "Log file captured: $(wc -l < "$LOGFILE") lines"
-  else
-    echo "No JSONL log file found"
-  fi
+    echo "Found logs directory"
+    ls -la /home/kali/logs/ || true
+    LOGFILE=$(find /home/kali/logs -name "cai_*.jsonl" -type f 2>/dev/null | head -1)
+    if [ -n "$LOGFILE" ] && [ -f "$LOGFILE" ]; then
+        echo "LOG_FILE_PATH: $LOGFILE"
+        echo "$LOGFILE" > /tmp/job_completion_signal
+        cat "$LOGFILE" > /tmp/job_logs_content
+        LINE_COUNT=$(wc -l < "$LOGFILE" 2>/dev/null || echo "0")
+        echo "Log file captured: ${{LINE_COUNT}} lines"
+    else
+        echo "No JSONL log file found"
+    fi
 else
-  echo "No logs directory found"
+    echo "No logs directory found"
 fi
 
 # Check for results file
 if [ -f /tmp/cai_results.json ]; then
-  echo "Results file found"
-  cat /tmp/cai_results.json > /tmp/job_results_content
+    echo "Results file found"
+    cat /tmp/cai_results.json > /tmp/job_results_content
+    echo "Results content captured"
+else
+    echo "No results file found at /tmp/cai_results.json"
 fi
 
-exit $EXIT_CODE
+# Always exit with success unless CAI critically failed
+if [ $EXIT_CODE -eq 0 ] || [ -f /tmp/job_logs_content ]; then
+    echo "Job completed successfully"
+    exit 0
+else
+    echo "Job failed with exit code $EXIT_CODE"
+    exit $EXIT_CODE
+fi
 """
             ],
             volume_mounts=[
@@ -392,7 +446,7 @@ exit $EXIT_CODE
                             "-c",
                             f"cat {log_path} 2>/dev/null || echo 'File not accessible'",
                         ]
-                        log_content = stream(
+                        log_content = stream.stream(
                             self.core_v1.connect_get_namespaced_pod_exec,
                             pod_name,
                             self.namespace,

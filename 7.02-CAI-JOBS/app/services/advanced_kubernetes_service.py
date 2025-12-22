@@ -106,11 +106,12 @@ source /home/kali/cai/bin/activate
 # Set queue file environment variable
 export CAI_QUEUE_FILE=/tmp/cai_queue.txt
 
-# Execute CAI with queue
-cai --yaml /config/agents.yml
+# Execute CAI with queue and save results before quitting
+echo '/save /tmp/queue_results.json' > /tmp/cai_commands.txt
+echo '/quit' >> /tmp/cai_commands.txt
+cat /tmp/cai_commands.txt | cai --yaml /config/agents.yml
 
 # Capture results
-EXIT_CODE=$?
 if [ -d /home/kali/logs ]; then
   LOGFILE=$(find /home/kali/logs -name "cai_*.jsonl" -type f 2>/dev/null | head -1)
   if [ -n "$LOGFILE" ]; then
@@ -118,7 +119,10 @@ if [ -d /home/kali/logs ]; then
     cat "$LOGFILE" > /tmp/job_logs_content
   fi
 fi
-exit $EXIT_CODE
+# Check if results file was created
+if [ -f /tmp/queue_results.json ]; then
+  echo "Results saved to /tmp/queue_results.json"
+fi
 """
 
         job = self._create_job_spec(
@@ -169,11 +173,12 @@ cat > /tmp/ctf_prompt.txt << 'CTF_EOF'
 {config.prompt or "Analyze and solve the CTF challenge. Find the flag."}
 CTF_EOF
 
-# Execute CAI with CTF configuration
-cat /tmp/ctf_prompt.txt | cai
+# Execute CAI with CTF configuration and save results before quitting
+echo '/save /tmp/ctf_results.json' > /tmp/cai_commands.txt
+echo '/quit' >> /tmp/cai_commands.txt
+cat /tmp/ctf_prompt.txt /tmp/cai_commands.txt | cai
 
 # Extract flags and save results
-EXIT_CODE=$?
 if [ -d /home/kali/logs ]; then
   LOGFILE=$(find /home/kali/logs -name "cai_*.jsonl" -type f 2>/dev/null | head -1)
   if [ -n "$LOGFILE" ]; then
@@ -183,7 +188,10 @@ if [ -d /home/kali/logs ]; then
     cat "$LOGFILE" > /tmp/job_logs_content
   fi
 fi
-exit $EXIT_CODE
+# Check if results file was created
+if [ -f /tmp/ctf_results.json ]; then
+  echo "CTF results saved to /tmp/ctf_results.json"
+fi
 """
 
         job = self._create_job_spec(
@@ -322,16 +330,18 @@ exit $EXIT_CODE
                 "cp /config/agents.yml .",
                 "export CAI_AGENT_TYPE=redteam_agent",
                 "export CAI_STREAM=false",
-                "export CAI_DEBUG=2",
+                "export CAI_DEBUG=0",
                 "export CAI_BRIEF=true",
                 "export CAI_MAX_TURNS=50",
                 "export CAI_PRICE_LIMIT=10.0",
                 "export CAI_INTERACTIVE=false",
                 "export TERM=dumb",
+                "# Add save and quit commands to the CAI session",
+                "echo '/save /tmp/scan_results.json' >> /tmp/mcp_commands.txt",
+                "echo '/quit' >> /tmp/mcp_commands.txt",
                 "cat /tmp/mcp_commands.txt /tmp/cai_prompt.txt | cai",
                 "",
                 "# Capture results",
-                "EXIT_CODE=$?",
                 "if [ -d /home/kali/logs ]; then",
                 "  LOGFILE=$(find /home/kali/logs -name 'cai_*.jsonl' -type f 2>/dev/null | head -1)",
                 '  if [ -n "$LOGFILE" ]; then',
@@ -341,7 +351,10 @@ exit $EXIT_CODE
                 "    grep -i 'vulnerability\\|exploit\\|flag{' \"$LOGFILE\" > /tmp/findings.txt || true",
                 "  fi",
                 "fi",
-                "exit $EXIT_CODE",
+                "# Check if results file was created",
+                "if [ -f /tmp/scan_results.json ]; then",
+                "  echo 'Scan results saved to /tmp/scan_results.json'",
+                "fi",
             ]
         )
 

@@ -36,6 +36,7 @@ async def create_session(
             character_id=session_data.character_id,
             token=session_data.token,
             mcp_servers=session_data.mcp_servers,
+            workspace_path=session_data.workspace_path,
         )
 
         session = {
@@ -45,6 +46,7 @@ async def create_session(
             "created": datetime.now().isoformat(),
             "jobName": job_name,
             "prompt": session_data.prompt,
+            "workspace_path": session_data.workspace_path,
         }
 
         sessions_store[session_id] = session

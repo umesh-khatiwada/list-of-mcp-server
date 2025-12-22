@@ -59,7 +59,7 @@ spec:
             Test for common vulnerabilities
             /save $OUTPUT_DIR/scan_${TIMESTAMP}.json
             /cost
-            /exit
+            /quit
             " 2>&1 | tee /tmp/cai-results.log
 
             echo "Scan completed. Results saved to $OUTPUT_DIR/scan_${TIMESTAMP}.json"

@@ -15,6 +15,7 @@ class SessionCreate(BaseModel):
     character_id: Optional[str] = None
     token: Optional[str] = None
     mcp_servers: Optional[List[MCPServerConfig]] = None
+    workspace_path: Optional[str] = None
 
 
 class Session(BaseModel):
@@ -26,6 +27,7 @@ class Session(BaseModel):
     created: str
     jobName: str
     prompt: str
+    workspace_path: Optional[str] = None
 
 
 class JobLogs(BaseModel):
