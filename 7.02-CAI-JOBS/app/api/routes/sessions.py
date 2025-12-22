@@ -35,6 +35,7 @@ async def create_session(
             prompt=session_data.prompt,
             character_id=session_data.character_id,
             token=session_data.token,
+            mcp_servers=session_data.mcp_servers,
         )
 
         session = {

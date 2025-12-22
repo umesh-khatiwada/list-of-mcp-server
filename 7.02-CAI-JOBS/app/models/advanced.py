@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from .mcp import MCPServerConfig
+
 
 class AgentType(str, Enum):
     """Available CAI agent types."""
@@ -87,6 +89,9 @@ class AdvancedSessionCreate(BaseModel):
     # Agent configuration
     agent_type: AgentType = AgentType.REDTEAM
     model: ModelType = ModelType.ALIAS1
+
+    # MCP integrations
+    mcp_servers: Optional[List[MCPServerConfig]] = None
 
     # Parallel execution
     parallel_agents: Optional[List[ParallelAgentConfig]] = None

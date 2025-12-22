@@ -1,4 +1,4 @@
 """API routes module."""
-from . import advanced_sessions, health, sessions, webhooks
+from . import advanced_sessions, health, mcp, sessions, webhooks
 
-__all__ = ["health", "sessions", "webhooks", "advanced_sessions"]
+__all__ = ["health", "sessions", "webhooks", "advanced_sessions", "mcp"]

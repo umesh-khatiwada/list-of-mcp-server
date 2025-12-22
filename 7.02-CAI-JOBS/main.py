@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import health, sessions, webhooks
+from app.api.routes import health, mcp, sessions, webhooks
 
 try:
     from app.api.routes import advanced_sessions
@@ -81,6 +81,7 @@ app.add_middleware(
 # Include routers
 app.include_router(sessions.router)
 app.include_router(advanced_sessions.router)
+app.include_router(mcp.router)
 app.include_router(health.router)
 app.include_router(webhooks.router)
 

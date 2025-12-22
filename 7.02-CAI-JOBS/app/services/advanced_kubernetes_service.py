@@ -233,6 +233,7 @@ exit $EXIT_CODE
         session_id: str,
     ) -> str:
         """Build CAI command with advanced features."""
+        mcp_block = self._render_mcp_load_commands(config.mcp_servers)
         command_parts = [
             "source /home/kali/cai/bin/activate",
             "",
@@ -288,6 +289,17 @@ exit $EXIT_CODE
             ]
         )
 
+        # Prepare MCP preload commands
+        command_parts.extend(
+            [
+                "# Create MCP preload file",
+                "cat > /tmp/mcp_commands.txt << 'MCP_EOF'",
+                mcp_block,
+                "MCP_EOF",
+                "",
+            ]
+        )
+
         # Load memory if specified
         if config.load_memory_ids:
             for memory_id in config.load_memory_ids:
@@ -297,7 +309,7 @@ exit $EXIT_CODE
         command_parts.extend(
             [
                 "# Execute CAI",
-                "cat /tmp/cai_prompt.txt | cai --yaml /config/agents.yml",
+                "cat /tmp/mcp_commands.txt /tmp/cai_prompt.txt | cai --yaml /config/agents.yml",
                 "",
                 "# Capture results",
                 "EXIT_CODE=$?",

@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
+from .mcp import MCPServerConfig
+
 
 class SessionCreate(BaseModel):
     """Model for creating a new session."""
@@ -12,6 +14,7 @@ class SessionCreate(BaseModel):
     prompt: str
     character_id: Optional[str] = None
     token: Optional[str] = None
+    mcp_servers: Optional[List[MCPServerConfig]] = None
 
 
 class Session(BaseModel):
@@ -53,3 +56,13 @@ class WebhookPayload(BaseModel):
     log_path: Optional[str] = None
     pod_logs: Optional[str] = None
     file_content: Optional[str] = None
+
+
+__all__ = [
+    "SessionCreate",
+    "Session",
+    "JobLogs",
+    "JobResult",
+    "WebhookPayload",
+    "MCPServerConfig",
+]

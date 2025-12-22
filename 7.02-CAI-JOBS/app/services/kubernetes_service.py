@@ -1,10 +1,11 @@
 """Kubernetes service for managing jobs and pods."""
 import logging
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from kubernetes import client, config
 
 from ..config import settings
+from ..models.mcp import MCPServerConfig, MCPTransport
 from ..utils import sanitize_label
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,34 @@ core_v1 = client.CoreV1Api()
 class KubernetesService:
     """Service for managing Kubernetes jobs and pods."""
 
+    @staticmethod
+    def _render_mcp_load_commands(
+        mcp_servers: Optional[List[MCPServerConfig]],
+    ) -> str:
+        """Render /mcp load commands for CAI.
+
+        Args:
+            mcp_servers: Optional list of MCP server configs
+
+        Returns:
+            String containing MCP load commands or a comment placeholder
+        """
+
+        if not mcp_servers:
+            return "# No MCP servers provided"
+
+        commands: List[str] = ["# MCP servers to load"]
+
+        for server in mcp_servers:
+            if server.transport == MCPTransport.SSE:
+                commands.append(f"/mcp load {server.url} {server.name}")
+            else:
+                commands.append(
+                    f"/mcp load stdio {server.name} {server.command}"
+                )
+
+        return "\n".join(commands)
+
     def __init__(self):
         """Initialize the Kubernetes service."""
         self.batch_v1 = batch_v1
@@ -36,6 +65,7 @@ class KubernetesService:
         prompt: str,
         character_id: Optional[str] = None,
         token: Optional[str] = None,
+        mcp_servers: Optional[List[MCPServerConfig]] = None,
     ) -> str:
         """Create a Kubernetes Job for CAI chat session.
 
@@ -73,6 +103,8 @@ class KubernetesService:
         if token:
             env_vars.append(client.V1EnvVar(name="CAI_TOKEN", value=token))
 
+        mcp_block = self._render_mcp_load_commands(mcp_servers)
+
         # Define the container
         container = client.V1Container(
             name="cai-chat",
@@ -98,6 +130,18 @@ export CAI_PRICE_LIMIT=10.0
 export CAI_INTERACTIVE=false
 export TERM=dumb
 
+# Prepare MCP commands and payload
+cat > /tmp/mcp_commands.txt << 'MCP_EOF'
+{mcp_block}
+MCP_EOF
+
+cat > /tmp/cai_payload.txt << 'PAYLOAD_EOF'
+{mcp_block}
+{prompt}
+/save /tmp/cai_results.json
+/exit
+PAYLOAD_EOF
+
 # Log environment for debugging
 echo "=== CAI Environment ==="
 echo "CAI_MODEL: $CAI_MODEL"
@@ -115,20 +159,23 @@ timeout 300 cai --agent {settings.cai_agent_type} --model {settings.cai_model} -
 
 # Approach 2: Use echo and pipe
 echo "Attempting method 2: echo pipe"
-echo "{prompt}" | timeout 300 cai --agent {settings.cai_agent_type} --model {settings.cai_model} 2>&1 || echo "Method 2 failed"
+cat /tmp/cai_payload.txt | timeout 300 cai --agent {settings.cai_agent_type} --model {settings.cai_model} 2>&1 || echo "Method 2 failed"
 
 # Approach 3: Use here document
 echo "Attempting method 3: here document"
-timeout 300 cai --agent {settings.cai_agent_type} --model {settings.cai_model} << 'PROMPT_EOF' 2>&1 || echo "Method 3 failed"
+timeout 300 cai --agent {settings.cai_agent_type} --model {settings.cai_model} << 'PAYLOAD_EOF' 2>&1 || echo "Method 3 failed"
+{mcp_block}
 {prompt}
+/save /tmp/cai_results.json
 /exit
-PROMPT_EOF
+PAYLOAD_EOF
 
 # Approach 4: Create script file and use it
 echo "Attempting method 4: script file"
 cat > /tmp/cai_script.txt << 'SCRIPT_EOF'
 /agent {settings.cai_agent_type}
 /model {settings.cai_model}
+{mcp_block}
 {prompt}
 /save /tmp/cai_results.json
 /exit
@@ -162,18 +209,6 @@ fi
 # Check for results file
 if [ -f /tmp/cai_results.json ]; then
   echo "Results file found"
-  cat /tmp/cai_results.json > /tmp/job_results_content
-fi
-
-exit $EXIT_CODE
-    echo "LOG_FILE_PATH: $LOGFILE"
-    echo "$LOGFILE" > /tmp/job_completion_signal
-    cat "$LOGFILE" > /tmp/job_logs_content
-  fi
-fi
-
-# Copy results if available
-if [ -f /tmp/cai_results.json ]; then
   cat /tmp/cai_results.json > /tmp/job_results_content
 fi
 
