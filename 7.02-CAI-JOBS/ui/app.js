@@ -8,10 +8,10 @@ function showTab(tabName, el) {
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
     });
-    
+
     document.getElementById(`${tabName}-tab`).classList.add('active');
     if (el) el.classList.add('active');
-    
+
     if (tabName === 'sessions') loadSessions();
     if (tabName === 'advanced') loadAdvancedSessions();
     if (tabName === 'agents') loadAgents();
@@ -22,13 +22,13 @@ async function loadSessions() {
     try {
         const response = await fetch(`${API_BASE}/api/sessions`);
         const sessions = await response.json();
-        
+
         const container = document.getElementById('sessions-list');
         if (sessions.length === 0) {
             container.innerHTML = '<div class="empty-state"><h3>No sessions yet</h3><p>Create your first session to get started</p></div>';
             return;
         }
-        
+
         container.innerHTML = sessions.map(session => `
             <div class="session-card">
                 <div class="session-header">
@@ -67,17 +67,17 @@ async function loadAdvancedSessions() {
     try {
         const response = await fetch(`${API_BASE}/api/v2/sessions`);
         const sessions = await response.json();
-        
+
         const container = document.getElementById('advanced-sessions-list');
         if (sessions.length === 0) {
             container.innerHTML = '<div class="empty-state"><h3>No advanced sessions yet</h3><p>Create an advanced session with parallel execution</p></div>';
             return;
         }
-        
+
         container.innerHTML = sessions.map(session => {
-            const progress = session.total_steps ? 
+            const progress = session.total_steps ?
                 Math.round((session.completed_steps / session.total_steps) * 100) : 0;
-            
+
             return `
                 <div class="session-card">
                     <div class="session-header">
@@ -122,13 +122,13 @@ async function loadAgents() {
     try {
         const response = await fetch(`${API_BASE}/api/mcp/agents`);
         const agents = await response.json();
-        
+
         const container = document.getElementById('agents-list');
         if (agents.length === 0) {
             container.innerHTML = '<div class="empty-state"><h3>No agents configured</h3></div>';
             return;
         }
-        
+
         container.innerHTML = agents.map(agent => `
             <div class="agent-card">
                 <h3>${agent.replace('_', ' ').toUpperCase()}</h3>
@@ -157,20 +157,20 @@ async function testMCPConnection() {
             allow_insecure: document.getElementById('mcp-insecure').checked
         }]
     };
-    
+
     if (transport === 'sse') {
         mcpConfig.servers[0].url = document.getElementById('mcp-url').value;
     } else {
         mcpConfig.servers[0].command = document.getElementById('mcp-command').value;
     }
-    
+
     try {
         const response = await fetch(`${API_BASE}/api/mcp/test`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(mcpConfig)
         });
-        
+
         const results = await response.json();
         displayMCPResults(results);
     } catch (error) {
@@ -217,19 +217,19 @@ function closeAdvancedModal() {
 
 document.getElementById('create-session-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    
+
     const sessionData = {
         name: document.getElementById('session-name').value,
         prompt: document.getElementById('session-prompt').value
     };
-    
+
     try {
         const response = await fetch(`${API_BASE}/api/sessions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(sessionData)
         });
-        
+
         if (response.ok) {
             closeModal();
             loadSessions();
@@ -310,11 +310,11 @@ document.getElementById('advanced-session-form')?.addEventListener('submit', asy
 // View Session Details
 async function viewDetails(sessionId, type) {
     const endpoint = type === 'advanced' ? `/api/v2/sessions/${sessionId}` : `/api/sessions/${sessionId}`;
-    
+
     try {
         const response = await fetch(`${API_BASE}${endpoint}`);
         const session = await response.json();
-        
+
         document.getElementById('details-title').textContent = `Session: ${session.name}`;
         document.getElementById('details-content').innerHTML = `
             <div class="session-info">
@@ -325,7 +325,7 @@ async function viewDetails(sessionId, type) {
                 ${JSON.stringify(session, null, 2)}
             </div>
         `;
-        
+
         document.getElementById('details-modal').style.display = 'block';
     } catch (error) {
         console.error('Error loading details:', error);
@@ -338,12 +338,12 @@ async function viewLogs(sessionId) {
     try {
         const response = await fetch(`${API_BASE}/api/sessions/${sessionId}/logs`);
         const data = await response.json();
-        
+
         document.getElementById('details-title').textContent = 'Session Logs';
         document.getElementById('details-content').innerHTML = `
             <div class="logs-container">${data.logs || 'No logs available'}</div>
         `;
-        
+
         document.getElementById('details-modal').style.display = 'block';
     } catch (error) {
         console.error('Error loading logs:', error);
@@ -356,10 +356,10 @@ async function viewResults(sessionId) {
     try {
         const response = await fetch(`${API_BASE}/api/v2/sessions/${sessionId}/results`);
         const results = await response.json();
-        
+
         document.getElementById('details-title').textContent = 'Session Results';
         document.getElementById('details-content').innerHTML = renderResults(results);
-        
+
         document.getElementById('details-modal').style.display = 'block';
     } catch (error) {
         console.error('Error loading results:', error);
@@ -436,17 +436,21 @@ function renderResults(results) {
     if (agentKeys.length) {
         html += `<div class="result-section"><h3>Agent Outputs</h3>`;
         agentKeys.forEach(agent => {
-            const content = escapeHtml(outputs[agent] || '');
-            const short = content.length > 2000 ? content.slice(0, 2000) + '\n... (truncated) ...' : content;
-            const id = `out-${agent.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+            const rawOutput = outputs[agent] || '';
+            const safeAgentName = agent ? agent.replace(/_/g, ' ') : 'unknown';
+            const escapedOutput = escapeHtml(rawOutput);
+            const bodyId = `out-${(agent || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '-')}`;
             html += `
             <div class="collapsible">
-                <div class="collapsible-header" onclick="toggleCollapsible('${id}')">
-                    <span class="agent-name">${escapeHtml(agent)}</span>
+                <div class="collapsible-header" onclick="toggleCollapsible('${bodyId}')">
+                    <span class="agent-name">${escapeHtml(safeAgentName)}</span>
                     <span class="toggle-icon">▼</span>
                 </div>
-                <div id="${id}" class="collapsible-body">
-                    <pre class="logs-container">${short}</pre>
+                <div id="${bodyId}" class="collapsible-body">
+                    <div class="collapsible-actions">
+                        <button class="btn btn-secondary btn-small" onclick="copyToClipboard(${JSON.stringify(rawOutput)})">Copy Output</button>
+                    </div>
+                    <pre class="logs-container">${escapedOutput}</pre>
                 </div>
             </div>`;
         });

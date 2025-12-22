@@ -168,7 +168,6 @@ fi
             args=[
                 f"""#!/bin/bash
 set -e
-
 # Activate CAI environment
 source /home/kali/cai/bin/activate
 

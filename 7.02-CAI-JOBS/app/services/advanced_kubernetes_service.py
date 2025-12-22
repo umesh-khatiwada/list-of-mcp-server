@@ -326,22 +326,7 @@ fi
         # Execute main CAI command
         command_parts.extend(
             [
-                "# Execute CAI",
-                "cp /config/agents.yml .",
-                "export CAI_AGENT_TYPE=redteam_agent",
-                "export CAI_STREAM=false",
-                "export CAI_DEBUG=0",
-                "export CAI_BRIEF=true",
-                "export CAI_MAX_TURNS=50",
-                "export CAI_PRICE_LIMIT=10.0",
-                "export CAI_INTERACTIVE=false",
-                "export TERM=dumb",
-                "# Add save and quit commands to the CAI session",
-                "echo '/save /tmp/scan_results.json' >> /tmp/mcp_commands.txt",
-                "echo '/quit' >> /tmp/mcp_commands.txt",
                 "cat /tmp/mcp_commands.txt /tmp/cai_prompt.txt | cai",
-                "",
-                "# Capture results",
                 "if [ -d /home/kali/logs ]; then",
                 "  LOGFILE=$(find /home/kali/logs -name 'cai_*.jsonl' -type f 2>/dev/null | head -1)",
                 '  if [ -n "$LOGFILE" ]; then',
