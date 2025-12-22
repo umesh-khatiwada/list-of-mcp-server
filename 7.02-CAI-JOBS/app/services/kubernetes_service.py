@@ -24,9 +24,8 @@ core_v1 = client.CoreV1Api()
 class KubernetesService:
     """Service for managing Kubernetes jobs and pods."""
 
-    @staticmethod
     def _render_mcp_load_commands(
-        mcp_servers: Optional[List[MCPServerConfig]],
+        self, mcp_servers: Optional[List[MCPServerConfig]], agent_type: Optional[str] = None
     ) -> str:
         """Render /mcp load commands for CAI.
 
@@ -40,7 +39,8 @@ class KubernetesService:
         if not mcp_servers:
             return "# No MCP servers provided"
 
-        commands: List[str] = ["# MCP servers to load"]
+        commands: List[str] = ["/mcp list"]
+        target_agent = agent_type or settings.cai_agent_type
 
         for server in mcp_servers:
             if server.transport == MCPTransport.SSE:
@@ -49,6 +49,10 @@ class KubernetesService:
                 commands.append(
                     f"/mcp load stdio {server.name} {server.command}"
                 )
+
+            # Bind the MCP to the agent group so CAI can route properly
+            if target_agent:
+                commands.append(f"/mcp add {server.name} {target_agent}")
 
         return "\n".join(commands)
 
@@ -103,7 +107,7 @@ class KubernetesService:
         if token:
             env_vars.append(client.V1EnvVar(name="CAI_TOKEN", value=token))
 
-        mcp_block = self._render_mcp_load_commands(mcp_servers)
+        mcp_block = self._render_mcp_load_commands(mcp_servers, agent_type=settings.cai_agent_type)
 
         # Define the container
         container = client.V1Container(
@@ -288,6 +292,12 @@ exit $EXIT_CODE
                 return "Running"
             else:
                 return "Pending"
+        except client.ApiException as e:
+            if e.status == 404:
+                logger.info(f"Job {job_name} not found (deleted or expired)")
+                return "Deleted"
+            logger.error(f"Failed to get job status: {str(e)}")
+            return "Unknown"
         except Exception as e:
             logger.error(f"Failed to get job status: {str(e)}")
             return "Unknown"

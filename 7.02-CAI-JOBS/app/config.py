@@ -14,13 +14,12 @@ class Settings:
     # API Keys
     deepseek_api_key: str = os.getenv("DEEPSEEK_API_KEY", "")
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
-    alias_api_key: str = os.getenv("ALIAS_API_KEY", "")
 
     # CAI Configuration
     cai_model: str = os.getenv(
         "CAI_MODEL", "deepseek/deepseek-chat"
     )  # Default to alias1 for cybersecurity
-    cai_stream: str = os.getenv("CAI_STEAM", "false")  # Disable streaming for K8s
+    cai_stream: str = os.getenv("CAI_STEAM", "true")  # Disable streaming for K8s
     cai_agent_type: str = os.getenv("CAI_AGENT_TYPE", "redteam_agent")
 
     # Webhook Configuration

@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import health, mcp, sessions, webhooks
 
@@ -84,6 +85,9 @@ app.include_router(advanced_sessions.router)
 app.include_router(mcp.router)
 app.include_router(health.router)
 app.include_router(webhooks.router)
+
+# Serve static files for UI
+app.mount("/", StaticFiles(directory="ui", html=True), name="ui")
 
 
 if __name__ == "__main__":

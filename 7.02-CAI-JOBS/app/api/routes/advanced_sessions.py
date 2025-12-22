@@ -78,6 +78,11 @@ async def list_advanced_sessions(
         if mode and session.get("mode") != mode:
             continue
 
+        # Ensure required fields for advanced schema
+        session.setdefault("mode", SessionMode.SINGLE)
+        session.setdefault("job_names", [session.get("jobName", "")])
+        session.setdefault("created", session.get("created", ""))
+
         # Update session status
         if "job_names" in session:
             # Multi-job session
@@ -104,8 +109,18 @@ async def get_advanced_session(
 
     session = sessions_store[session_id]
 
+    # Ensure required fields exist (migration for old sessions)
+    if "mode" not in session:
+        session["mode"] = "single"
+    if "job_names" not in session:
+        # Try to infer from jobName (legacy field)
+        if "jobName" in session:
+            session["job_names"] = [session["jobName"]]
+        else:
+            session["job_names"] = []
+
     # Update progress for multi-job sessions
-    if "job_names" in session:
+    if len(session.get("job_names", [])) > 0:
         progress = k8s_service.get_session_progress(session_id)
         session["completed_steps"] = progress.get("completed_jobs", 0)
         session["status"] = _determine_session_status(progress)
@@ -113,8 +128,8 @@ async def get_advanced_session(
         # Update detailed progress
         session["progress_details"] = progress
     else:
-        # Legacy single job
-        session["status"] = k8s_service.get_job_status(session.get("jobName", ""))
+        # No jobs found
+        session["status"] = "Unknown"
 
     return SessionStatus(**session)
 
@@ -201,6 +216,34 @@ async def get_session_flags(
     sessions_store[session_id]["flags_found"] = flags
 
     return {"flags": flags, "count": len(flags)}
+
+@router.delete("/{session_id}")
+async def delete_advanced_session(
+    session_id: str,
+    k8s_service: AdvancedKubernetesService = Depends(get_advanced_kubernetes_service),
+):
+    """Delete an advanced session and all associated jobs."""
+
+    if session_id not in sessions_store:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session = sessions_store[session_id]
+
+    try:
+        # Delete all jobs tied to this session
+        job_names = session.get("job_names") or ([session.get("jobName")] if session.get("jobName") else [])
+        for job_name in job_names:
+            if job_name:
+                k8s_service.delete_job(job_name)
+
+        # Remove session from store
+        del sessions_store[session_id]
+
+        return {"message": "Advanced session deleted successfully"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to delete advanced session: {str(e)}"
+        )
 
 
 @router.get("/{session_id}/vulnerabilities")

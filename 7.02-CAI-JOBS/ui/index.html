@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAI Job Manager Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 CAI Kubernetes Job Manager</h1>
+            <div class="header-actions">
+                <button onclick="refreshAll()" class="btn btn-primary">🔄 Refresh</button>
+                <button onclick="showCreateSession()" class="btn btn-success">+ New Session</button>
+            </div>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showTab('sessions', this)">Sessions</button>
+            <button class="tab-btn" onclick="showTab('advanced', this)">Advanced Sessions</button>
+            <button class="tab-btn" onclick="showTab('agents', this)">Agents</button>
+            <button class="tab-btn" onclick="showTab('mcp', this)">MCP Test</button>
+        </div>
+
+        <div id="sessions-tab" class="tab-content active">
+            <h2>Active Sessions</h2>
+            <div id="sessions-list" class="card-grid"></div>
+        </div>
+
+        <div id="advanced-tab" class="tab-content">
+            <div class="tab-header">
+                <h2>Advanced Sessions</h2>
+                <button class="btn btn-success" onclick="showAdvancedSessionModal()">+ New Advanced Session</button>
+            </div>
+            <div id="advanced-sessions-list" class="card-grid"></div>
+        </div>
+
+        <div id="agents-tab" class="tab-content">
+            <h2>Available Agents</h2>
+            <div id="agents-list" class="agent-list"></div>
+        </div>
+
+        <div id="mcp-tab" class="tab-content">
+            <h2>MCP Connection Test</h2>
+            <div class="mcp-test-form">
+                <h3>Add MCP Server</h3>
+                <form id="mcp-form">
+                    <div class="form-group">
+                        <label>Name:</label>
+                        <input type="text" id="mcp-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Transport:</label>
+                        <select id="mcp-transport">
+                            <option value="sse">SSE</option>
+                            <option value="stdio">STDIO</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="url-group">
+                        <label>URL:</label>
+                        <input type="text" id="mcp-url" placeholder="http://localhost:3001/sse">
+                    </div>
+                    <div class="form-group" id="command-group" style="display:none;">
+                        <label>Command:</label>
+                        <input type="text" id="mcp-command" placeholder="python mcp_server.py">
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="mcp-insecure">
+                            Allow Insecure
+                        </label>
+                    </div>
+                    <button type="button" onclick="testMCPConnection()" class="btn btn-primary">Test Connection</button>
+                </form>
+                <div id="mcp-results" class="mcp-results"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Session Modal -->
+    <div id="create-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2>Create New Session</h2>
+            <form id="create-session-form">
+                <div class="form-group">
+                    <label>Session Name:</label>
+                    <input type="text" id="session-name" required>
+                </div>
+                <div class="form-group">
+                    <label>Prompt:</label>
+                    <textarea id="session-prompt" rows="4" required></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-success">Create</button>
+                    <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Session Details Modal -->
+    <div id="details-modal" class="modal">
+        <div class="modal-content modal-large">
+            <span class="close" onclick="closeDetailsModal()">&times;</span>
+            <h2 id="details-title">Session Details</h2>
+            <div id="details-content"></div>
+        </div>
+    </div>
+
+    <!-- Advanced Session Modal -->
+    <div id="advanced-modal" class="modal">
+        <div class="modal-content modal-large">
+            <span class="close" onclick="closeAdvancedModal()">&times;</span>
+            <h2>Create Advanced Session</h2>
+            <form id="advanced-session-form">
+                <div class="form-group">
+                    <label>Session Name:</label>
+                    <input type="text" id="adv-name" required>
+                </div>
+                <div class="form-group">
+                    <label>Prompt:</label>
+                    <textarea id="adv-prompt" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Agent Type:</label>
+                    <select id="adv-agent" required>
+                        <option value="redteam_agent">redteam_agent</option>
+                        <option value="blueteam_agent">blueteam_agent</option>
+                        <option value="bug_bounter_agent">bug_bounter_agent</option>
+                        <option value="dfir_agent">dfir_agent</option>
+                        <option value="network_security_analyzer_agent">network_security_analyzer_agent</option>
+                        <option value="reverse_engineering_agent">reverse_engineering_agent</option>
+                        <option value="reporting_agent">reporting_agent</option>
+                        <option value="selection_agent">selection_agent</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Model:</label>
+                    <input type="text" id="adv-model" value="deepseek/deepseek-chat" required>
+                </div>
+                <div class="form-group">
+                    <label>MCP Override (optional):</label>
+                    <div class="inline-group">
+                        <input type="text" id="adv-mcp-name" placeholder="mcp name">
+                        <select id="adv-mcp-transport">
+                            <option value="sse">sse</option>
+                            <option value="stdio">stdio</option>
+                        </select>
+                    </div>
+                    <div id="adv-url-group" class="form-group">
+                        <input type="text" id="adv-mcp-url" placeholder="http://localhost:3001/sse">
+                    </div>
+                    <div id="adv-command-group" class="form-group" style="display:none;">
+                        <input type="text" id="adv-mcp-command" placeholder="python mcp_server.py">
+                    </div>
+                    <label class="checkbox-inline">
+                        <input type="checkbox" id="adv-mcp-insecure"> Allow Insecure
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-success">Create</button>
+                    <button type="button" onclick="closeAdvancedModal()" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

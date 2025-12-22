@@ -239,17 +239,19 @@ exit $EXIT_CODE
         """Build CAI command with advanced features."""
         # Prefer agent-specific MCP overrides when provided, otherwise fall back.
         mcp_servers = self._select_mcp_for_agent(agent_type, config)
-        mcp_block = self._render_mcp_load_commands(mcp_servers)
+        mcp_block = self._render_mcp_load_commands(
+            mcp_servers, agent_type=agent_type.value
+        )
         command_parts = [
             "source /home/kali/cai/bin/activate",
             "",
             "# Set up environment variables",
             f"export CAI_MODEL={model.value}",
-            f"export CAI_AGENT_TYPE={agent_type.value}",
             f"export SESSION_ID={session_id}",
             "export CAI_INTERACTIVE=false",
             "export CAI_STREAM=false",
-            "export TERM=dumb",
+            "export LITELLM_DISABLE_AUTH=true",
+            "export DEEPSEEK_API_KEY=" + settings.deepseek_api_key
         ]
 
         # Cost constraints
@@ -318,7 +320,11 @@ exit $EXIT_CODE
         command_parts.extend(
             [
                 "# Execute CAI",
-                "cat /tmp/mcp_commands.txt /tmp/cai_prompt.txt | cai --yaml /config/agents.yml",
+                "cp /config/agents.yml .",
+                "export CAI_MODEL={settings.cai_model}",
+                "export CAI_AGENT_TYPE={settings.cai_agent_type}",
+                "export CAI_STREAM=false",
+                "cat /tmp/mcp_commands.txt /tmp/cai_prompt.txt | cai",
                 "",
                 "# Capture results",
                 "EXIT_CODE=$?",
@@ -384,6 +390,7 @@ exit $EXIT_CODE
             client.V1EnvVar(name="SESSION_ID", value=session_id),
             client.V1EnvVar(name="DEEPSEEK_API_KEY", value=settings.deepseek_api_key),
             client.V1EnvVar(name="OPENAI_API_KEY", value=settings.openai_api_key),
+            client.V1EnvVar(name="LITELLM_DISABLE_AUTH", value="true"),
         ]
 
         # Add additional environment variables

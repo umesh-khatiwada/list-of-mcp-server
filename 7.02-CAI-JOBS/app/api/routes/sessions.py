@@ -61,11 +61,21 @@ async def list_sessions(
     k8s_service: KubernetesService = Depends(get_kubernetes_service),
 ):
     """List all chat sessions."""
-    # Update session statuses
-    for session_id, session in sessions_store.items():
-        session["status"] = k8s_service.get_job_status(session["jobName"])
+    valid_sessions = []
 
-    return list(sessions_store.values())
+    # Update session statuses (legacy sessions only; skip advanced records without jobName/prompt)
+    for session_id, session in sessions_store.items():
+        job_name = session.get("jobName")
+        prompt = session.get("prompt")
+        if not job_name or not prompt:
+            # Advanced sessions use job_names and do not include prompt/jobName in this shape
+            # They are served via /api/v2/sessions
+            continue
+
+        session["status"] = k8s_service.get_job_status(job_name)
+        valid_sessions.append(session)
+
+    return valid_sessions
 
 
 @router.get("/{session_id}", response_model=Session)
@@ -77,6 +87,10 @@ async def get_session(
         raise HTTPException(status_code=404, detail="Session not found")
 
     session = sessions_store[session_id]
+    if "jobName" not in session or "prompt" not in session:
+        # Advanced sessions are exposed via /api/v2/sessions
+        raise HTTPException(status_code=404, detail="Session not found")
+
     session["status"] = k8s_service.get_job_status(session["jobName"])
 
     return session
@@ -91,6 +105,9 @@ async def get_session_logs(
         raise HTTPException(status_code=404, detail="Session not found")
 
     session = sessions_store[session_id]
+    if "jobName" not in session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
     status = k8s_service.get_job_status(session["jobName"])
     logs, log_path, log_content = k8s_service.get_pod_logs_with_path(session_id)
 
@@ -113,6 +130,9 @@ async def get_session_result(
         raise HTTPException(status_code=404, detail="Session not found")
 
     session = sessions_store[session_id]
+    if "jobName" not in session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
     status = k8s_service.get_job_status(session["jobName"])
 
     # Try to get from stored result first
@@ -150,6 +170,9 @@ async def get_session_file(
         raise HTTPException(status_code=404, detail="Session not found")
 
     session = sessions_store[session_id]
+    if "jobName" not in session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
     status = k8s_service.get_job_status(session["jobName"])
 
     if status != "Completed":
@@ -191,6 +214,9 @@ async def delete_session(
         raise HTTPException(status_code=404, detail="Session not found")
 
     session = sessions_store[session_id]
+    if "jobName" not in session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
     job_name = session["jobName"]
 
     try:
