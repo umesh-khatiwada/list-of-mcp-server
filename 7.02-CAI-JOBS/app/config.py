@@ -16,6 +16,7 @@ class Settings:
 
     # API Keys
     deepseek_api_key: str = os.getenv("DEEPSEEK_API_KEY", "")
+    # OpenAI API key is optional; only needed if using OpenAI models
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
 
     # CAI Configuration
@@ -53,19 +54,10 @@ class Settings:
 
     def _validate_configuration(self):
         """Validate security configuration."""
-        # Validate API keys are not defaults or empty for production
+        # Validate DeepSeek API key for production
         if not self._is_development_mode():
-            if not self.deepseek_api_key or self.deepseek_api_key.startswith(
-                "sk-placeholder"
-            ):
-                logging.warning(
-                    "DeepSeek API key not properly configured for production"
-                )
-            if not self.openai_api_key or self.openai_api_key.startswith(
-                "sk-placeholder"
-            ):
-                logging.warning("OpenAI API key not properly configured for production")
-
+            if not self.deepseek_api_key or self.deepseek_api_key.startswith("sk-placeholder"):
+                logging.warning("DeepSeek API key not properly configured for production")
         # Validate webhook URL if provided
         if self.webhook_url and not self._is_valid_url(self.webhook_url):
             raise ValueError(f"Invalid webhook URL: {self.webhook_url}")
@@ -106,7 +98,8 @@ class Settings:
             "namespace": self.namespace,
             "cai_image": self.cai_image,
             "deepseek_api_key": "***" if self.deepseek_api_key else "not_set",
-            "openai_api_key": "***" if self.openai_api_key else "not_set",
+            # Only show OpenAI key if model is set to OpenAI
+            "openai_api_key": "***" if (self.openai_api_key and self.cai_model.startswith("openai")) else "not_needed",
             "cai_model": self.cai_model,
             "cai_stream": self.cai_stream,
             "cai_agent_type": self.cai_agent_type,

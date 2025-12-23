@@ -302,6 +302,7 @@ fi
                 "# Create prompt file",
                 "cat > /tmp/cai_prompt.txt << 'PROMPT_EOF'",
                 prompt,
+                "/quit",
                 "PROMPT_EOF",
                 "",
             ]
