@@ -366,6 +366,7 @@ async function viewResults(sessionId) {
         }
         results = await response.json();
 
+        window.lastResults = results;
         document.getElementById('details-title').textContent = 'Session Results';
         let html = renderResults(results);
         // If this is a webhook result, add a button to show raw JSON
@@ -374,6 +375,30 @@ async function viewResults(sessionId) {
         }
         document.getElementById('details-content').innerHTML = html;
         document.getElementById('details-modal').style.display = 'block';
+    // Show raw scan_report JSON in a modal
+    function showRawScanReport() {
+        try {
+            const detailsModal = document.getElementById('details-modal');
+            const detailsTitle = document.getElementById('details-title');
+            const detailsContent = document.getElementById('details-content');
+            let scanReport = null;
+            if (window.lastResults && window.lastResults.scan_report) {
+                scanReport = window.lastResults.scan_report;
+            }
+            if (!scanReport) {
+                showError('No scan report found');
+                return;
+            }
+            detailsTitle.textContent = 'Raw Scan Report JSON';
+            detailsContent.innerHTML = `
+                <div style="margin-bottom:1em;"><button class="btn btn-secondary btn-small" onclick="closeDetailsModal()">Close</button></div>
+                <pre style="background:#222;color:#fff;padding:1em;border-radius:6px;max-height:60vh;overflow:auto;">${escapeHtml(JSON.stringify(scanReport, null, 2))}</pre>
+            `;
+            detailsModal.style.display = 'block';
+        } catch (e) {
+            showError('Failed to show raw scan report');
+        }
+    }
     } catch (error) {
         console.error('Error loading results:', error);
         showError('Failed to load results');
@@ -425,15 +450,77 @@ function renderResults(results) {
         ${results.progress ? `<div><strong>Jobs:</strong> ${results.progress.completed_jobs}/${results.progress.total_jobs}</div>` : ''}
     </div></div>`;
 
-    // Show scan fields if present
+
+    // If scan_report is present, render a parsed summary and a button for raw JSON
+    if (results.scan_report) {
+        const sr = results.scan_report;
+        html += `<div class="result-section"><h3>Scan Report</h3>`;
+        html += `<div><strong>Image:</strong> ${escapeHtml(sr.image || '')}</div>`;
+        html += `<div><strong>Scan Date:</strong> ${escapeHtml(sr.scan_date || '')}</div>`;
+        html += `<div><strong>Risk Level:</strong> ${escapeHtml(sr.risk_level || '')}</div>`;
+        html += `<div><strong>Summary:</strong> ${escapeHtml(sr.summary || '')}</div>`;
+        if (sr.repository_info) {
+            html += `<div><strong>Repository:</strong> ${escapeHtml(sr.repository_info.owner || '')}/${escapeHtml(sr.repository_info.name || '')}</div>`;
+            html += `<div><strong>Status:</strong> ${escapeHtml(sr.repository_info.status || '')}</div>`;
+            html += `<div><strong>Pull Count:</strong> ${escapeHtml(String(sr.repository_info.pull_count || ''))}</div>`;
+            html += `<div><strong>Last Updated:</strong> ${escapeHtml(sr.repository_info.last_updated || '')}</div>`;
+            html += `<div><strong>Storage Size:</strong> ${escapeHtml(sr.repository_info.storage_size_human || '')}</div>`;
+        }
+        if (Array.isArray(sr.available_tags) && sr.available_tags.length) {
+            html += `<div><strong>Available Tags:</strong><ul class="result-list">`;
+            sr.available_tags.forEach(tag => {
+                html += `<li><strong>${escapeHtml(tag.name)}</strong> (${escapeHtml(tag.size_human || '')}, ${escapeHtml(tag.digest || '')})${tag.is_latest ? ' <span class="status-badge status-success">latest</span>' : ''}</li>`;
+            });
+            html += `</ul></div>`;
+        }
+        if (Array.isArray(sr.security_findings) && sr.security_findings.length) {
+            html += `<div><strong>Security Findings:</strong><ul class="result-list">`;
+            sr.security_findings.forEach(f => {
+                html += `<li><strong>[${escapeHtml(f.severity)}]</strong> ${escapeHtml(f.title)}<br><em>${escapeHtml(f.description)}</em><br><small>Impact: ${escapeHtml(f.impact)}</small></li>`;
+            });
+            html += `</ul></div>`;
+        }
+        if (sr.user_context) {
+            html += `<div><strong>User Context:</strong> ${escapeHtml(sr.user_context.username || '')}, Total Repos: ${escapeHtml(String(sr.user_context.total_repositories || ''))}, Repos w/o Descriptions: ${escapeHtml(sr.user_context.repositories_without_descriptions || '')}</div>`;
+        }
+        if (sr.limitations) {
+            html += `<div><strong>Limitations:</strong> ${escapeHtml(JSON.stringify(sr.limitations, null, 2))}</div>`;
+        }
+        if (Array.isArray(sr.recommendations) && sr.recommendations.length) {
+            html += `<div><strong>Recommendations:</strong><ul class="result-list">`;
+            sr.recommendations.forEach(r => {
+                html += `<li>${escapeHtml(r)}</li>`;
+            });
+            html += `</ul></div>`;
+        }
+        if (Array.isArray(sr.next_steps) && sr.next_steps.length) {
+            html += `<div><strong>Next Steps:</strong><ul class="result-list">`;
+            sr.next_steps.forEach(n => {
+                html += `<li>${escapeHtml(n)}</li>`;
+            });
+            html += `</ul></div>`;
+        }
+        if (Array.isArray(sr.scan_methodology) && sr.scan_methodology.length) {
+            html += `<div><strong>Scan Methodology:</strong><ul class="result-list">`;
+            sr.scan_methodology.forEach(m => {
+                html += `<li>${escapeHtml(m)}</li>`;
+            });
+            html += `</ul></div>`;
+        }
+        html += `</div>`;
+        // Add a button to show raw JSON for scan_report
+        html += `<div style=\"margin-top:1em;\"><button class=\"btn btn-secondary btn-small\" onclick=\"showRawScanReport()\">Show Raw Scan Report JSON</button></div>`;
+    }
+
+    // Show scan fields if present (legacy fields)
     if (repository) {
-        html += `<div class="result-section"><strong>Repository:</strong> <a href="${escapeHtml(repository)}" target="_blank">${escapeHtml(repository)}</a></div>`;
+        html += `<div class=\"result-section\"><strong>Repository:</strong> <a href=\"${escapeHtml(repository)}\" target=\"_blank\">${escapeHtml(repository)}</a></div>`;
     }
     if (scan_summary) {
-        html += `<div class="result-section"><h3>Scan Summary</h3><pre>${escapeHtml(JSON.stringify(scan_summary, null, 2))}</pre></div>`;
+        html += `<div class=\"result-section\"><h3>Scan Summary</h3><pre>${escapeHtml(JSON.stringify(scan_summary, null, 2))}</pre></div>`;
     }
     if (Array.isArray(files) && files.length) {
-        html += `<div class="result-section"><h3>Files</h3><ul class="result-list">`;
+        html += `<div class=\"result-section\"><h3>Files</h3><ul class=\"result-list\">`;
         files.forEach(f => {
             html += `<li><strong>${escapeHtml(f.path || '')}</strong> (${f.size || '?'} bytes, ${f.lines || '?'} lines)
                 ${f.content_preview ? `<details><summary>Preview</summary><pre>${escapeHtml(f.content_preview)}</pre></details>` : ''}
@@ -442,10 +529,10 @@ function renderResults(results) {
         html += `</ul></div>`;
     }
     if (security_analysis) {
-        html += `<div class="result-section"><h3>Security Analysis</h3><pre>${escapeHtml(JSON.stringify(security_analysis, null, 2))}</pre></div>`;
+        html += `<div class=\"result-section\"><h3>Security Analysis</h3><pre>${escapeHtml(JSON.stringify(security_analysis, null, 2))}</pre></div>`;
     }
     if (Array.isArray(recommendations) && recommendations.length) {
-        html += `<div class="result-section"><h3>Recommendations</h3><ul class="result-list">`;
+        html += `<div class=\"result-section\"><h3>Recommendations</h3><ul class=\"result-list\">`;
         recommendations.forEach(r => {
             html += `<li>${escapeHtml(r)}</li>`;
         });

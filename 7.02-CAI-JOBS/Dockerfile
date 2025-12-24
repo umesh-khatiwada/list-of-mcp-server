@@ -7,7 +7,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY main.py .
 COPY app/ ./app
 COPY ui/ ./ui
-
+RUN mkdir -p /app/storage
+RUN chmod -R 777 /app/storage
+RUN touch /app/storage/scans_results.json
 # Pass environment variables from host or .env file
 ENV WEBHOOK_URL=""
 ENV DEEPSEEK_API_KEY=""

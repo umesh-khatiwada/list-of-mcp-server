@@ -13,7 +13,25 @@
             <div class="header-actions">
                 <button onclick="refreshAll()" class="btn btn-primary">🔄 Refresh</button>
                 <button onclick="showCreateSession()" class="btn btn-success">+ New Session</button>
+                <button onclick="showRawResultsJson()" class="btn btn-secondary">View Raw Results JSON</button>
             </div>
+            <script>
+            function showRawResultsJson() {
+                if (!window.lastResults) {
+                    alert('No results loaded yet. View a session result first.');
+                    return;
+                }
+                const detailsModal = document.getElementById('details-modal');
+                const detailsTitle = document.getElementById('details-title');
+                const detailsContent = document.getElementById('details-content');
+                detailsTitle.textContent = 'Raw Results JSON';
+                detailsContent.innerHTML = `
+                    <div style="margin-bottom:1em;"><button class="btn btn-secondary btn-small" onclick="closeDetailsModal()">Close</button></div>
+                    <pre style="background:#222;color:#fff;padding:1em;border-radius:6px;max-height:60vh;overflow:auto;">${escapeHtml(JSON.stringify(window.lastResults, null, 2))}</pre>
+                `;
+                detailsModal.style.display = 'block';
+            }
+            </script>
         </header>
 
         <div class="tabs">

@@ -15,7 +15,7 @@ spec:
       serviceAccountName: cai-manager-sa
       containers:
       - name: api
-        image: docker.io/umesh1212/cai-manager:v25
+        image: docker.io/umesh1212/cai-manager:v54
         imagePullPolicy: IfNotPresent
         env:
         - name: DEEPSEEK_API_KEY
@@ -31,48 +31,39 @@ spec:
         - name: CAI_AGENTS
           value: "redteam_agent,blueteam_agent"
         - name: WEBHOOK_URL
-          value: "http://cai-manager:8000/api/webhooks"
+          value: "http://172.18.254.200:8000/api/webhooks"
         ports:
         - containerPort: 8000
+        volumeMounts:
+        - name: file-storage
+          mountPath: /app/storage
+      volumes:
+      - name: file-storage
+        persistentVolumeClaim:
+          claimName: cai-manager-pvc
 ---
 apiVersion: v1
-kind: Service
+kind: PersistentVolume
 metadata:
-  name: cai-manager
+  name: cai-manager-pv
 spec:
-  selector:
-    app: cai-manager
-  ports:
-  - protocol: TCP
-    port: 8000
-    targetPort: 8000
-  type: ClusterIP
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-storage
+  hostPath:
+    path: /mnt/data/cai-manager
 ---
 apiVersion: v1
-kind: ServiceAccount
+kind: PersistentVolumeClaim
 metadata:
-  name: cai-manager-sa
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: cai-manager-role
-rules:
-- apiGroups: ["batch"]
-  resources: ["jobs"]
-  verbs: ["get", "list", "create", "delete"]
-- apiGroups: [""]
-  resources: ["pods", "pods/log"]
-  verbs: ["get", "list"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: cai-manager-binding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: cai-manager-role
-subjects:
-- kind: ServiceAccount
-  name: cai-manager-sa
+  name: cai-manager-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: local-storage
