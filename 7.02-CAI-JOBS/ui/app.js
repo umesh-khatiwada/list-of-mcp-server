@@ -356,21 +356,44 @@ async function viewLogs(sessionId) {
 async function viewResults(sessionId) {
     try {
         // Try v2 endpoint first, fallback to webhook result endpoint if 404
-        let response = await fetch(`${API_BASE}/api/v2/sessions/${sessionId}/results`);
+        // let response = await fetch(`${API_BASE}/api/v2/sessions/${sessionId}/results`);
+        let response = await fetch(`${API_BASE}/api/webhooks/result/${sessionId}?raw_file=true`);
         let results;
+        let isWebhook = false;
         if (response.status === 404) {
-            response = await fetch(`${API_BASE}/api/webhooks/result/${sessionId}`);
+            response = await fetch(`${API_BASE}/api/v2/sessions/${sessionId}/results`);
+            isWebhook = true;
         }
         results = await response.json();
 
         document.getElementById('details-title').textContent = 'Session Results';
-        document.getElementById('details-content').innerHTML = renderResults(results);
-
+        let html = renderResults(results);
+        // If this is a webhook result, add a button to show raw JSON
+        if (isWebhook) {
+            html += `<div style="margin-top:1em;"><button class="btn btn-secondary btn-small" onclick="viewWebhookRawResult('${sessionId}')">Show Raw Webhook JSON</button></div>`;
+        }
+        document.getElementById('details-content').innerHTML = html;
         document.getElementById('details-modal').style.display = 'block';
     } catch (error) {
         console.error('Error loading results:', error);
         showError('Failed to load results');
     }
+// Show raw webhook result JSON in a modal
+async function viewWebhookRawResult(sessionId) {
+    try {
+        const response = await fetch(`${API_BASE}/api/webhooks/result/${sessionId}?raw_file=true`);
+        const data = await response.json();
+        document.getElementById('details-title').textContent = 'Raw Webhook Result JSON';
+        document.getElementById('details-content').innerHTML = `
+            <div style="margin-bottom:1em;"><button class="btn btn-secondary btn-small" onclick="closeDetailsModal()">Close</button></div>
+            <pre style="background:#222;color:#fff;padding:1em;border-radius:6px;max-height:60vh;overflow:auto;">${escapeHtml(JSON.stringify(data, null, 2))}</pre>
+        `;
+        document.getElementById('details-modal').style.display = 'block';
+    } catch (error) {
+        console.error('Error loading raw webhook result:', error);
+        showError('Failed to load raw webhook result');
+    }
+}
 }
 
 // Render results with sections and collapsible outputs
