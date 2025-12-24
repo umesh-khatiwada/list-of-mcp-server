@@ -80,3 +80,7 @@ STDIO (Standard Input/Output) - For local inter-process communication:
 
 
 CAI>/mcp load stdio myserver python mcp_server.py
+
+
+
+uvicorn main:app --host 0.0.0.0 --port 8000 --log-level debug

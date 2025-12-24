@@ -7,6 +7,15 @@ from fastapi import APIRouter, HTTPException, Request
 from ...services.session_store import sessions_store
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+# Ensure debug logs are output to console
+if not logger.hasHandlers():
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+logger.propagate = True
 
 router = APIRouter(prefix="/api", tags=["webhooks"])
 
@@ -105,16 +114,18 @@ async def get_webhook_result(session_id: str):
     # If not in memory, try to load from disk
     if not result:
         save_path = f"/tmp/webhook_payload_{session_id}.json"
+        logger.debug(f"[DEBUG] Checking for file: {save_path}")
         if os.path.exists(save_path):
             try:
+                file_size = os.path.getsize(save_path)
+                logger.debug(f"[DEBUG] File exists. Size: {file_size} bytes")
                 with open(save_path, "r") as f:
                     file_content = f.read()
-                # Debug: print loaded file content
-                print(f"[DEBUG] Loaded file content for session {session_id}: {file_content[:500]}")
+                logger.debug(f"[DEBUG] Loaded file content for session {session_id} (first 500 chars): {file_content[:500]}")
                 # Try to parse as JSON dict
                 try:
                     parsed = json.loads(file_content)
-                    print(f"[DEBUG] Parsed JSON for session {session_id}: {parsed}")
+                    logger.debug(f"[DEBUG] Parsed JSON for session {session_id}: {parsed}")
                     # If it's a dict, extract fields, including scan fields
                     if isinstance(parsed, dict):
                         result = {
@@ -128,16 +139,21 @@ async def get_webhook_result(session_id: str):
                             "security_analysis": parsed.get("security_analysis"),
                             "recommendations": parsed.get("recommendations"),
                         }
+                        # Update in-memory session store for future requests
+                        if session_id not in sessions_store:
+                            sessions_store[session_id] = {}
+                        sessions_store[session_id]["result"] = result
                     else:
+                        logger.debug(f"[DEBUG] Parsed JSON is not a dict for session {session_id}")
                         result = {"log_path": None, "file_content": file_content, "pod_logs": None, "status": None}
                 except Exception as e:
-                    print(f"[DEBUG] JSON parse error for session {session_id}: {e}")
+                    logger.debug(f"[DEBUG] JSON parse error for session {session_id}: {e}")
                     result = {"log_path": None, "file_content": file_content, "pod_logs": None, "status": None}
             except Exception as e:
-                print(f"[DEBUG] Error loading file for session {session_id}: {e}")
-                return JSONResponse(status_code=404, content={"error": "No result found for this session."})
+                logger.debug(f"[DEBUG] Error loading or parsing file for session {session_id}: {e}")
+                return JSONResponse(status_code=404, content={"error": f"No result found for this session. Error: {e}"})
         else:
-            print(f"[DEBUG] No file found for session {session_id}")
+            logger.debug(f"[DEBUG] No file found for session {session_id} at {save_path}")
             return JSONResponse(status_code=404, content={"error": "No result found for this session."})
 
     # Try to parse file_content as JSON if present
