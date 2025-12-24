@@ -78,6 +78,10 @@ async def list_advanced_sessions(
         if mode and session.get("mode") != mode:
             continue
 
+        # Skip invalid sessions (must have 'id' and 'name')
+        if not isinstance(session, dict) or "id" not in session or "name" not in session:
+            continue
+
         # Ensure required fields for advanced schema
         session.setdefault("mode", SessionMode.SINGLE)
         session.setdefault("job_names", [session.get("jobName", "")])

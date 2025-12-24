@@ -103,82 +103,41 @@ async def receive_webhook(session_id: str, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+from fastapi import Query
+
 @router.get("/webhooks/result/{session_id}")
-async def get_webhook_result(session_id: str):
+async def get_webhook_result(session_id: str, raw_file: bool = Query(False, description="If true, return raw file content instead of parsed result")):
     """Show parsed result from saved webhook data for a session, surfacing scan results if present. Loads from disk if not in memory."""
     from fastapi.responses import JSONResponse
     from ...services.session_store import sessions_store
     import json
 
-    result = sessions_store.get(session_id, {}).get("result")
-    # If not in memory, try to load from disk
-    if not result:
-        save_path = f"/tmp/webhook_payload_{session_id}.json"
-        logger.debug(f"[DEBUG] Checking for file: {save_path}")
-        if os.path.exists(save_path):
-            try:
-                file_size = os.path.getsize(save_path)
-                logger.debug(f"[DEBUG] File exists. Size: {file_size} bytes")
-                with open(save_path, "r") as f:
-                    file_content = f.read()
-                logger.debug(f"[DEBUG] Loaded file content for session {session_id} (first 500 chars): {file_content[:500]}")
-                # Try to parse as JSON dict
-                try:
-                    parsed = json.loads(file_content)
-                    logger.debug(f"[DEBUG] Parsed JSON for session {session_id}: {parsed}")
-                    # If it's a dict, extract fields, including scan fields
-                    if isinstance(parsed, dict):
-                        result = {
-                            "log_path": parsed.get("log_path"),
-                            "file_content": file_content,
-                            "pod_logs": parsed.get("pod_logs"),
-                            "status": parsed.get("status"),
-                            "repository": parsed.get("repository"),
-                            "scan_summary": parsed.get("scan_summary"),
-                            "files": parsed.get("files"),
-                            "security_analysis": parsed.get("security_analysis"),
-                            "recommendations": parsed.get("recommendations"),
-                        }
-                        # Update in-memory session store for future requests
-                        if session_id not in sessions_store:
-                            sessions_store[session_id] = {}
-                        sessions_store[session_id]["result"] = result
-                    else:
-                        logger.debug(f"[DEBUG] Parsed JSON is not a dict for session {session_id}")
-                        result = {"log_path": None, "file_content": file_content, "pod_logs": None, "status": None}
-                except Exception as e:
-                    logger.debug(f"[DEBUG] JSON parse error for session {session_id}: {e}")
-                    result = {"log_path": None, "file_content": file_content, "pod_logs": None, "status": None}
-            except Exception as e:
-                logger.debug(f"[DEBUG] Error loading or parsing file for session {session_id}: {e}")
-                return JSONResponse(status_code=404, content={"error": f"No result found for this session. Error: {e}"})
-        else:
-            logger.debug(f"[DEBUG] No file found for session {session_id} at {save_path}")
-            return JSONResponse(status_code=404, content={"error": "No result found for this session."})
-
-    # Try to parse file_content as JSON if present
-    file_content = result.get("file_content")
-    parsed_json = None
-    scan_fields = {}
-    if file_content:
+    save_path = f"/tmp/webhook_payload_{session_id}.json"
+    logger.debug(f"[DEBUG] Checking for file: {save_path}")
+    if not os.path.exists(save_path):
+        logger.debug(f"[DEBUG] No file found for session {session_id} at {save_path}")
+        return JSONResponse(status_code=404, content={"error": "No result found for this session."})
+    try:
+        file_size = os.path.getsize(save_path)
+        logger.debug(f"[DEBUG] File exists. Size: {file_size} bytes")
+        with open(save_path, "r") as f:
+            file_content = f.read()
+        logger.debug(f"[DEBUG] Loaded file content for session {session_id} (first 500 chars): {file_content[:500]}")
+        if raw_file:
+            from fastapi.responses import PlainTextResponse
+            return PlainTextResponse(file_content)
+        import json
         try:
             parsed_json = json.loads(file_content)
+            logger.debug(f"[DEBUG] Parsed JSON for session {session_id}: {parsed_json}")
+            response = {"session_id": session_id, "parsed_file_content": parsed_json}
+            if isinstance(parsed_json, dict):
+                for key, value in parsed_json.items():
+                    if key != "session_id":
+                        response[key] = value
+            return response
         except Exception:
-            parsed_json = file_content  # Return raw if not valid JSON
-
-    # Always surface scan fields at the root if present in parsed_json
-    if isinstance(parsed_json, dict):
-        for key in [
-            "repository", "scan_summary", "files", "security_analysis", "recommendations"
-        ]:
-            if key in parsed_json:
-                scan_fields[key] = parsed_json[key]
-
-    return {
-        "session_id": session_id,
-        "status": result.get("status"),
-        "log_path": result.get("log_path"),
-        "pod_logs": result.get("pod_logs"),
-        **scan_fields,
-        "parsed_file_content": parsed_json,
-    }
+            return {"session_id": session_id, "parsed_file_content": file_content}
+    except Exception as e:
+        logger.debug(f"[DEBUG] Error loading or parsing file for session {session_id}: {e}")
+        return JSONResponse(status_code=404, content={"error": f"No result found for this session. Error: {e}"})
