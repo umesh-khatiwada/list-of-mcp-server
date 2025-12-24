@@ -342,7 +342,7 @@ fi
                 "if [ -f /tmp/scan_results.json ]; then",
                 "  echo 'Scan results saved to /tmp/scan_results.json'",
                 "  # Send results to webhook before marking task completed",
-                "  curl -X POST -H 'Content-Type: application/json' --data-binary @/tmp/scan_results.json $WEBHOOK_URL || echo 'Webhook send failed'",
+                "  curl -X POST -H 'Content-Type: application/json' --data-binary @/tmp/scan_results.json $WEBHOOK_URL/$SESSION_ID || echo 'Webhook send failed'",
                 "fi",
             ]
         )

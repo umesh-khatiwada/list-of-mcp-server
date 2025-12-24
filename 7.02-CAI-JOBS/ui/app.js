@@ -1,4 +1,5 @@
-const API_BASE = 'http://localhost:8000';
+// Get API_BASE from injected global variable, fallback to .env via server-side template, else use window location
+const API_BASE = window.API_BASE || document.body.getAttribute('data-api-base') || `${window.location.origin}`;
 
 // Tab Management
 function showTab(tabName, el) {
@@ -354,8 +355,13 @@ async function viewLogs(sessionId) {
 // View Results
 async function viewResults(sessionId) {
     try {
-        const response = await fetch(`${API_BASE}/api/v2/sessions/${sessionId}/results`);
-        const results = await response.json();
+        // Try v2 endpoint first, fallback to webhook result endpoint if 404
+        let response = await fetch(`${API_BASE}/api/v2/sessions/${sessionId}/results`);
+        let results;
+        if (response.status === 404) {
+            response = await fetch(`${API_BASE}/api/webhooks/result/${sessionId}`);
+        }
+        results = await response.json();
 
         document.getElementById('details-title').textContent = 'Session Results';
         document.getElementById('details-content').innerHTML = renderResults(results);
@@ -382,15 +388,46 @@ function renderResults(results) {
     const vulns = results.vulnerabilities || [];
     const outputs = results.outputs || {};
 
-    let html = `
-    <div class="result-section">
-        <div class="result-summary">
-            <div><strong>Status:</strong> ${escapeHtml(status)}</div>
-            <div><strong>Flags:</strong> ${flags.length}</div>
-            <div><strong>Vulnerabilities:</strong> ${vulns.length}</div>
-            ${results.progress ? `<div><strong>Jobs:</strong> ${results.progress.completed_jobs}/${results.progress.total_jobs}</div>` : ''}
-        </div>
-    </div>`;
+    // Webhook scan fields
+    const repository = results.repository;
+    const scan_summary = results.scan_summary;
+    const files = results.files;
+    const security_analysis = results.security_analysis;
+    const recommendations = results.recommendations;
+
+    let html = `<div class="result-section"><div class="result-summary">
+        <div><strong>Status:</strong> ${escapeHtml(status)}</div>
+        <div><strong>Flags:</strong> ${flags.length}</div>
+        <div><strong>Vulnerabilities:</strong> ${vulns.length}</div>
+        ${results.progress ? `<div><strong>Jobs:</strong> ${results.progress.completed_jobs}/${results.progress.total_jobs}</div>` : ''}
+    </div></div>`;
+
+    // Show scan fields if present
+    if (repository) {
+        html += `<div class="result-section"><strong>Repository:</strong> <a href="${escapeHtml(repository)}" target="_blank">${escapeHtml(repository)}</a></div>`;
+    }
+    if (scan_summary) {
+        html += `<div class="result-section"><h3>Scan Summary</h3><pre>${escapeHtml(JSON.stringify(scan_summary, null, 2))}</pre></div>`;
+    }
+    if (Array.isArray(files) && files.length) {
+        html += `<div class="result-section"><h3>Files</h3><ul class="result-list">`;
+        files.forEach(f => {
+            html += `<li><strong>${escapeHtml(f.path || '')}</strong> (${f.size || '?'} bytes, ${f.lines || '?'} lines)
+                ${f.content_preview ? `<details><summary>Preview</summary><pre>${escapeHtml(f.content_preview)}</pre></details>` : ''}
+            </li>`;
+        });
+        html += `</ul></div>`;
+    }
+    if (security_analysis) {
+        html += `<div class="result-section"><h3>Security Analysis</h3><pre>${escapeHtml(JSON.stringify(security_analysis, null, 2))}</pre></div>`;
+    }
+    if (Array.isArray(recommendations) && recommendations.length) {
+        html += `<div class="result-section"><h3>Recommendations</h3><ul class="result-list">`;
+        recommendations.forEach(r => {
+            html += `<li>${escapeHtml(r)}</li>`;
+        });
+        html += `</ul></div>`;
+    }
 
     if (flags.length) {
         // Extract clean flag tokens like flag{...}
