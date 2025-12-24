@@ -38,19 +38,19 @@ def test_advanced_session():
         "name": "Advanced Parallel Security Assessment",
         "prompt": "Analyze the security posture of a web application",
         "agent_type": "redteam_agent",
-        "model": "alias1",
+        "model": "deepseek/deepseek-chat",
         "parallel_agents": [
             {
                 "name": "redteam_scanner",
                 "agent_type": "redteam_agent",
-                "model": "alias1",
+                "model": "deepseek/deepseek-chat",
                 "initial_prompt": "Focus on vulnerability scanning and exploitation techniques",
                 "alias": "redteam",
             },
             {
                 "name": "blueteam_defender",
                 "agent_type": "blueteam_agent",
-                "model": "alias1",
+                "model": "deepseek/deepseek-chat",
                 "initial_prompt": "Focus on defensive measures and security hardening",
                 "alias": "blueteam",
             },

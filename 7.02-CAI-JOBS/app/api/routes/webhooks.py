@@ -39,3 +39,32 @@ async def receive_webhook(payload: dict):
     except Exception as e:
         logger.error(f"Error processing webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/webhooks/result/{session_id}")
+async def get_webhook_result(session_id: str):
+    """Show parsed result from saved webhook data for a session."""
+    from fastapi.responses import JSONResponse
+    from ...services.session_store import sessions_store
+    import json
+
+    result = sessions_store.get(session_id, {}).get("result")
+    if not result:
+        return JSONResponse(status_code=404, content={"error": "No result found for this session."})
+
+    # Try to parse file_content as JSON if present
+    file_content = result.get("file_content")
+    parsed_json = None
+    if file_content:
+        try:
+            parsed_json = json.loads(file_content)
+        except Exception:
+            parsed_json = file_content  # Return raw if not valid JSON
+
+    return {
+        "session_id": session_id,
+        "status": result.get("status"),
+        "log_path": result.get("log_path"),
+        "pod_logs": result.get("pod_logs"),
+        "parsed_file_content": parsed_json,
+    }

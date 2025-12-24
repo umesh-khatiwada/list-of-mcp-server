@@ -301,7 +301,8 @@ fi
                 "",
                 "# Create prompt file",
                 "cat > /tmp/cai_prompt.txt << 'PROMPT_EOF'",
-                prompt,
+                prompt ,
+                "save results to /tmp/scan_results.json",
                 "/quit",
                 "PROMPT_EOF",
                 "",
@@ -340,6 +341,8 @@ fi
                 "# Check if results file was created",
                 "if [ -f /tmp/scan_results.json ]; then",
                 "  echo 'Scan results saved to /tmp/scan_results.json'",
+                "  # Send results to webhook before marking task completed",
+                "  curl -X POST -H 'Content-Type: application/json' --data-binary @/tmp/scan_results.json $WEBHOOK_URL || echo 'Webhook send failed'",
                 "fi",
             ]
         )
@@ -394,6 +397,7 @@ fi
             client.V1EnvVar(name="DEEPSEEK_API_KEY", value=settings.deepseek_api_key),
             client.V1EnvVar(name="OPENAI_API_KEY", value=settings.openai_api_key),
             client.V1EnvVar(name="LITELLM_DISABLE_AUTH", value="true"),
+            client.V1EnvVar(name="WEBHOOK_URL", value=settings.webhook_url)
         ]
 
         # Add additional environment variables
