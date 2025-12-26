@@ -259,7 +259,7 @@ fi
             "export CAI_STREAM=false",
             "export LITELLM_DISABLE_AUTH=true",
             "export DEEPSEEK_API_KEY=" + settings.deepseek_api_key,
-            "export SCAN_RESULTS_PATH=\"${SCAN_RESULTS_PATH:-/tmp/scan_results.json}\"",
+            'export SCAN_RESULTS_PATH="${SCAN_RESULTS_PATH:-/tmp/scan_results.json}"',
         ]
 
         # Cost constraints
@@ -302,7 +302,7 @@ fi
                 "",
                 "# Create prompt file",
                 "cat > /tmp/cai_prompt.txt << 'PROMPT_EOF'",
-                prompt ,
+                prompt,
                 "save results to $SCAN_RESULTS_PATH",
                 "/quit",
                 "PROMPT_EOF",
@@ -340,11 +340,11 @@ fi
                 "  fi",
                 "fi",
                 "# Check if results file was created",
-                "if [ -f \"$SCAN_RESULTS_PATH\" ]; then",
+                'if [ -f "$SCAN_RESULTS_PATH" ]; then',
                 "  echo 'Scan results saved to ' $SCAN_RESULTS_PATH",
                 "  # Send results to webhook before marking task completed",
                 "  curl -X POST -H 'Content-Type: application/json' --data-binary @$SCAN_RESULTS_PATH $WEBHOOK_URL/$SESSION_ID || echo 'Webhook send failed'",
-                "  sleep 200",
+                "  sleep 10",
                 "fi",
             ]
         )
@@ -399,7 +399,7 @@ fi
             client.V1EnvVar(name="DEEPSEEK_API_KEY", value=settings.deepseek_api_key),
             client.V1EnvVar(name="OPENAI_API_KEY", value=settings.openai_api_key),
             client.V1EnvVar(name="LITELLM_DISABLE_AUTH", value="true"),
-            client.V1EnvVar(name="WEBHOOK_URL", value=settings.webhook_url)
+            client.V1EnvVar(name="WEBHOOK_URL", value=settings.webhook_url),
         ]
 
         # Add additional environment variables

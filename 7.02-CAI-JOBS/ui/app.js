@@ -1,54 +1,52 @@
-// Get API_BASE from injected global variable, fallback to .env via server-side template, else use window location
+// Modernized CAI Job Manager UI
 const API_BASE = window.API_BASE || document.body.getAttribute('data-api-base') || `${window.location.origin}`;
+
+// Toast Notification System
+function showToast(message, type = 'info', duration = 3500) {
+    let toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerText = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 10);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
 
 // Tab Management
 function showTab(tabName, el) {
-    document.querySelectorAll('.tab-content').forEach(tab => {
-        tab.classList.remove('active');
-    });
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-
+    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById(`${tabName}-tab`).classList.add('active');
     if (el) el.classList.add('active');
-
     if (tabName === 'sessions') loadSessions();
     if (tabName === 'advanced') loadAdvancedSessions();
     if (tabName === 'agents') loadAgents();
 }
 
-// Load Sessions
+// Load Sessions (Modernized)
 async function loadSessions() {
     try {
         const response = await fetch(`${API_BASE}/api/sessions`);
         const sessions = await response.json();
-
         const container = document.getElementById('sessions-list');
-        if (sessions.length === 0) {
-            container.innerHTML = '<div class="empty-state"><h3>No sessions yet</h3><p>Create your first session to get started</p></div>';
+        if (!sessions.length) {
+            container.innerHTML = `<div class="empty-state"><h3>No sessions yet</h3><p>Create your first session to get started</p></div>`;
             return;
         }
-
         container.innerHTML = sessions.map(session => `
-            <div class="session-card">
+            <div class="session-card material-card">
                 <div class="session-header">
                     <div class="session-name">${session.name}</div>
                     <span class="status-badge status-${session.status.toLowerCase()}">${session.status}</span>
                 </div>
                 <div class="session-info">
-                    <div class="info-row">
-                        <span class="info-label">ID:</span>
-                        <span class="info-value">${session.id.substring(0, 8)}...</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Created:</span>
-                        <span class="info-value">${new Date(session.created).toLocaleString()}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Job:</span>
-                        <span class="info-value">${session.jobName}</span>
-                    </div>
+                    <div class="info-row"><span class="info-label">ID:</span><span class="info-value">${session.id.substring(0, 8)}...</span></div>
+                    <div class="info-row"><span class="info-label">Created:</span><span class="info-value">${new Date(session.created).toLocaleString()}</span></div>
+                    <div class="info-row"><span class="info-label">Job:</span><span class="info-value">${session.jobName}</span></div>
                 </div>
                 <div class="session-actions">
                     <button class="btn btn-primary btn-small" onclick="viewDetails('${session.id}', 'basic')">View Details</button>
@@ -59,49 +57,34 @@ async function loadSessions() {
         `).join('');
     } catch (error) {
         console.error('Error loading sessions:', error);
-        showError('Failed to load sessions');
+        showToast('Failed to load sessions', 'error');
     }
 }
 
-// Load Advanced Sessions
+// Load Advanced Sessions (Modernized)
 async function loadAdvancedSessions() {
     try {
         const response = await fetch(`${API_BASE}/api/v2/sessions`);
         const sessions = await response.json();
-
         const container = document.getElementById('advanced-sessions-list');
-        if (sessions.length === 0) {
-            container.innerHTML = '<div class="empty-state"><h3>No advanced sessions yet</h3><p>Create an advanced session with parallel execution</p></div>';
+        if (!sessions.length) {
+            container.innerHTML = `<div class="empty-state"><h3>No advanced sessions yet</h3><p>Create an advanced session with parallel execution</p></div>`;
             return;
         }
-
         container.innerHTML = sessions.map(session => {
-            const progress = session.total_steps ?
-                Math.round((session.completed_steps / session.total_steps) * 100) : 0;
-
+            const progress = session.total_steps ? Math.round((session.completed_steps / session.total_steps) * 100) : 0;
             return `
-                <div class="session-card">
+                <div class="session-card material-card">
                     <div class="session-header">
                         <div class="session-name">${session.name}</div>
                         <span class="status-badge status-${session.status.toLowerCase()}">${session.status}</span>
                     </div>
                     <div class="session-info">
-                        <div class="info-row">
-                            <span class="info-label">Mode:</span>
-                            <span class="info-value">${session.mode}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Jobs:</span>
-                            <span class="info-value">${session.job_names.length}</span>
-                        </div>
+                        <div class="info-row"><span class="info-label">Mode:</span><span class="info-value">${session.mode}</span></div>
+                        <div class="info-row"><span class="info-label">Jobs:</span><span class="info-value">${session.job_names.length}</span></div>
                         ${session.total_steps ? `
-                        <div class="info-row">
-                            <span class="info-label">Progress:</span>
-                            <span class="info-value">${session.completed_steps}/${session.total_steps}</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: ${progress}%"></div>
-                        </div>
+                        <div class="info-row"><span class="info-label">Progress:</span><span class="info-value">${session.completed_steps}/${session.total_steps}</span></div>
+                        <div class="progress-bar"><div class="progress-fill" style="width: ${progress}%"></div></div>
                         ` : ''}
                     </div>
                     <div class="session-actions">
@@ -114,29 +97,28 @@ async function loadAdvancedSessions() {
         }).join('');
     } catch (error) {
         console.error('Error loading advanced sessions:', error);
-        showError('Failed to load advanced sessions');
+        showToast('Failed to load advanced sessions', 'error');
     }
 }
 
-// Load Agents
+// Load Agents (Modernized)
 async function loadAgents() {
     try {
         const response = await fetch(`${API_BASE}/api/mcp/agents`);
         const agents = await response.json();
-
         const container = document.getElementById('agents-list');
-        if (agents.length === 0) {
-            container.innerHTML = '<div class="empty-state"><h3>No agents configured</h3></div>';
+        if (!agents.length) {
+            container.innerHTML = `<div class="empty-state"><h3>No agents configured</h3></div>`;
             return;
         }
-
         container.innerHTML = agents.map(agent => `
-            <div class="agent-card">
-                <h3>${agent.replace('_', ' ').toUpperCase()}</h3>
+            <div class="agent-card material-card">
+                <h3>${agent.replace(/_/g, ' ').toUpperCase()}</h3>
             </div>
         `).join('');
     } catch (error) {
         console.error('Error loading agents:', error);
+        showToast('Failed to load agents', 'error');
     }
 }
 
@@ -651,7 +633,7 @@ function closeDetailsModal() {
 
 // Utility Functions
 function showError(message) {
-    alert(message); // Simple for now, can be improved with toast notifications
+    showToast(message, 'error');
 }
 
 function refreshAll() {
@@ -665,9 +647,10 @@ function refreshAll() {
     }
 }
 
-// Auto-refresh every 10 seconds
+// Auto-refresh every 10 seconds (Modernized)
 setInterval(() => {
     const activeTab = document.querySelector('.tab-btn.active');
+    if (!activeTab) return;
     if (activeTab.textContent.includes('Sessions')) {
         loadSessions();
     } else if (activeTab.textContent.includes('Advanced')) {
@@ -676,4 +659,14 @@ setInterval(() => {
 }, 10000);
 
 // Initial Load
-loadSessions();
+document.addEventListener('DOMContentLoaded', () => {
+    loadSessions();
+    // Add keyboard accessibility for modals and toasts
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeModal();
+            closeAdvancedModal();
+            closeDetailsModal();
+        }
+    });
+});

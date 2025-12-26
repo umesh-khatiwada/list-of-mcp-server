@@ -15,11 +15,11 @@ spec:
       serviceAccountName: cai-manager-sa
       containers:
       - name: api
-        image: docker.io/umesh1212/cai-manager:v54
+        image: docker.io/umesh1212/cai-manager:v56
         imagePullPolicy: IfNotPresent
         env:
         - name: DEEPSEEK_API_KEY
-          value: "sk-"
+          value: "sk-54dca5525f1946edafab7bbbbd151756"
         - name: DEEPSEEK_API_URL
           value: "https://api.deepseek.com/v1"
         - name: OPENAI_API_KEY
@@ -31,7 +31,9 @@ spec:
         - name: CAI_AGENTS
           value: "redteam_agent,blueteam_agent"
         - name: WEBHOOK_URL
-          value: "http://172.18.254.200:8000/api/webhooks"
+          value: "http://10.96.124.250:8000/api/webhooks"
+        - name: SCAN_RESULTS_PATH
+          value: "/app/storage/scans_results.json"
         ports:
         - containerPort: 8000
         volumeMounts:

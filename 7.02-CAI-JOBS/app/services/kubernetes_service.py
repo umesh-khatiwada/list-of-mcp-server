@@ -1,5 +1,6 @@
 """Kubernetes service for managing jobs and pods."""
 import logging
+import os
 from typing import List, Optional, Tuple
 
 from kubernetes import client, config
@@ -91,6 +92,8 @@ class KubernetesService:
         sanitized_name = sanitize_label(session_name)
 
         # Environment variables for the CAI container
+        # Use SCAN_RESULTS_PATH from env or default to /app/storage/scans_results.json
+        scan_results_path = os.environ.get("/tmp/scan_results.json")
         env_vars = [
             client.V1EnvVar(name="PROMPT", value=prompt),
             client.V1EnvVar(name="SESSION_ID", value=session_id),
@@ -105,6 +108,8 @@ class KubernetesService:
             # Critical: Set non-interactive mode
             client.V1EnvVar(name="CAI_INTERACTIVE", value="false"),
             client.V1EnvVar(name="TERM", value="dumb"),
+            client.V1EnvVar(name="SCAN_RESULTS_PATH", value=scan_results_path),
+            client.V1EnvVar(name="WEBHOOK_URL", value=settings.webhook_url),
         ]
 
         if character_id:
@@ -183,6 +188,7 @@ export CAI_INTERACTIVE=false
 export TERM=dumb
 export PYTHONUNBUFFERED=1
 
+
 # Redirect stdin to avoid terminal issues
 exec 0</dev/null
 
@@ -198,7 +204,7 @@ cat > /tmp/cai_prompt.txt << 'PROMPT_EOF'
 PROMPT_EOF
 
 cat > /tmp/cai_footer.txt << 'FOOTER_EOF'
-/save /tmp/cai_results.json
+"save results to $SCAN_RESULTS_PATH",
 /quit
 FOOTER_EOF
 
@@ -269,6 +275,12 @@ if [ $EXIT_CODE -eq 0 ] || [ -f /tmp/job_logs_content ]; then
 else
     echo "Job failed with exit code $EXIT_CODE"
     exit $EXIT_CODE
+"# Check if results file was created",
+"if [ -f \"$SCAN_RESULTS_PATH\" ]; then",
+"  echo 'Scan results saved to ' $SCAN_RESULTS_PATH",
+"  # Send results to webhook before marking task completed",
+"  curl -X POST -H 'Content-Type: application/json' --data-binary @$SCAN_RESULTS_PATH $WEBHOOK_URL/$SESSION_ID || echo 'Webhook send failed'",
+"  sleep 10",
 fi
 """
             ],

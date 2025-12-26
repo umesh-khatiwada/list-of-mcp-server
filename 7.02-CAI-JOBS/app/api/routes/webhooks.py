@@ -12,7 +12,9 @@ logger.setLevel(logging.DEBUG)
 if not logger.hasHandlers():
     handler = logging.StreamHandler()
     handler.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s - %(message)s')
+    formatter = logging.Formatter(
+        "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+    )
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 logger.propagate = True
@@ -41,9 +43,17 @@ async def receive_webhook(session_id: str, request: Request):
             security_analysis = payload.get("security_analysis")
             recommendations = payload.get("recommendations")
             # Save the payload to disk
-            save_path = f"/tmp/webhook_payload_{session_id}.json"
+            storage_dir = os.environ.get(
+                "SCAN_RESULTS_PATH", "/app/storage/scans_results.json"
+            )
+            # If the path is a file, use its directory for per-session files
+            if storage_dir.endswith(".json"):
+                storage_dir = os.path.dirname(storage_dir)
+            os.makedirs(storage_dir, exist_ok=True)
+            save_path = os.path.join(storage_dir, f"webhook_payload_{session_id}.json")
             with open(save_path, "w") as f:
                 import json as _json
+
                 _json.dump(payload, f, indent=2)
         except Exception:
             # If not a dict, treat as raw JSON file (string)
@@ -58,11 +68,18 @@ async def receive_webhook(session_id: str, request: Request):
             security_analysis = None
             recommendations = None
             # Save the raw file_content to disk
-            save_path = f"/tmp/webhook_payload_{sid}.json"
+            storage_dir = os.environ.get(
+                "SCAN_RESULTS_PATH", "/app/storage/scans_results.json"
+            )
+            if storage_dir.endswith(".json"):
+                storage_dir = os.path.dirname(storage_dir)
+            os.makedirs(storage_dir, exist_ok=True)
+            save_path = os.path.join(storage_dir, f"webhook_payload_{sid}.json")
             with open(save_path, "w") as f:
                 f.write(file_content)
             # Optionally, try to extract session_id and scan fields if present in JSON
             import json
+
             try:
                 parsed = json.loads(file_content)
                 session_id = parsed.get("session_id", sid)
@@ -80,7 +97,6 @@ async def receive_webhook(session_id: str, request: Request):
         if file_content:
             logger.info(f"File content length: {len(file_content)} bytes")
 
-
         # Store the results in session store for later retrieval (always create or update entry)
         if session_id:
             if session_id not in sessions_store:
@@ -97,7 +113,12 @@ async def receive_webhook(session_id: str, request: Request):
                 "recommendations": recommendations,
             }
 
-        return {"status": "received", "session_id": session_id, "processed": True, "saved_to": save_path}
+        return {
+            "status": "received",
+            "session_id": session_id,
+            "processed": True,
+            "saved_to": save_path,
+        }
     except Exception as e:
         logger.error(f"Error processing webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -105,28 +126,43 @@ async def receive_webhook(session_id: str, request: Request):
 
 from fastapi import Query
 
+
 @router.get("/webhooks/result/{session_id}")
-async def get_webhook_result(session_id: str, raw_file: bool = Query(False, description="If true, return raw file content instead of parsed result")):
+async def get_webhook_result(
+    session_id: str,
+    raw_file: bool = Query(
+        False, description="If true, return raw file content instead of parsed result"
+    ),
+):
     """Show parsed result from saved webhook data for a session, surfacing scan results if present. Loads from disk if not in memory."""
-    from fastapi.responses import JSONResponse
-    from ...services.session_store import sessions_store
     import json
 
-    save_path = f"/tmp/webhook_payload_{session_id}.json"
+    from fastapi.responses import JSONResponse
+
+    storage_dir = os.environ.get("SCAN_RESULTS_PATH", "/app/storage/scans_results.json")
+    if storage_dir.endswith(".json"):
+        storage_dir = os.path.dirname(storage_dir)
+    save_path = os.path.join(storage_dir, f"webhook_payload_{session_id}.json")
     logger.debug(f"[DEBUG] Checking for file: {save_path}")
     if not os.path.exists(save_path):
         logger.debug(f"[DEBUG] No file found for session {session_id} at {save_path}")
-        return JSONResponse(status_code=404, content={"error": "No result found for this session."})
+        return JSONResponse(
+            status_code=404, content={"error": "No result found for this session."}
+        )
     try:
         file_size = os.path.getsize(save_path)
         logger.debug(f"[DEBUG] File exists. Size: {file_size} bytes")
         with open(save_path, "r") as f:
             file_content = f.read()
-        logger.debug(f"[DEBUG] Loaded file content for session {session_id} (first 500 chars): {file_content[:500]}")
+        logger.debug(
+            f"[DEBUG] Loaded file content for session {session_id} (first 500 chars): {file_content[:500]}"
+        )
         if raw_file:
             from fastapi.responses import PlainTextResponse
+
             return PlainTextResponse(file_content)
         import json
+
         try:
             parsed_json = json.loads(file_content)
             logger.debug(f"[DEBUG] Parsed JSON for session {session_id}: {parsed_json}")
@@ -139,5 +175,10 @@ async def get_webhook_result(session_id: str, raw_file: bool = Query(False, desc
         except Exception:
             return {"session_id": session_id, "parsed_file_content": file_content}
     except Exception as e:
-        logger.debug(f"[DEBUG] Error loading or parsing file for session {session_id}: {e}")
-        return JSONResponse(status_code=404, content={"error": f"No result found for this session. Error: {e}"})
+        logger.debug(
+            f"[DEBUG] Error loading or parsing file for session {session_id}: {e}"
+        )
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"No result found for this session. Error: {e}"},
+        )
