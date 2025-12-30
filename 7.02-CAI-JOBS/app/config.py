@@ -12,6 +12,7 @@ class Settings:
 
     # Kubernetes Configuration
     namespace: str = os.getenv("NAMESPACE", "default")
+    managed_cluster_namespace: str = os.getenv("MANAGED_CLUSTER_NAMESPACE", "east")
     cai_image: str = os.getenv("CAI_IMAGE", "docker.io/neptune1212/kali-cai:amd64")
 
     # API Keys

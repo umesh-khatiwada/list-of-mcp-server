@@ -46,37 +46,109 @@ class AdvancedKubernetesService(KubernetesService):
             job_name = self._create_single_session(session_id, config)
             return [job_name], SessionMode.SINGLE
 
+    def create_manifestwork_for_session(
+        self,
+        session_id: str,
+        config: AdvancedSessionCreate,
+        manifest_path: str = "manifest/managedmanifest.yaml",
+        runtime_map: Optional[dict] = None,
+    ) -> dict:
+        """
+        Dynamically load managedmanifest.yaml, substitute $VALUE fields, and create ManifestWork in cluster.
+        """
+        import yaml
+        from app.utils.manifest_substitute import substitute_manifest_vars
+
+        # Load manifest YAML
+        with open(manifest_path, "r") as f:
+            manifest_data = yaml.safe_load(f)
+
+        # Build runtime map for $VALUE substitution
+        if runtime_map is None:
+            runtime_map = {
+                "SESSION_NAME": f"cai-session-{session_id[:8]}",
+                "HUB_NAMESPACE": settings.managed_cluster_namespace,
+                "TARGET_NAMESPACE": self.namespace,
+                "JOB_NAME": f"cai-job-{session_id[:8]}",
+                "AGENT_ALIAS": "default",
+                "SERVICE_ACCOUNT": "default",
+                "IMAGE": getattr(settings, "cai_image", "neptune1212/kali-cai:amd64"),
+                "SESSION_ID": session_id,
+                "DEEPSEEK_API_KEY": getattr(settings, "deepseek_api_key", ""),
+                "OPENAI_API_KEY": getattr(settings, "openai_api_key", ""),
+                "LITELLM_DISABLE_AUTH": "true",
+                "WEBHOOK_URL": getattr(settings, "webhook_url", ""),
+                "CHARACTER_ID": getattr(config, "character_id", "") if hasattr(config, "character_id") else "",
+                "CAI_TOKEN": getattr(config, "token", "") if hasattr(config, "token") else "",
+                "COMMAND": "/bin/bash -c",
+                "ARGS": self._build_cai_command(
+                    config.prompt if hasattr(config, 'prompt') else "default prompt",
+                    AgentType.REDTEAM if hasattr(config, 'agent_type') else AgentType.REDTEAM,
+                    ModelType.DEEPSEEK_CHAT if hasattr(config, 'model') else ModelType.DEEPSEEK_CHAT,
+                    config,
+                    session_id
+                ),
+            }
+
+        # Substitute all $VALUE and $VARNAME fields recursively
+        manifestwork = substitute_manifest_vars(manifest_data, runtime_map)
+
+        # Create ManifestWork in cluster using CustomObjectsApi
+        from kubernetes.client import CustomObjectsApi
+        custom_api = CustomObjectsApi()
+        try:
+            result = custom_api.create_namespaced_custom_object(
+                group="work.open-cluster-management.io",
+                version="v1",
+                namespace=settings.managed_cluster_namespace,
+                plural="manifestworks",
+                body=manifestwork
+            )
+            logger.info(f"Created ManifestWork {manifestwork['metadata']['name']} in cluster.")
+            return result
+        except Exception as e:
+            logger.error(f"Failed to create ManifestWork: {str(e)}")
+            raise
+
     def _create_parallel_session(
         self, session_id: str, config: AdvancedSessionCreate
     ) -> Tuple[List[str], SessionMode]:
-        """Create parallel execution session."""
+        """Create parallel execution session using ManifestWork."""
         job_names = []
 
         for i, agent_config in enumerate(config.parallel_agents):
             job_name = f"cai-parallel-{session_id[:8]}-{i}"
 
-            # Build agent-specific command
-            agent_command = self._build_cai_command(
-                prompt=agent_config.initial_prompt or config.prompt,
-                agent_type=agent_config.agent_type,
-                model=agent_config.model,
-                config=config,
-                session_id=f"{session_id}-{i}",
-            )
+            # Build agent-specific runtime map
+            runtime_map = {
+                "SESSION_NAME": f"cai-session-{session_id[:8]}-{i}",
+                "HUB_NAMESPACE": settings.managed_cluster_namespace,
+                "TARGET_NAMESPACE": self.namespace,
+                "JOB_NAME": job_name,
+                "AGENT_ALIAS": agent_config.alias or agent_config.name,
+                "SERVICE_ACCOUNT": "default",
+                "IMAGE": getattr(settings, "cai_image", "neptune1212/kali-cai:amd64"),
+                "SESSION_ID": f"{session_id}-{i}",
+                "DEEPSEEK_API_KEY": getattr(settings, "deepseek_api_key", ""),
+                "OPENAI_API_KEY": getattr(settings, "openai_api_key", ""),
+                "LITELLM_DISABLE_AUTH": "true",
+                "WEBHOOK_URL": getattr(settings, "webhook_url", ""),
+                "CHARACTER_ID": getattr(config, "character_id", "") if hasattr(config, "character_id") else "",
+                "CAI_TOKEN": getattr(config, "token", "") if hasattr(config, "token") else "",
+                "COMMAND": "/bin/bash -c",
+                "ARGS": self._build_cai_command(
+                    agent_config.initial_prompt or config.prompt,
+                    agent_config.agent_type,
+                    agent_config.model,
+                    config,
+                    f"{session_id}-{i}"
+                ),
+            }
 
-            job = self._create_job_spec(
-                job_name=job_name,
-                session_id=session_id,
-                session_name=config.name,
-                command=agent_command,
-                config=config,
-                agent_alias=agent_config.alias or agent_config.name,
-            )
-
-            self.batch_v1.create_namespaced_job(namespace=self.namespace, body=job)
-            job_names.append(job_name)
+            manifestwork = self.create_manifestwork_for_session(session_id, config, runtime_map=runtime_map)
+            job_names.append(manifestwork['metadata']['name'])
             logger.info(
-                f"Created parallel job {job_name} for agent {agent_config.name}"
+                f"Created ManifestWork {manifestwork['metadata']['name']} for agent {agent_config.name}"
             )
 
         return job_names, SessionMode.PARALLEL
@@ -125,18 +197,30 @@ if [ -f /tmp/queue_results.json ]; then
 fi
 """
 
-        job = self._create_job_spec(
-            job_name=job_name,
-            session_id=session_id,
-            session_name=config.name,
-            command=queue_command,
-            config=config,
-        )
+        # Build runtime map for queue
+        runtime_map = {
+            "SESSION_NAME": f"cai-session-{session_id[:8]}",
+            "HUB_NAMESPACE": settings.managed_cluster_namespace,
+            "TARGET_NAMESPACE": self.namespace,
+            "JOB_NAME": job_name,
+            "AGENT_ALIAS": "default",
+            "SERVICE_ACCOUNT": "default",
+            "IMAGE": getattr(settings, "cai_image", "neptune1212/kali-cai:amd64"),
+            "SESSION_ID": session_id,
+            "DEEPSEEK_API_KEY": getattr(settings, "deepseek_api_key", ""),
+            "OPENAI_API_KEY": getattr(settings, "openai_api_key", ""),
+            "LITELLM_DISABLE_AUTH": "true",
+            "WEBHOOK_URL": getattr(settings, "webhook_url", ""),
+            "CHARACTER_ID": getattr(config, "character_id", "") if hasattr(config, "character_id") else "",
+            "CAI_TOKEN": getattr(config, "token", "") if hasattr(config, "token") else "",
+            "COMMAND": "/bin/bash -c",
+            "ARGS": queue_command,
+        }
 
-        self.batch_v1.create_namespaced_job(namespace=self.namespace, body=job)
-        logger.info(f"Created queue job {job_name}")
+        manifestwork = self.create_manifestwork_for_session(session_id, config, runtime_map=runtime_map)
+        logger.info(f"Created ManifestWork {manifestwork['metadata']['name']} for queue session")
 
-        return [job_name], SessionMode.QUEUE
+        return [manifestwork['metadata']['name']], SessionMode.QUEUE
 
     def _create_ctf_session(
         self, session_id: str, config: AdvancedSessionCreate
@@ -194,45 +278,38 @@ if [ -f /tmp/ctf_results.json ]; then
 fi
 """
 
-        job = self._create_job_spec(
-            job_name=job_name,
-            session_id=session_id,
-            session_name=config.name,
-            command=ctf_command,
-            config=config,
-            additional_env=ctf_env,
-        )
+        # Build runtime map for CTF
+        runtime_map = {
+            "SESSION_NAME": f"cai-session-{session_id[:8]}",
+            "HUB_NAMESPACE": settings.managed_cluster_namespace,
+            "TARGET_NAMESPACE": self.namespace,
+            "JOB_NAME": job_name,
+            "AGENT_ALIAS": "default",
+            "SERVICE_ACCOUNT": "default",
+            "IMAGE": getattr(settings, "cai_image", "neptune1212/kali-cai:amd64"),
+            "SESSION_ID": session_id,
+            "DEEPSEEK_API_KEY": getattr(settings, "deepseek_api_key", ""),
+            "OPENAI_API_KEY": getattr(settings, "openai_api_key", ""),
+            "LITELLM_DISABLE_AUTH": "true",
+            "WEBHOOK_URL": getattr(settings, "webhook_url", ""),
+            "CHARACTER_ID": getattr(config, "character_id", "") if hasattr(config, "character_id") else "",
+            "CAI_TOKEN": getattr(config, "token", "") if hasattr(config, "token") else "",
+            "COMMAND": "/bin/bash -c",
+            "ARGS": ctf_command,
+        }
 
-        self.batch_v1.create_namespaced_job(namespace=self.namespace, body=job)
-        logger.info(f"Created CTF job {job_name} for challenge {ctf.ctf_name}")
+        manifestwork = self.create_manifestwork_for_session(session_id, config, runtime_map=runtime_map)
+        logger.info(f"Created ManifestWork {manifestwork['metadata']['name']} for CTF session {ctf.ctf_name}")
 
-        return [job_name], SessionMode.CTF
+        return [manifestwork['metadata']['name']], SessionMode.CTF
 
     def _create_single_session(
         self, session_id: str, config: AdvancedSessionCreate
     ) -> str:
-        """Create single agent session."""
-        job_name = f"cai-single-{session_id[:8]}"
-
-        command = self._build_cai_command(
-            prompt=config.prompt,
-            agent_type=config.agent_type,
-            model=config.model,
-            config=config,
-            session_id=session_id,
-        )
-
-        job = self._create_job_spec(
-            job_name=job_name,
-            session_id=session_id,
-            session_name=config.name,
-            command=command,
-            config=config,
-        )
-
-        self.batch_v1.create_namespaced_job(namespace=self.namespace, body=job)
-        logger.info(f"Created single job {job_name}")
-
+        """Create single agent session using ManifestWork."""
+        manifestwork = self.create_manifestwork_for_session(session_id, config)
+        job_name = manifestwork['metadata']['name']
+        logger.info(f"Created ManifestWork {job_name} for single session")
         return job_name
 
     def _build_cai_command(
