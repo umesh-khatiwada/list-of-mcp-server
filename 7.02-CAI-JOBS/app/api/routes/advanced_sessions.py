@@ -7,6 +7,7 @@ from typing import List
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 
+from ...config import settings
 from ...models.advanced import AdvancedSessionCreate, SessionMode, SessionStatus
 from ...services.advanced_kubernetes_service import AdvancedKubernetesService
 from ...services.session_store import sessions_store
@@ -38,6 +39,7 @@ async def create_advanced_session(
         session = {
             "id": session_id,
             "name": session_data.name,
+            "prompt": session_data.prompt,
             "mode": mode,
             "status": "Pending",
             "created": datetime.now().isoformat(),
@@ -93,6 +95,7 @@ async def list_advanced_sessions(
             progress = k8s_service.get_session_progress(session_id)
             session["completed_steps"] = progress.get("completed_jobs", 0)
             session["status"] = _determine_session_status(progress)
+            session["progress_details"] = progress
         else:
             # Legacy single job session
             session["status"] = k8s_service.get_job_status(session.get("jobName", ""))
@@ -100,6 +103,54 @@ async def list_advanced_sessions(
         enhanced_sessions.append(SessionStatus(**session))
 
     return enhanced_sessions
+
+
+@router.get("/manifestworks")
+async def list_manifestworks(
+    k8s_service: AdvancedKubernetesService = Depends(get_advanced_kubernetes_service),
+):
+    """List all ManifestWork resources."""
+    try:
+        from kubernetes.client import CustomObjectsApi
+        custom_api = CustomObjectsApi()
+        
+        manifestworks = custom_api.list_namespaced_custom_object(
+            group="work.open-cluster-management.io",
+            version="v1",
+            namespace=settings.managed_cluster_namespace,
+            plural="manifestworks"
+        )
+        
+        # Filter to only cai-session-* resources
+        filtered_items = [
+            item for item in manifestworks.get('items', [])
+            if item.get('metadata', {}).get('name', '').startswith('cai-session-')
+        ]
+        
+        return filtered_items
+    except Exception as e:
+        logger.error(f"Failed to list ManifestWorks: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/jobs")
+async def list_jobs(k8s_service: AdvancedKubernetesService = Depends(get_advanced_kubernetes_service)):
+    """List all Kubernetes jobs."""
+    try:
+        jobs = k8s_service.list_jobs()
+        return [
+            {
+                "name": job.metadata.name,
+                "namespace": job.metadata.namespace,
+                "status": k8s_service.get_job_status(job.metadata.name),
+                "created": job.metadata.creation_timestamp.isoformat() if job.metadata.creation_timestamp else None,
+                "labels": job.metadata.labels or {},
+            }
+            for job in jobs
+        ]
+    except Exception as e:
+        logger.error(f"Failed to list jobs: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/{session_id}", response_model=SessionStatus)
@@ -378,7 +429,26 @@ async def delete_advanced_session(
         )
 
 
-@router.get("/{session_id}/export")
+@router.get("/manifestworks")
+async def list_manifestworks(
+    k8s_service: AdvancedKubernetesService = Depends(get_advanced_kubernetes_service),
+):
+    """List all ManifestWork resources."""
+    try:
+        from kubernetes.client import CustomObjectsApi
+        custom_api = CustomObjectsApi()
+        
+        manifestworks = custom_api.list_namespaced_custom_object(
+            group="work.open-cluster-management.io",
+            version="v1",
+            namespace=settings.managed_cluster_namespace,
+            plural="manifestworks"
+        )
+        
+        return manifestworks.get('items', [])
+    except Exception as e:
+        logger.error(f"Failed to list ManifestWorks: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 async def export_session(
     session_id: str,
     format: str = Query("json", description="Export format: json, yaml, or report"),

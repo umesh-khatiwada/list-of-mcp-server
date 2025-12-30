@@ -1,0 +1,55 @@
+apiVersion: work.open-cluster-management.io/v1
+kind: ManifestWork
+metadata:
+  name: $SESSION_NAME
+  namespace: $HUB_NAMESPACE
+spec:
+  workload:
+    manifests:
+      - apiVersion: batch/v1
+        kind: Job
+        metadata:
+          name: $JOB_NAME
+          namespace: $TARGET_NAMESPACE
+        spec:
+          template:
+            metadata:
+              labels:
+                agent-alias: $AGENT_ALIAS
+                app: cai-advanced
+                job-name: $JOB_NAME
+            spec:
+              restartPolicy: Never
+              serviceAccountName: $SERVICE_ACCOUNT
+              containers:
+                - name: cai-advanced
+                  image: $IMAGE
+                  imagePullPolicy: Always
+                  env:
+                    - name: SESSION_ID
+                      value: $SESSION_ID
+                    - name: DEEPSEEK_API_KEY
+                      value: $DEEPSEEK_API_KEY
+                    - name: OPENAI_API_KEY
+                      value: $OPENAI_API_KEY
+                    - name: LITELLM_DISABLE_AUTH
+                      value: "true"
+                    - name: WEBHOOK_URL
+                      value: $WEBHOOK_URL
+                    - name: CHARACTER_ID
+                      value: $CHARACTER_ID
+                    - name: CAI_TOKEN
+                      value: $CAI_TOKEN
+                  command:
+                    - /bin/bash
+                    - -c
+                  args:
+                    - |
+                      $ARGS
+                  volumeMounts:
+                    - mountPath: /config
+                      name: agents-config
+              volumes:
+                - name: agents-config
+                  configMap:
+                    name: cai-agents-config

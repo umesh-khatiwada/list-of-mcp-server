@@ -1,0 +1,70 @@
+apiVersion: work.open-cluster-management.io/v1
+kind: ManifestWork
+metadata:
+  name: demo-job-manifestwork
+  namespace: default
+spec:
+  workload:
+    manifests:
+      - apiVersion: batch/v1
+        kind: Job
+        metadata:
+          name: demo-job
+          namespace: default
+        spec:
+          template:
+            metadata:
+              labels:
+                app: cai-advanced
+                job-name: demo-job
+            spec:
+              restartPolicy: Never
+              serviceAccountName: default
+              containers:
+                - name: cai-advanced
+                  image: neptune1212/kali-cai:amd64
+                  imagePullPolicy: Always
+                  env:
+                    - name: SESSION_ID
+                      value: demo-session
+                    - name: DEEPSEEK_API_KEY
+                      value: your-deepseek-key
+                    - name: OPENAI_API_KEY
+                      value: your-openai-key
+                    - name: LITELLM_DISABLE_AUTH
+                      value: "true"
+                    - name: WEBHOOK_URL
+                      value: your-webhook-url
+                  command:
+                    - /bin/bash
+                    - -c
+                    - echo "Hello from ManifestWork!"
+                  args:
+                    - |
+                      source /home/kali/cai/bin/activate
+                  volumeMounts:
+                    - mountPath: /config
+                      name: agents-config
+                    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+                      name: kube-api-access
+                      readOnly: true
+              volumes:
+                - name: agents-config
+                  configMap:
+                    name: cai-agents-config
+                - name: kube-api-access
+                  projected:
+                    sources:
+                      - serviceAccountToken:
+                          path: token
+                          expirationSeconds: 3607
+                      - configMap:
+                          name: kube-root-ca.crt
+                          items:
+                            - key: ca.crt
+                              path: ca.crt
+                      - downwardAPI:
+                          items:
+                            - path: namespace
+                              fieldRef:
+                                fieldPath: metadata.namespace

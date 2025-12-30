@@ -29,8 +29,9 @@ async def monitor_jobs():
                     all_statuses = []
                     
                     for job_name in job_names:
-                        status = k8s_service.get_job_status(job_name)
+                        status = k8s_service.get_manifestwork_status(job_name)
                         all_statuses.append(status)
+                        logger.info(f"ManifestWork {job_name} status: {status}")
                         if status not in ["Completed", "Failed"]:
                             all_completed = False
                     
@@ -45,7 +46,7 @@ async def monitor_jobs():
                     # Send webhook when all jobs complete
                     if all_completed:
                         logger.info(
-                            f"Job {job_names[0]} completed with status: {session['status']}"
+                            f"ManifestWork {job_names} completed with statuses: {all_statuses}"
                         )
                         await send_webhook(
                             session_id,

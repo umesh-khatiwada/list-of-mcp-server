@@ -26,6 +26,7 @@ async def create_session(
     k8s_service: KubernetesService = Depends(get_kubernetes_service),
 ):
     """Create a new chat session and start a Kubernetes job."""
+    logger.info("Received request to create session")
     session_id = str(uuid.uuid4())
 
     try:
@@ -63,19 +64,26 @@ async def list_sessions(
     k8s_service: KubernetesService = Depends(get_kubernetes_service),
 ):
     """List all chat sessions."""
+    logger.info("Received request to list sessions")
     valid_sessions = []
 
     # Update session statuses (legacy sessions only; skip advanced records without jobName/prompt)
     for session_id, session in sessions_store.items():
         job_name = session.get("jobName")
+        job_names = session.get("job_names", [])
         prompt = session.get("prompt")
-        if not job_name or not prompt:
-            # Advanced sessions use job_names and do not include prompt/jobName in this shape
-            # They are served via /api/v2/sessions
-            continue
-
-        session["status"] = k8s_service.get_job_status(job_name)
-        valid_sessions.append(session)
+        
+        if job_name and prompt:
+            # Legacy session
+            session["status"] = k8s_service.get_job_status(job_name)
+            valid_sessions.append(session)
+        elif job_names and prompt:
+            # Advanced session, show as basic with first job
+            session_copy = session.copy()
+            session_copy["jobName"] = job_names[0] if job_names else ""
+            session_copy["status"] = k8s_service.get_manifestwork_status(job_names[0]) if job_names else "Unknown"
+            valid_sessions.append(session_copy)
+        # Skip sessions without proper job info
 
     return valid_sessions
 
@@ -85,6 +93,7 @@ async def get_session(
     session_id: str, k8s_service: KubernetesService = Depends(get_kubernetes_service)
 ):
     """Get a specific session."""
+    logger.info(f"Received request to get session: {session_id}")
     if session_id not in sessions_store:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -103,6 +112,7 @@ async def get_session_logs(
     session_id: str, k8s_service: KubernetesService = Depends(get_kubernetes_service)
 ):
     """Get logs for a specific session and trigger webhook on completion."""
+    logger.info(f"Received request to get session logs: {session_id}")
     if session_id not in sessions_store:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -128,6 +138,7 @@ async def get_session_result(
     session_id: str, k8s_service: KubernetesService = Depends(get_kubernetes_service)
 ):
     """Get complete job result including file content."""
+    logger.info(f"Received request to get session result: {session_id}")
     if session_id not in sessions_store:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -168,6 +179,7 @@ async def get_session_file(
     k8s_service: KubernetesService = Depends(get_kubernetes_service),
 ):
     """Get the output file content from completed job."""
+    logger.info(f"Received request to get session file: {session_id}")
     if session_id not in sessions_store:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -207,11 +219,33 @@ async def get_session_file(
         return {"data": file_content, "format": "text"}
 
 
+@router.get("/jobs")
+async def list_jobs(k8s_service: KubernetesService = Depends(get_kubernetes_service)):
+    """List all Kubernetes jobs."""
+    logger.info("Received request to list jobs")
+    try:
+        jobs = k8s_service.list_jobs()
+        return [
+            {
+                "name": job.metadata.name,
+                "namespace": job.metadata.namespace,
+                "status": k8s_service.get_job_status(job.metadata.name),
+                "created": job.metadata.creation_timestamp.isoformat() if job.metadata.creation_timestamp else None,
+                "labels": job.metadata.labels or {},
+            }
+            for job in jobs
+        ]
+    except Exception as e:
+        logger.error(f"Failed to list jobs: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.delete("/{session_id}")
 async def delete_session(
     session_id: str, k8s_service: KubernetesService = Depends(get_kubernetes_service)
 ):
     """Delete a session and its associated Kubernetes job."""
+    logger.info(f"Received request to delete session: {session_id}")
     if session_id not in sessions_store:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -233,3 +267,24 @@ async def delete_session(
         raise HTTPException(
             status_code=500, detail=f"Failed to delete session: {str(e)}"
         )
+
+
+@router.get("/{session_id}/manifest")
+async def get_session_manifest(
+    session_id: str, k8s_service: KubernetesService = Depends(get_kubernetes_service)
+):
+    """Get the manifest (e.g., job YAML or ManifestWork spec) for a session."""
+    logger.info(f"Received request to get session manifest: {session_id}")
+    if session_id not in sessions_store:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session = sessions_store[session_id]
+    job_name = session.get("jobName") or (session.get("job_names", [])[0] if session.get("job_names") else None)
+    if not job_name:
+        raise HTTPException(status_code=404, detail="No job associated with session")
+
+    try:
+        manifest = k8s_service.get_manifest(job_name)
+        return {"manifest": manifest}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get manifest: {str(e)}")

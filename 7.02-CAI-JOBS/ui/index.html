@@ -3,188 +3,355 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CAI Job Manager Dashboard</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>CAI Kubernetes Job Manager - Advanced UI</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #333; }
+        .container { max-width: 1400px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        h1 { text-align: center; color: #4a5568; margin-bottom: 30px; }
+        .tabs { display: flex; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px; }
+        .tab { padding: 15px 25px; cursor: pointer; background: #f7fafc; border-radius: 10px 10px 0 0; margin-right: 5px; transition: all 0.3s; }
+        .tab.active { background: #667eea; color: white; }
+        .tab-content { display: none; padding: 20px; border: 1px solid #e2e8f0; border-radius: 0 10px 10px 10px; }
+        .tab-content.active { display: block; }
+        form { display: grid; gap: 15px; }
+        .form-group { display: grid; grid-template-columns: 1fr 2fr; align-items: center; }
+        label { font-weight: bold; color: #4a5568; }
+        input, textarea, select { padding: 10px; border: 1px solid #cbd5e0; border-radius: 5px; font-size: 14px; }
+        button { padding: 12px 20px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; transition: background 0.3s; }
+        button:hover { background: #5a67d8; }
+        .btn-secondary { background: #e2e8f0; color: #4a5568; }
+        .btn-secondary:hover { background: #cbd5e0; }
+        .status { padding: 15px; border-radius: 10px; margin: 15px 0; font-weight: bold; }
+        .success { background: #c6f6d5; color: #22543d; }
+        .error { background: #fed7d7; color: #742a2a; }
+        .info { background: #bee3f8; color: #2a4365; }
+        .warning { background: #fef5e7; color: #744210; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
+        th { background: #f7fafc; font-weight: bold; }
+        .progress-bar { width: 100%; height: 20px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin: 10px 0; }
+        .progress-fill { height: 100%; background: #48bb78; transition: width 0.3s; }
+        .agent-item { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+        .agent-item input { flex: 1; }
+        .add-agent { margin-top: 10px; }
+        .hidden { display: none; }
+        @media (max-width: 768px) { .form-group { grid-template-columns: 1fr; } .tabs { flex-direction: column; } }
+    </style>
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>🤖 CAI Kubernetes Job Manager</h1>
-            <div class="header-actions">
-                <button onclick="refreshAll()" class="btn btn-primary">🔄 Refresh</button>
-                <button onclick="showCreateSession()" class="btn btn-success">+ New Session</button>
-                <button onclick="showRawResultsJson()" class="btn btn-secondary">View Raw Results JSON</button>
-            </div>
-            <script>
-            function showRawResultsJson() {
-                if (!window.lastResults) {
-                    alert('No results loaded yet. View a session result first.');
-                    return;
-                }
-                const detailsModal = document.getElementById('details-modal');
-                const detailsTitle = document.getElementById('details-title');
-                const detailsContent = document.getElementById('details-content');
-                detailsTitle.textContent = 'Raw Results JSON';
-                detailsContent.innerHTML = `
-                    <div style="margin-bottom:1em;"><button class="btn btn-secondary btn-small" onclick="closeDetailsModal()">Close</button></div>
-                    <pre style="background:#222;color:#fff;padding:1em;border-radius:6px;max-height:60vh;overflow:auto;">${escapeHtml(JSON.stringify(window.lastResults, null, 2))}</pre>
-                `;
-                detailsModal.style.display = 'block';
-            }
-            </script>
-        </header>
+        <h1>🚀 CAI Kubernetes Job Manager - Advanced UI</h1>
+        <div id="globalStatus" class="status info">Initializing...</div>
 
         <div class="tabs">
-            <button class="tab-btn active" onclick="showTab('sessions', this)">Sessions</button>
-            <button class="tab-btn" onclick="showTab('advanced', this)">Advanced Sessions</button>
-            <button class="tab-btn" onclick="showTab('agents', this)">Agents</button>
-            <button class="tab-btn" onclick="showTab('mcp', this)">MCP Test</button>
+            <div class="tab active" onclick="switchTab('basic')">Basic Session</div>
+            <div class="tab" onclick="switchTab('parallel')">Parallel Agents</div>
+            <div class="tab" onclick="switchTab('queue')">Queue Processing</div>
+            <div class="tab" onclick="switchTab('ctf')">CTF Challenge</div>
+            <div class="tab" onclick="switchTab('monitor')">Monitor Sessions</div>
         </div>
 
-        <div id="sessions-tab" class="tab-content active">
-            <h2>Active Sessions</h2>
-            <div id="sessions-list" class="card-grid"></div>
-        </div>
-
-        <div id="advanced-tab" class="tab-content">
-            <div class="tab-header">
-                <h2>Advanced Sessions</h2>
-                <button class="btn btn-success" onclick="showAdvancedSessionModal()">+ New Advanced Session</button>
-            </div>
-            <div id="advanced-sessions-list" class="card-grid"></div>
-        </div>
-
-        <div id="agents-tab" class="tab-content">
-            <h2>Available Agents</h2>
-            <div id="agents-list" class="agent-list"></div>
-        </div>
-
-        <div id="mcp-tab" class="tab-content">
-            <h2>MCP Connection Test</h2>
-            <div class="mcp-test-form">
-                <h3>Add MCP Server</h3>
-                <form id="mcp-form">
-                    <div class="form-group">
-                        <label>Name:</label>
-                        <input type="text" id="mcp-name" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Transport:</label>
-                        <select id="mcp-transport">
-                            <option value="sse">SSE</option>
-                            <option value="stdio">STDIO</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="url-group">
-                        <label>URL:</label>
-                        <input type="text" id="mcp-url" placeholder="http://localhost:3001/sse">
-                    </div>
-                    <div class="form-group" id="command-group" style="display:none;">
-                        <label>Command:</label>
-                        <input type="text" id="mcp-command" placeholder="python mcp_server.py">
-                    </div>
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="mcp-insecure">
-                            Allow Insecure
-                        </label>
-                    </div>
-                    <button type="button" onclick="testMCPConnection()" class="btn btn-primary">Test Connection</button>
-                </form>
-                <div id="mcp-results" class="mcp-results"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Create Session Modal -->
-    <div id="create-modal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2>Create New Session</h2>
-            <form id="create-session-form">
-                <div class="form-group">
-                    <label>Session Name:</label>
-                    <input type="text" id="session-name" required>
-                </div>
-                <div class="form-group">
-                    <label>Prompt:</label>
-                    <textarea id="session-prompt" rows="4" required></textarea>
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-success">Create</button>
-                    <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
-                </div>
+        <!-- Basic Session Tab -->
+        <div id="basic" class="tab-content active">
+            <h2>Basic Session</h2>
+            <form id="basicForm">
+                <div class="form-group"><label>Session Name:</label><input type="text" id="basicName" required></div>
+                <div class="form-group"><label>Prompt:</label><textarea id="basicPrompt" rows="4" required></textarea></div>
+                <div class="form-group"><label>Character ID:</label><input type="text" id="basicCharId"></div>
+                <div class="form-group"><label>Token:</label><input type="text" id="basicToken"></div>
+                <button type="submit">Create Basic Session</button>
             </form>
         </div>
-    </div>
 
-    <!-- Session Details Modal -->
-    <div id="details-modal" class="modal">
-        <div class="modal-content modal-large">
-            <span class="close" onclick="closeDetailsModal()">&times;</span>
-            <h2 id="details-title">Session Details</h2>
-            <div id="details-content"></div>
+        <!-- Parallel Agents Tab -->
+        <div id="parallel" class="tab-content">
+            <h2>Parallel Agents Session</h2>
+            <form id="parallelForm">
+                <div class="form-group"><label>Session Name:</label><input type="text" id="parallelName" required></div>
+                <div class="form-group"><label>Base Prompt:</label><textarea id="parallelPrompt" rows="4" required></textarea></div>
+                <div id="agentsList">
+                    <div class="agent-item">
+                        <input type="text" placeholder="Agent Name" class="agentName" required>
+                        <select class="agentType">
+                            <option value="redteam_agent">Red Team</option>
+                            <option value="blueteam_agent">Blue Team</option>
+                        </select>
+                        <input type="text" placeholder="Alias" class="agentAlias">
+                        <textarea placeholder="Initial Prompt" rows="2" class="agentPrompt"></textarea>
+                        <button type="button" class="btn-secondary" onclick="removeAgent(this)">Remove</button>
+                    </div>
+                </div>
+                <button type="button" class="add-agent btn-secondary" onclick="addAgent()">Add Agent</button>
+                <br><button type="submit">Create Parallel Session</button>
+            </form>
         </div>
-    </div>
 
-    <!-- Advanced Session Modal -->
-    <div id="advanced-modal" class="modal">
-        <div class="modal-content modal-large">
-            <span class="close" onclick="closeAdvancedModal()">&times;</span>
-            <h2>Create Advanced Session</h2>
-            <form id="advanced-session-form">
-                <div class="form-group">
-                    <label>Session Name:</label>
-                    <input type="text" id="adv-name" required>
-                </div>
-                <div class="form-group">
-                    <label>Prompt:</label>
-                    <textarea id="adv-prompt" rows="3" required></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Agent Type:</label>
-                    <select id="adv-agent" required>
-                        <option value="redteam_agent">redteam_agent</option>
-                        <option value="blueteam_agent">blueteam_agent</option>
-                        <option value="bug_bounter_agent">bug_bounter_agent</option>
-                        <option value="dfir_agent">dfir_agent</option>
-                        <option value="network_security_analyzer_agent">network_security_analyzer_agent</option>
-                        <option value="reverse_engineering_agent">reverse_engineering_agent</option>
-                        <option value="reporting_agent">reporting_agent</option>
-                        <option value="selection_agent">selection_agent</option>
+        <!-- Queue Processing Tab -->
+        <div id="queue" class="tab-content">
+            <h2>Queue Processing Session</h2>
+            <form id="queueForm">
+                <div class="form-group"><label>Session Name:</label><input type="text" id="queueName" required></div>
+                <div class="form-group"><label>Agent Type:</label>
+                    <select id="queueAgentType">
+                        <option value="bug_bounter_agent">Bug Bounty</option>
+                        <option value="redteam_agent">Red Team</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label>Model:</label>
-                    <input type="text" id="adv-model" value="deepseek/deepseek-chat" required>
-                </div>
-                <div class="form-group">
-                    <label>MCP Override (optional):</label>
-                    <div class="inline-group">
-                        <input type="text" id="adv-mcp-name" placeholder="mcp name">
-                        <select id="adv-mcp-transport">
-                            <option value="sse">sse</option>
-                            <option value="stdio">stdio</option>
-                        </select>
+                <div id="queueItems">
+                    <div class="agent-item">
+                        <input type="text" placeholder="Description" class="queueDesc" required>
+                        <textarea placeholder="Command" rows="2" class="queueCmd" required></textarea>
+                        <button type="button" class="btn-secondary" onclick="removeQueueItem(this)">Remove</button>
                     </div>
-                    <div id="adv-url-group" class="form-group">
-                        <input type="text" id="adv-mcp-url" placeholder="http://localhost:3001/sse">
-                    </div>
-                    <div id="adv-command-group" class="form-group" style="display:none;">
-                        <input type="text" id="adv-mcp-command" placeholder="python mcp_server.py">
-                    </div>
-                    <label class="checkbox-inline">
-                        <input type="checkbox" id="adv-mcp-insecure"> Allow Insecure
-                    </label>
                 </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-success">Create</button>
-                    <button type="button" onclick="closeAdvancedModal()" class="btn btn-secondary">Cancel</button>
-                </div>
+                <button type="button" class="add-agent btn-secondary" onclick="addQueueItem()">Add Queue Item</button>
+                <br><button type="submit">Create Queue Session</button>
             </form>
+        </div>
+
+        <!-- CTF Challenge Tab -->
+        <div id="ctf" class="tab-content">
+            <h2>CTF Challenge Session</h2>
+            <form id="ctfForm">
+                <div class="form-group"><label>Session Name:</label><input type="text" id="ctfName" required></div>
+                <div class="form-group"><label>Prompt:</label><textarea id="ctfPrompt" rows="4" required></textarea></div>
+                <div class="form-group"><label>CTF Name:</label><input type="text" id="ctfChallengeName" required></div>
+                <div class="form-group"><label>Challenge Type:</label>
+                    <select id="ctfType">
+                        <option value="web">Web</option>
+                        <option value="crypto">Crypto</option>
+                        <option value="forensics">Forensics</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Time Limit (min):</label><input type="number" id="ctfTimeLimit" value="30"></div>
+                <button type="submit">Create CTF Session</button>
+            </form>
+        </div>
+
+        <!-- Monitor Sessions Tab -->
+        <div id="monitor" class="tab-content">
+            <h2>Session Monitor</h2>
+            <button onclick="refreshSessions()">Refresh Sessions</button>
+            <div id="sessionsTable"></div>
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script>
+        const API_BASE = window.location.origin;
+        let activeTab = 'basic';
+        let sessionIntervals = {};
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelector(`[onclick="switchTab('${tabId}')"]`).classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+            activeTab = tabId;
+        }
+
+        function showStatus(message, type = 'info') {
+            const el = document.getElementById('globalStatus');
+            el.className = `status ${type}`;
+            el.textContent = message;
+        }
+
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            const config = { method, headers: { 'Content-Type': 'application/json' } };
+            if (data) config.body = JSON.stringify(data);
+            const response = await fetch(`${API_BASE}${endpoint}`, config);
+            return response.json();
+        }
+
+        function addAgent() {
+            const agentsList = document.getElementById('agentsList');
+            const agentItem = document.createElement('div');
+            agentItem.className = 'agent-item';
+            agentItem.innerHTML = `
+                <input type="text" placeholder="Agent Name" class="agentName" required>
+                <select class="agentType">
+                    <option value="redteam_agent">Red Team</option>
+                    <option value="blueteam_agent">Blue Team</option>
+                </select>
+                <input type="text" placeholder="Alias" class="agentAlias">
+                <textarea placeholder="Initial Prompt" rows="2" class="agentPrompt"></textarea>
+                <button type="button" class="btn-secondary" onclick="removeAgent(this)">Remove</button>
+            `;
+            agentsList.appendChild(agentItem);
+        }
+
+        function removeAgent(btn) {
+            btn.parentElement.remove();
+        }
+
+        function addQueueItem() {
+            const queueItems = document.getElementById('queueItems');
+            const item = document.createElement('div');
+            item.className = 'agent-item';
+            item.innerHTML = `
+                <input type="text" placeholder="Description" class="queueDesc" required>
+                <textarea placeholder="Command" rows="2" class="queueCmd" required></textarea>
+                <button type="button" class="btn-secondary" onclick="removeQueueItem(this)">Remove</button>
+            `;
+            queueItems.appendChild(item);
+        }
+
+        function removeQueueItem(btn) {
+            btn.parentElement.remove();
+        }
+
+        document.getElementById('basicForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                name: document.getElementById('basicName').value,
+                prompt: document.getElementById('basicPrompt').value,
+                character_id: document.getElementById('basicCharId').value || null,
+                token: document.getElementById('basicToken').value || null,
+            };
+            try {
+                const result = await apiCall('/api/sessions', 'POST', data);
+                showStatus(`Basic session created: ${result.id}`, 'success');
+                refreshSessions();
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        });
+
+        document.getElementById('parallelForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const agents = Array.from(document.querySelectorAll('#agentsList .agent-item')).map(item => ({
+                name: item.querySelector('.agentName').value,
+                agent_type: item.querySelector('.agentType').value,
+                alias: item.querySelector('.agentAlias').value,
+                initial_prompt: item.querySelector('.agentPrompt').value,
+            }));
+            const data = {
+                name: document.getElementById('parallelName').value,
+                prompt: document.getElementById('parallelPrompt').value,
+                parallel_agents: agents,
+            };
+            try {
+                const result = await apiCall('/api/v2/sessions', 'POST', data);
+                showStatus(`Parallel session created: ${result.id}`, 'success');
+                refreshSessions();
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        });
+
+        document.getElementById('queueForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const queueItems = Array.from(document.querySelectorAll('#queueItems .agent-item')).map(item => ({
+                description: item.querySelector('.queueDesc').value,
+                command: item.querySelector('.queueCmd').value,
+                agent_type: document.getElementById('queueAgentType').value,
+            }));
+            const data = {
+                name: document.getElementById('queueName').value,
+                agent_type: document.getElementById('queueAgentType').value,
+                queue_items: queueItems,
+            };
+            try {
+                const result = await apiCall('/api/v2/sessions', 'POST', data);
+                showStatus(`Queue session created: ${result.id}`, 'success');
+                refreshSessions();
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        });
+
+        document.getElementById('ctfForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                name: document.getElementById('ctfName').value,
+                prompt: document.getElementById('ctfPrompt').value,
+                agent_type: 'redteam_agent',
+                ctf_config: {
+                    ctf_name: document.getElementById('ctfChallengeName').value,
+                    challenge_name: document.getElementById('ctfChallengeName').value,
+                    challenge_type: document.getElementById('ctfType').value,
+                    time_limit_minutes: parseInt(document.getElementById('ctfTimeLimit').value),
+                },
+            };
+            try {
+                const result = await apiCall('/api/v2/sessions', 'POST', data);
+                showStatus(`CTF session created: ${result.id}`, 'success');
+                refreshSessions();
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        });
+
+        async function refreshSessions() {
+            try {
+                const [basicSessions, advancedSessions] = await Promise.all([
+                    apiCall('/api/sessions'),
+                    apiCall('/api/v2/sessions').catch(() => []),
+                ]);
+                const allSessions = [...basicSessions, ...advancedSessions];
+                const tableEl = document.getElementById('sessionsTable');
+                tableEl.innerHTML = '<table><tr><th>Name</th><th>Type</th><th>Status</th><th>Progress</th><th>Actions</th></tr>' +
+                    allSessions.map(s => {
+                        const isAdvanced = s.mode;
+                        const progress = isAdvanced ? (s.completed_steps || 0) / (s.total_steps || 1) * 100 : 0;
+                        return `
+                            <tr>
+                                <td>${s.name}</td>
+                                <td>${isAdvanced ? s.mode : 'Basic'}</td>
+                                <td>${s.status}</td>
+                                <td><div class="progress-bar"><div class="progress-fill" style="width: ${progress}%"></div></div></td>
+                                <td>
+                                    <button onclick="viewDetails('${s.id}', ${isAdvanced})">Details</button>
+                                    <button onclick="viewLogs('${s.id}', ${isAdvanced})">Logs</button>
+                                    ${isAdvanced ? `<button onclick="viewProgress('${s.id}')">Progress</button>` : ''}
+                                </td>
+                            </tr>
+                        `;
+                    }).join('') + '</table>';
+            } catch (error) {
+                document.getElementById('sessionsTable').innerHTML = `Error loading sessions: ${error.message}`;
+            }
+        }
+
+        async function viewDetails(sessionId, isAdvanced) {
+            const endpoint = isAdvanced ? `/api/v2/sessions/${sessionId}` : `/api/sessions/${sessionId}`;
+            try {
+                const data = await apiCall(endpoint);
+                alert(`Session Details:\n${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+
+        async function viewLogs(sessionId, isAdvanced) {
+            const endpoint = isAdvanced ? `/api/v2/sessions/${sessionId}/logs` : `/api/sessions/${sessionId}/logs`;
+            try {
+                const data = await apiCall(endpoint);
+                alert(`Logs:\n${data.logs || 'No logs available'}`);
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+
+        async function viewProgress(sessionId) {
+            try {
+                const data = await apiCall(`/api/v2/sessions/${sessionId}/progress`);
+                alert(`Progress:\n${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+
+        // Initialize
+        window.onload = async () => {
+            try {
+                await apiCall('/api/health');
+                showStatus('System ready', 'success');
+                refreshSessions();
+                setInterval(refreshSessions, 10000); // Auto-refresh every 10s
+            } catch (error) {
+                showStatus('System unavailable', 'error');
+            }
+        };
+    </script>
 </body>
 </html>

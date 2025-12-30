@@ -1,11 +1,11 @@
 """API dependencies."""
-from ..services import KubernetesService
+from ..services import AdvancedKubernetesService
 
 
-def get_kubernetes_service() -> KubernetesService:
+def get_kubernetes_service() -> AdvancedKubernetesService:
     """Get Kubernetes service instance.
 
     Returns:
-        KubernetesService instance
+        AdvancedKubernetesService instance
     """
-    return KubernetesService()
+    return AdvancedKubernetesService()

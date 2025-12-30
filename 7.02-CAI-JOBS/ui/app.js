@@ -1,8 +1,10 @@
 // Get API_BASE from injected global variable, fallback to .env via server-side template, else use window location
 const API_BASE = window.API_BASE || document.body.getAttribute('data-api-base') || `${window.location.origin}`;
+console.log('API_BASE:', API_BASE);
 
 // Tab Management
 function showTab(tabName, el) {
+    console.log('showTab called with:', tabName);
     document.querySelectorAll('.tab-content').forEach(tab => {
         tab.classList.remove('active');
     });
@@ -10,11 +12,24 @@ function showTab(tabName, el) {
         btn.classList.remove('active');
     });
 
-    document.getElementById(`${tabName}-tab`).classList.add('active');
+    const tabElement = document.getElementById(`${tabName}-tab`);
+    console.log('tabElement:', tabElement);
+    if (tabElement) {
+        tabElement.classList.add('active');
+        console.log('Added active class to tab element');
+    }
     if (el) el.classList.add('active');
 
     if (tabName === 'sessions') loadSessions();
     if (tabName === 'advanced') loadAdvancedSessions();
+    if (tabName === 'manifestworks') {
+        console.log('Calling loadManifestWorks');
+        loadManifestWorks();
+    }
+    if (tabName === 'jobs') {
+        console.log('Calling loadJobs');
+        loadJobs();
+    }
     if (tabName === 'agents') loadAgents();
 }
 
@@ -103,6 +118,12 @@ async function loadAdvancedSessions() {
                             <div class="progress-fill" style="width: ${progress}%"></div>
                         </div>
                         ` : ''}
+                        ${session.progress_details && session.progress_details.manifest_details ? `
+                        <div class="info-row">
+                            <span class="info-label">Manifests:</span>
+                            <span class="info-value">${session.progress_details.manifest_details.map(m => `${m.kind}: ${m.available ? 'Available' : 'Pending'}`).join(', ')}</span>
+                        </div>
+                        ` : ''}
                     </div>
                     <div class="session-actions">
                         <button class="btn btn-primary btn-small" onclick="viewDetails('${session.id}', 'advanced')">View Details</button>
@@ -115,6 +136,117 @@ async function loadAdvancedSessions() {
     } catch (error) {
         console.error('Error loading advanced sessions:', error);
         showError('Failed to load advanced sessions');
+    }
+}
+
+// Load ManifestWorks
+async function loadManifestWorks() {
+    console.log('loadManifestWorks called');
+    try {
+        console.log('Fetching:', `${API_BASE}/api/v2/sessions/manifestworks`);
+        const response = await fetch(`${API_BASE}/api/v2/sessions/manifestworks`);
+        console.log('Response status:', response.status);
+        const manifestworks = await response.json();
+        console.log('ManifestWorks response:', manifestworks);
+
+        const container = document.getElementById('manifestworks-list');
+        if (manifestworks.length === 0) {
+            container.innerHTML = '<div class="empty-state"><h3>No ManifestWorks found</h3><p>ManifestWorks will appear here when advanced sessions are created</p></div>';
+            return;
+        }
+
+        container.innerHTML = manifestworks.map(mw => {
+            const status = mw.status?.conditions?.find(c => c.type === 'Available')?.status === 'True' ? 'Available' : 'Pending';
+            const created = mw.metadata?.creationTimestamp ? new Date(mw.metadata.creationTimestamp).toLocaleString() : 'Unknown';
+
+            return `
+                <div class="session-card">
+                    <div class="session-header">
+                        <div class="session-name">${mw.metadata?.name || 'Unknown'}</div>
+                        <span class="status-badge status-${status.toLowerCase()}">${status}</span>
+                    </div>
+                    <div class="session-info">
+                        <div class="info-row">
+                            <span class="info-label">Namespace:</span>
+                            <span class="info-value">${mw.metadata?.namespace || 'Unknown'}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Created:</span>
+                            <span class="info-value">${created}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Cluster:</span>
+                            <span class="info-value">${mw.spec?.placement?.clusters?.[0]?.name || 'Unknown'}</span>
+                        </div>
+                        ${mw.status?.resourceStatus?.manifests ? `
+                        <div class="info-row">
+                            <span class="info-label">Resources:</span>
+                            <span class="info-value">${mw.status.resourceStatus.manifests.length} manifests</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="session-actions">
+                        <button class="btn btn-primary btn-small" onclick="viewManifestWorkDetails('${mw.metadata?.name}')">View Details</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Error loading ManifestWorks:', error);
+        showError('Failed to load ManifestWorks');
+    }
+}
+
+// Load Jobs
+async function loadJobs() {
+    console.log('loadJobs called');
+    try {
+        console.log('Fetching:', `${API_BASE}/api/v2/sessions/jobs`);
+        const response = await fetch(`${API_BASE}/api/v2/sessions/jobs`);
+        const jobs = await response.json();
+        console.log('Jobs response:', jobs);
+
+        const container = document.getElementById('jobs-list');
+        if (jobs.length === 0) {
+            container.innerHTML = '<div class="empty-state"><h3>No jobs found</h3><p>Kubernetes jobs will appear here when sessions are created</p></div>';
+            return;
+        }
+
+        container.innerHTML = jobs.map(job => {
+            const created = job.created ? new Date(job.created).toLocaleString() : 'Unknown';
+            const statusClass = job.status ? job.status.toLowerCase() : 'unknown';
+
+            return `
+                <div class="session-card">
+                    <div class="session-header">
+                        <div class="session-name">${job.name}</div>
+                        <span class="status-badge status-${statusClass}">${job.status || 'Unknown'}</span>
+                    </div>
+                    <div class="session-info">
+                        <div class="info-row">
+                            <span class="info-label">Namespace:</span>
+                            <span class="info-value">${job.namespace}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Created:</span>
+                            <span class="info-value">${created}</span>
+                        </div>
+                        ${job.labels && Object.keys(job.labels).length > 0 ? `
+                        <div class="info-row">
+                            <span class="info-label">Labels:</span>
+                            <span class="info-value">${Object.entries(job.labels).map(([k,v]) => `${k}=${v}`).join(', ')}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="session-actions">
+                        <button class="btn btn-primary btn-small" onclick="viewJobDetails('${job.name}')">View Details</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Error loading jobs:', error);
+        showError('Failed to load jobs');
     }
 }
 
@@ -331,6 +463,48 @@ async function viewDetails(sessionId, type) {
     } catch (error) {
         console.error('Error loading details:', error);
         showError('Failed to load session details');
+    }
+}
+
+// View ManifestWork Details
+async function viewManifestWorkDetails(name) {
+    try {
+        // For now, we'll show a simple details view since we don't have a detailed API endpoint
+        document.getElementById('details-title').textContent = `ManifestWork: ${name}`;
+        document.getElementById('details-content').innerHTML = `
+            <div class="session-info">
+                <div class="info-row"><span class="info-label">Name:</span><span class="info-value">${name}</span></div>
+                <div class="info-row"><span class="info-label">Type:</span><span class="info-value">ManifestWork</span></div>
+                <p>This ManifestWork manages the deployment of CAI jobs to managed clusters.</p>
+                <p>For detailed status information, check the Kubernetes cluster directly.</p>
+            </div>
+        `;
+
+        document.getElementById('details-modal').style.display = 'block';
+    } catch (error) {
+        console.error('Error showing ManifestWork details:', error);
+        showError('Failed to show ManifestWork details');
+    }
+}
+
+// View Job Details
+async function viewJobDetails(name) {
+    try {
+        // For now, we'll show a simple details view since we don't have a detailed API endpoint
+        document.getElementById('details-title').textContent = `Job: ${name}`;
+        document.getElementById('details-content').innerHTML = `
+            <div class="session-info">
+                <div class="info-row"><span class="info-label">Name:</span><span class="info-value">${name}</span></div>
+                <div class="info-row"><span class="info-label">Type:</span><span class="info-value">Kubernetes Job</span></div>
+                <p>This job executes CAI tasks in the cluster.</p>
+                <p>For detailed logs and status, check the job in the Kubernetes dashboard.</p>
+            </div>
+        `;
+
+        document.getElementById('details-modal').style.display = 'block';
+    } catch (error) {
+        console.error('Error showing job details:', error);
+        showError('Failed to show job details');
     }
 }
 
@@ -656,10 +830,14 @@ function showError(message) {
 
 function refreshAll() {
     const activeTab = document.querySelector('.tab-btn.active');
-    if (activeTab.textContent.includes('Sessions')) {
+    if (activeTab.textContent.includes('Sessions') && !activeTab.textContent.includes('Advanced')) {
         loadSessions();
     } else if (activeTab.textContent.includes('Advanced')) {
         loadAdvancedSessions();
+    } else if (activeTab.textContent.includes('ManifestWorks')) {
+        loadManifestWorks();
+    } else if (activeTab.textContent.includes('Jobs')) {
+        loadJobs();
     } else if (activeTab.textContent.includes('Agents')) {
         loadAgents();
     }

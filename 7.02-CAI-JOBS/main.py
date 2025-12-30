@@ -14,7 +14,7 @@ try:
 
     advanced_available = True
 except ImportError:
-    advanced_available = False, advanced_sessions
+    advanced_available = False
 from app.api.dependencies import get_kubernetes_service
 from app.config import settings
 from app.services.job_monitor import monitor_jobs
@@ -81,7 +81,8 @@ app.add_middleware(
 
 # Include routers
 app.include_router(sessions.router)
-app.include_router(advanced_sessions.router)
+if advanced_available:
+    app.include_router(advanced_sessions.router)
 app.include_router(mcp.router)
 app.include_router(health.router)
 app.include_router(webhooks.router)

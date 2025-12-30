@@ -1,0 +1,38 @@
+kind: ManifestWorkReplicaSet
+metadata:
+  name: mwrs-ubuntu-east
+  namespace: ocm-apps
+spec:
+  cascadeDeletionPolicy: Foreground
+  placementRefs:
+    - name: placement-east-only   # <–– only east
+  manifestWorkTemplate:
+    workload:
+      manifests:
+        - apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: demo-ns
+        - apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: ubuntu-demo
+            namespace: demo-ns
+            labels:
+              app: ubuntu-demo
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: ubuntu-demo
+            template:
+              metadata:
+                labels:
+                  app: ubuntu-demo
+              spec:
+                containers:
+                  - name: ubuntu
+                    image: ubuntu:22.04
+                    command: ["sleep", "infinity"]
+                    stdin: true
+                    tty: true

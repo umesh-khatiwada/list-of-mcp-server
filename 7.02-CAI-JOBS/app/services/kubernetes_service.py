@@ -3,6 +3,7 @@ import logging
 from typing import List, Optional, Tuple
 
 from kubernetes import client, config
+import yaml
 
 from ..config import settings
 from ..models.mcp import MCPServerConfig, MCPTransport
@@ -495,3 +496,23 @@ fi
         except Exception as e:
             logger.error(f"Failed to list jobs: {str(e)}")
             return []
+
+    def get_manifest(self, job_name: str) -> str:
+        """Get the YAML manifest for a job or ManifestWork."""
+        try:
+            # Assume job first; adjust for ManifestWork if needed
+            job = self.batch_v1.read_namespaced_job(name=job_name, namespace=self.namespace)
+            return yaml.dump(job.to_dict())
+        except Exception as e:
+            # Fallback or handle ManifestWork
+            try:
+                mw = self.custom_api.get_namespaced_custom_object(
+                    group="work.open-cluster-management.io",
+                    version="v1",
+                    namespace=self.namespace,
+                    plural="manifestworks",
+                    name=job_name
+                )
+                return yaml.dump(mw)
+            except Exception:
+                raise ValueError(f"Failed to get manifest for {job_name}: {str(e)}")

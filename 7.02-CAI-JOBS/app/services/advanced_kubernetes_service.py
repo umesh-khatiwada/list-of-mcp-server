@@ -2,8 +2,6 @@
 import logging
 from typing import Dict, List, Optional, Tuple
 
-from kubernetes import client
-
 from ..config import settings
 from ..models.advanced import (
     AdvancedSessionCreate,
@@ -80,7 +78,6 @@ class AdvancedKubernetesService(KubernetesService):
                 "WEBHOOK_URL": getattr(settings, "webhook_url", ""),
                 "CHARACTER_ID": getattr(config, "character_id", "") if hasattr(config, "character_id") else "",
                 "CAI_TOKEN": getattr(config, "token", "") if hasattr(config, "token") else "",
-                "COMMAND": "/bin/bash -c",
                 "ARGS": self._build_cai_command(
                     config.prompt if hasattr(config, 'prompt') else "default prompt",
                     AgentType.REDTEAM if hasattr(config, 'agent_type') else AgentType.REDTEAM,
@@ -135,7 +132,6 @@ class AdvancedKubernetesService(KubernetesService):
                 "WEBHOOK_URL": getattr(settings, "webhook_url", ""),
                 "CHARACTER_ID": getattr(config, "character_id", "") if hasattr(config, "character_id") else "",
                 "CAI_TOKEN": getattr(config, "token", "") if hasattr(config, "token") else "",
-                "COMMAND": "/bin/bash -c",
                 "ARGS": self._build_cai_command(
                     agent_config.initial_prompt or config.prompt,
                     agent_config.agent_type,
@@ -213,7 +209,6 @@ fi
             "WEBHOOK_URL": getattr(settings, "webhook_url", ""),
             "CHARACTER_ID": getattr(config, "character_id", "") if hasattr(config, "character_id") else "",
             "CAI_TOKEN": getattr(config, "token", "") if hasattr(config, "token") else "",
-            "COMMAND": "/bin/bash -c",
             "ARGS": queue_command,
         }
 
@@ -294,7 +289,6 @@ fi
             "WEBHOOK_URL": getattr(settings, "webhook_url", ""),
             "CHARACTER_ID": getattr(config, "character_id", "") if hasattr(config, "character_id") else "",
             "CAI_TOKEN": getattr(config, "token", "") if hasattr(config, "token") else "",
-            "COMMAND": "/bin/bash -c",
             "ARGS": ctf_command,
         }
 
@@ -457,186 +451,125 @@ fi
 
         return "\n".join(lines)
 
-    def _create_job_spec(
-        self,
-        job_name: str,
-        session_id: str,
-        session_name: str,
-        command: str,
-        config: AdvancedSessionCreate,
-        agent_alias: Optional[str] = None,
-        additional_env: Optional[Dict[str, str]] = None,
-    ) -> client.V1Job:
-        """Create Kubernetes job specification."""
-        sanitized_name = sanitize_label(session_name)
-
-        # Build environment variables
-        env_vars = [
-            client.V1EnvVar(name="SESSION_ID", value=session_id),
-            client.V1EnvVar(name="DEEPSEEK_API_KEY", value=settings.deepseek_api_key),
-            client.V1EnvVar(name="OPENAI_API_KEY", value=settings.openai_api_key),
-            client.V1EnvVar(name="LITELLM_DISABLE_AUTH", value="true"),
-            client.V1EnvVar(name="WEBHOOK_URL", value=settings.webhook_url)
-        ]
-
-        # Add additional environment variables
-        if additional_env:
-            for key, value in additional_env.items():
-                env_vars.append(client.V1EnvVar(name=key, value=value))
-
-        # Add authentication if provided
-        if config.character_id:
-            env_vars.append(
-                client.V1EnvVar(name="CHARACTER_ID", value=config.character_id)
-            )
-        if config.token:
-            env_vars.append(client.V1EnvVar(name="CAI_TOKEN", value=config.token))
-
-        # Container specification
-        container = client.V1Container(
-            name="cai-advanced",
-            image=settings.cai_image,
-            env=env_vars,
-            image_pull_policy="Always",
-            command=["/bin/bash", "-c"],
-            args=[command],
-            volume_mounts=[
-                client.V1VolumeMount(name="agents-config", mount_path="/config")
-            ],
-        )
-
-        # Pod template
-        template = client.V1PodTemplateSpec(
-            metadata=client.V1ObjectMeta(
-                labels={
-                    "app": "cai-advanced",
-                    "session-id": session_id,
-                    "agent-alias": agent_alias or "default",
-                }
-            ),
-            spec=client.V1PodSpec(
-                restart_policy="Never",
-                containers=[container],
-                volumes=[
-                    client.V1Volume(
-                        name="agents-config",
-                        config_map=client.V1ConfigMapVolumeSource(
-                            name="cai-agents-config"
-                        ),
-                    )
-                ],
-            ),
-        )
-
-        # Job specification
-        return client.V1Job(
-            api_version="batch/v1",
-            kind="Job",
-            metadata=client.V1ObjectMeta(
-                name=job_name,
-                labels={
-                    "session-id": session_id,
-                    "session-name": sanitized_name,
-                    "app": "cai-advanced",
-                    "agent-alias": agent_alias or "default",
-                },
-            ),
-            spec=client.V1JobSpec(
-                template=template,
-                backoff_limit=3,
-                ttl_seconds_after_finished=3600,  # Clean up after 1 hour
-            ),
-        )
-
     def get_session_progress(self, session_id: str) -> Dict[str, any]:
-        """Get detailed progress information for a session."""
+        """Get detailed progress information for a session using ManifestWork."""
         try:
-            # Find all jobs for this session
-            jobs = self.batch_v1.list_namespaced_job(
-                namespace=self.namespace, label_selector=f"session-id={session_id}"
+            from kubernetes.client import CustomObjectsApi
+            custom_api = CustomObjectsApi()
+            
+            # Construct ManifestWork name
+            manifestwork_name = f"cai-session-{session_id[:8]}"
+            
+            # Get ManifestWork
+            manifestwork = custom_api.get_namespaced_custom_object(
+                group="work.open-cluster-management.io",
+                version="v1",
+                namespace=settings.managed_cluster_namespace,
+                plural="manifestworks",
+                name=manifestwork_name
             )
-
+            
             progress = {
-                "total_jobs": len(jobs.items),
-                "completed_jobs": 0,
-                "failed_jobs": 0,
-                "running_jobs": 0,
-                "pending_jobs": 0,
-                "job_details": [],
+                "session_id": session_id,
+                "manifestwork_name": manifestwork_name,
+                "total_manifests": len(manifestwork.get('spec', {}).get('workload', {}).get('manifests', [])),
+                "applied_manifests": 0,
+                "available_manifests": 0,
+                "manifest_details": [],
             }
-
-            for job in jobs.items:
-                status = self.get_job_status(job.metadata.name)
-                agent_alias = job.metadata.labels.get("agent-alias", "unknown")
-
-                job_detail = {
-                    "job_name": job.metadata.name,
-                    "agent_alias": agent_alias,
-                    "status": status,
-                    "created": job.metadata.creation_timestamp.isoformat(),
+            
+            resource_status = manifestwork.get('status', {}).get('resourceStatus', {}).get('manifests', [])
+            for manifest in resource_status:
+                conditions = manifest.get('conditions', [])
+                applied = any(c.get('type') == 'Applied' and c.get('status') == 'True' for c in conditions)
+                available = any(c.get('type') == 'Available' and c.get('status') == 'True' for c in conditions)
+                
+                if applied:
+                    progress["applied_manifests"] += 1
+                if available:
+                    progress["available_manifests"] += 1
+                
+                detail = {
+                    "kind": manifest.get('resourceMeta', {}).get('kind'),
+                    "name": manifest.get('resourceMeta', {}).get('name'),
+                    "namespace": manifest.get('resourceMeta', {}).get('namespace'),
+                    "applied": applied,
+                    "available": available,
                 }
-
-                progress["job_details"].append(job_detail)
-
-                if status == "Completed":
-                    progress["completed_jobs"] += 1
-                elif status == "Failed":
-                    progress["failed_jobs"] += 1
-                elif status == "Running":
-                    progress["running_jobs"] += 1
-                else:
-                    progress["pending_jobs"] += 1
-
+                progress["manifest_details"].append(detail)
+                logger.info(f"Manifest detail: {detail}")
+            
             return progress
         except Exception as e:
             logger.error(f"Failed to get session progress: {str(e)}")
             return {"error": str(e)}
 
     def extract_session_results(self, session_id: str) -> Dict[str, any]:
-        """Extract and aggregate results from all jobs in a session."""
+        """Extract results information for a session from ManifestWork."""
         try:
+            from kubernetes.client import CustomObjectsApi
+            custom_api = CustomObjectsApi()
+            
+            # Construct ManifestWork name
+            manifestwork_name = f"cai-session-{session_id[:8]}"
+            
+            # Get ManifestWork
+            manifestwork = custom_api.get_namespaced_custom_object(
+                group="work.open-cluster-management.io",
+                version="v1",
+                namespace=settings.managed_cluster_namespace,
+                plural="manifestworks",
+                name=manifestwork_name
+            )
+            
             results = {
                 "session_id": session_id,
-                "flags_found": [],
-                "vulnerabilities": [],
-                "outputs": {},
-                "cost_summary": {},
-                "execution_summary": {},
+                "manifestwork_name": manifestwork_name,
+                "manifestwork_status": manifestwork.get('status', {}),
+                "note": "Job results are sent to webhook URL. Check webhook service for detailed results.",
             }
-
-            # Get all pods for this session
-            pods = self.core_v1.list_namespaced_pod(
-                namespace=self.namespace, label_selector=f"session-id={session_id}"
-            )
-
-            for pod in pods.items:
-                pod_name = pod.metadata.name
-                agent_alias = pod.metadata.labels.get("agent-alias", "unknown")
-
-                try:
-                    # Get logs
-                    logs = self.core_v1.read_namespaced_pod_log(
-                        name=pod_name, namespace=self.namespace
-                    )
-
-                    results["outputs"][agent_alias] = logs
-
-                    # Extract flags (for CTF)
-                    flags = self._extract_flags_from_logs(logs)
-                    results["flags_found"].extend(flags)
-
-                    # Extract vulnerabilities
-                    vulns = self._extract_vulnerabilities_from_logs(logs)
-                    results["vulnerabilities"].extend(vulns)
-
-                except Exception as e:
-                    logger.error(f"Failed to get logs from pod {pod_name}: {str(e)}")
-                    results["outputs"][agent_alias] = f"Error: {str(e)}"
-
+            
             return results
         except Exception as e:
             logger.error(f"Failed to extract session results: {str(e)}")
             return {"error": str(e)}
+
+    def get_manifestwork_status(self, manifestwork_name: str) -> str:
+        """Get the status of a ManifestWork.
+
+        Args:
+            manifestwork_name: The name of the ManifestWork
+
+        Returns:
+            The ManifestWork status string
+        """
+        try:
+            from kubernetes.client import CustomObjectsApi
+            custom_api = CustomObjectsApi()
+            
+            logger.info(f"Getting ManifestWork {manifestwork_name} in namespace {settings.managed_cluster_namespace}")
+            manifestwork = custom_api.get_namespaced_custom_object(
+                group="work.open-cluster-management.io",
+                version="v1",
+                namespace=settings.managed_cluster_namespace,
+                plural="manifestworks",
+                name=manifestwork_name
+            )
+            
+            conditions = manifestwork.get('status', {}).get('conditions', [])
+            applied = any(c.get('type') == 'Applied' and c.get('status') == 'True' for c in conditions)
+            available = any(c.get('type') == 'Available' and c.get('status') == 'True' for c in conditions)
+            
+            logger.info(f"ManifestWork {manifestwork_name} applied: {applied}, available: {available}")
+            if available:
+                return "Completed"  # Assume completed when available
+            elif applied:
+                return "Running"
+            else:
+                return "Pending"
+        except Exception as e:
+            logger.error(f"Failed to get ManifestWork status: {str(e)}")
+            return "Unknown"
 
     def _extract_flags_from_logs(self, logs: str) -> List[str]:
         """Extract CTF flags from logs."""
