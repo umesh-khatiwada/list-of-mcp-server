@@ -11,7 +11,7 @@ metadata:
 type: Opaque
 data:
   # Base64 encoded API keys (replace with your actual encoded keys)
-  DEEPSEEK_API_KEY: c2stY2E4MTg0OTg3Y2IwNGNlOTlmNjhiYWI3MDBkYTA3MjE=
+  DEEPSEEK_API_KEY: dsdfsfdsf=
   OPENAI_API_KEY: ""
 ---
 apiVersion: v1

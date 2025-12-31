@@ -527,10 +527,19 @@ async def list_manifestworks(
             plural="manifestworks"
         )
         
-        return manifestworks.get('items', [])
+        # Filter to only cai-session-* resources
+        filtered_items = [
+            item for item in manifestworks.get('items', [])
+            if item.get('metadata', {}).get('name', '').startswith('cai-session-')
+        ]
+        
+        return filtered_items
     except Exception as e:
         logger.error(f"Failed to list ManifestWorks: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{session_id}/export")
 async def export_session(
     session_id: str,
     format: str = Query("json", description="Export format: json, yaml, or report"),
