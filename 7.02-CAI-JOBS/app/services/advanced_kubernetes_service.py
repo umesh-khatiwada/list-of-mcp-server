@@ -568,6 +568,15 @@ fi
             else:
                 return "Pending"
         except Exception as e:
+            # Handle ApiException 404 (not found) as a deleted/expired ManifestWork
+            try:
+                from kubernetes.client.rest import ApiException
+                if isinstance(e, ApiException) and getattr(e, 'status', None) == 404:
+                    logger.info(f"ManifestWork {manifestwork_name} not found (deleted or not created)")
+                    return "Deleted"
+            except Exception:
+                pass
+
             logger.error(f"Failed to get ManifestWork status: {str(e)}")
             return "Unknown"
 

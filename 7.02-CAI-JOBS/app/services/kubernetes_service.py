@@ -3,6 +3,9 @@ import logging
 from typing import List, Optional, Tuple
 
 from kubernetes import client, config
+import requests
+import time
+from datetime import datetime
 import yaml
 
 from ..config import settings
@@ -402,11 +405,193 @@ fi
             )
 
             if not pods.items:
+                # No pod found locally; if Loki configured try to fetch by job/session label
+                if settings.loki_url:
+                    try:
+                        # Query Loki trying several common label keys to discover streams
+                        now_ns = int(time.time() * 1e9)
+                        start_ns = now_ns - int(3600 * 1e9)  # last 1 hour
+                        loki_endpoint = f"{settings.loki_url.rstrip('/')}/loki/api/v1/query_range"
+                        session_id_short = session_id[:8]
+
+                        # Candidate label keys and templates to try - improved matching
+                        label_candidates = [
+                            ('session-id_exact', f'{{session_id="{session_id}"}}'),
+                            ('session-id_alt', f'{{session-id="{session_id}"}}'),
+                            ('pod_session_regex', f'{{pod=~".*{session_id_short}.*"}}'),
+                            ('job_name_session_regex', f'{{job_name=~".*{session_id_short}.*"}}'),
+                            ('job_session_regex', f'{{job=~".*{session_id_short}.*"}}'),
+                            ('namespace_app', f'{{namespace="{self.namespace}",app="cai-chat"}}'),
+                            ('namespace_only', f'{{namespace="{self.namespace}"}}'),
+                        ]
+
+                        for label_name, q in label_candidates:
+                            try:
+                                params = {
+                                    "query": q,
+                                    "limit": 500,
+                                    "direction": "backward",
+                                    "start": start_ns,
+                                    "end": now_ns,
+                                }
+                                logger.info(f"Querying Loki at {loki_endpoint} for session {session_id} trying label {label_name} query={q}")
+                                res = requests.get(loki_endpoint, params=params, timeout=15)
+                                logger.info(f"Loki response for label {label_name}: status={res.status_code}")
+                                if not res.ok:
+                                    logger.debug(f"Loki query failed with status {res.status_code}")
+                                    continue
+                                data = res.json().get("data", {})
+                                result_streams = data.get("result", [])
+                                
+                                if not result_streams:
+                                    continue
+                                
+                                logs = []
+                                for stream in result_streams:
+                                    for v in stream.get("values", []):
+                                        logs.append(v[1])
+                                
+                                if not logs:
+                                    # no entries for this label, try next
+                                    continue
+
+                                logs_str = "\n".join(reversed(logs))
+                                log_path = None
+                                for line in logs_str.split('\n'):
+                                    if 'LOG_FILE_PATH:' in line:
+                                        log_path = line.replace('LOG_FILE_PATH:', '').strip()
+                                        break
+
+                                # Prefix logs with source info so UI can show where they came from
+                                prefixed = f"SOURCE: LOKI (label={label_name})\n" + logs_str
+                                logger.info(f"Successfully retrieved {len(logs)} log lines from Loki using label {label_name}")
+                                return prefixed, log_path, None
+                            except requests.exceptions.RequestException as le_inner:
+                                logger.warning(f"Loki request failed for label {label_name}: {le_inner}")
+                                continue
+                            except Exception as le_inner:
+                                logger.warning(f"Loki attempt for label {label_name} failed: {le_inner}")
+                                continue
+                    except Exception as le:
+                        logger.warning(f"Loki query failed: {str(le)}")
                 return "", None, None
 
-            pod_name = pods.items[0].metadata.name
+            pod = pods.items[0]
+            pod_name = pod.metadata.name
 
-            # Get main pod logs
+            # If Loki is configured, prefer Loki for aggregated logs
+            if settings.loki_url:
+                try:
+                    now_ns = int(time.time() * 1e9)
+                    start_ns = now_ns - int(3600 * 1e9)  # last 1 hour
+
+                    # Get labels from pod metadata
+                    job_label = None
+                    if pod.metadata.labels:
+                        job_label = pod.metadata.labels.get("job-name") or pod.metadata.labels.get("job_name")
+
+                    # Build label candidates - prioritize exact matches
+                    label_candidates = []
+                    
+                    # Most specific: exact pod name
+                    label_candidates.append(('pod_exact', f'{{pod="{pod_name}"}}'))
+                    
+                    # Job name from pod labels (Kubernetes standard)
+                    if job_label:
+                        label_candidates.append(('job_name_exact', f'{{job_name="{job_label}"}}'))
+                    
+                    # Session ID based
+                    session_id_short = session_id[:8]
+                    label_candidates.append(('session_id', f'{{session_id="{session_id}"}}'))
+                    label_candidates.append(('session_id_alt', f'{{session-id="{session_id}"}}'))
+                    
+                    # Namespace + app combination
+                    label_candidates.append(('namespace_app', f'{{namespace="{self.namespace}",app="cai-chat"}}'))
+
+                    loki_endpoint = f"{settings.loki_url.rstrip('/')}/loki/api/v1/query_range"
+                    
+                    # Try each label candidate
+                    for label_name, q in label_candidates:
+                        try:
+                            params = {
+                                "query": q,
+                                "limit": 500,
+                                "direction": "backward",
+                                "start": start_ns,
+                                "end": now_ns,
+                            }
+                            logger.info(f"Querying Loki at {loki_endpoint} for pod {pod_name} (job: {job_label}) trying label {label_name} query={q}")
+                            res = requests.get(loki_endpoint, params=params, timeout=15)
+                            logger.info(f"Loki response for label {label_name}: status={res.status_code}")
+                            
+                            if not res.ok:
+                                logger.debug(f"Loki query failed with status {res.status_code}")
+                                continue
+                            
+                            data = res.json().get("data", {})
+                            result_streams = data.get("result", [])
+                            
+                            if not result_streams:
+                                logger.debug(f"No streams found for label {label_name}")
+                                continue
+                            
+                            logs = []
+                            for stream in result_streams:
+                                for v in stream.get("values", []):
+                                    logs.append(v[1])
+
+                            if not logs:
+                                logger.debug(f"No log entries found for label {label_name}")
+                                continue
+
+                            logs_str = "\n".join(reversed(logs))
+                            logger.info(f"Successfully retrieved {len(logs)} log lines from Loki using label {label_name}")
+
+                            log_path = None
+                            for line in logs_str.split('\n'):
+                                if 'LOG_FILE_PATH:' in line:
+                                    log_path = line.replace('LOG_FILE_PATH:', '').strip()
+                                    break
+
+                            # If we found a file path and pod is present, try exec to get full file content
+                            log_content = None
+                            if log_path:
+                                try:
+                                    from kubernetes import stream
+
+                                    exec_command = [
+                                        "/bin/sh",
+                                        "-c",
+                                        f"cat {log_path} 2>/dev/null || echo 'File not accessible'",
+                                    ]
+                                    log_content = stream.stream(
+                                        self.core_v1.connect_get_namespaced_pod_exec,
+                                        pod_name,
+                                        self.namespace,
+                                        command=exec_command,
+                                        stderr=True,
+                                        stdin=False,
+                                        stdout=True,
+                                        tty=False,
+                                    )
+                                except Exception as e:
+                                    logger.info(f"Failed to exec into pod to fetch file {log_path}: {e}")
+                                    log_content = None
+
+                            return logs_str, log_path, log_content
+                            
+                        except requests.exceptions.RequestException as e:
+                            logger.warning(f"Loki request failed for label {label_name}: {e}")
+                            continue
+                        except Exception as e:
+                            logger.warning(f"Loki query exception for label {label_name}: {str(e)}")
+                            continue
+                    
+                    logger.info("All Loki label queries failed, falling back to Kubernetes logs")
+                except Exception as e:
+                    logger.warning(f"Loki query exception: {str(e)}")
+
+            # Fallback to direct Kubernetes pod logs
             logs = self.core_v1.read_namespaced_pod_log(
                 name=pod_name, namespace=self.namespace, tail_lines=200
             )
@@ -414,9 +599,8 @@ fi
             log_path = None
             log_content = None
 
-            # Try to extract log file path and content
+            # Try to extract log file path and content from pod logs
             try:
-                # Read signal file with path
                 signal_logs = self.core_v1.read_namespaced_pod_log(
                     name=pod_name, namespace=self.namespace
                 )
@@ -429,14 +613,8 @@ fi
             except Exception:
                 pass
 
-            # Try to read the actual log file content
+            # Try to read the actual log file content via exec into pod
             try:
-                log_content = self.core_v1.read_namespaced_pod_log(
-                    name=pod_name, namespace=self.namespace, container="cai-chat"
-                )
-
-                # Look for /tmp/job_logs_content (from the script)
-                # We'll try to exec into the pod to read files
                 if log_path:
                     from kubernetes import stream
 
@@ -464,6 +642,139 @@ fi
             return logs, log_path, log_content
         except Exception as e:
             logger.error(f"Failed to get pod logs: {str(e)}")
+            return f"Error fetching logs: {str(e)}", None, None
+
+    def get_manifestwork_status(self, manifestwork_name: str) -> str:
+        """Get the status of a ManifestWork.
+
+        Args:
+            manifestwork_name: The name of the ManifestWork
+
+        Returns:
+            The ManifestWork status string
+        """
+        try:
+            from kubernetes.client import CustomObjectsApi
+            custom_api = CustomObjectsApi()
+            
+            logger.info(f"Getting ManifestWork {manifestwork_name} in namespace {settings.managed_cluster_namespace}")
+            manifestwork = custom_api.get_namespaced_custom_object(
+                group="work.open-cluster-management.io",
+                version="v1",
+                namespace=settings.managed_cluster_namespace,
+                plural="manifestworks",
+                name=manifestwork_name
+            )
+            
+            conditions = manifestwork.get('status', {}).get('conditions', [])
+            applied = any(c.get('type') == 'Applied' and c.get('status') == 'True' for c in conditions)
+            available = any(c.get('type') == 'Available' and c.get('status') == 'True' for c in conditions)
+            
+            logger.info(f"ManifestWork {manifestwork_name} applied: {applied}, available: {available}")
+            if available:
+                return "Completed"  # Assume completed when available
+            elif applied:
+                return "Running"
+            else:
+                return "Pending"
+        except Exception as e:
+            # Handle ApiException 404 (not found) as a deleted/expired ManifestWork
+            try:
+                from kubernetes.client.rest import ApiException
+                if isinstance(e, ApiException) and getattr(e, 'status', None) == 404:
+                    logger.info(f"ManifestWork {manifestwork_name} not found (deleted or not created)")
+                    return "Deleted"
+            except Exception:
+                pass
+
+            logger.error(f"Failed to get ManifestWork status: {str(e)}")
+            return "Unknown"
+
+    def get_manifestwork_logs(self, manifestwork_name: str) -> Tuple[str, Optional[str], Optional[str]]:
+        """Get logs for a ManifestWork from Loki.
+
+        Args:
+            manifestwork_name: The name of the ManifestWork
+
+        Returns:
+            Tuple of (logs, log_path, log_content)
+        """
+        if not settings.loki_url:
+            return "Loki not configured", None, None
+
+        try:
+            # Extract session_id_prefix from manifestwork_name
+            # For cai-session-abc123 -> abc123
+            # For cai-parallel-abc123-0 -> abc123
+            parts = manifestwork_name.split('-')
+            if len(parts) >= 3 and parts[0] == 'cai':
+                session_id_prefix = parts[2]  # abc123
+            else:
+                session_id_prefix = manifestwork_name
+
+            now_ns = int(time.time() * 1e9)
+            start_ns = now_ns - int(3600 * 1e9)  # last 1 hour
+            loki_endpoint = f"{settings.loki_url.rstrip('/')}/loki/api/v1/query_range"
+
+            # Try different label queries - improved matching
+            label_candidates = [
+                ('manifestwork_exact', f'{{manifestwork="{manifestwork_name}"}}'),
+                ('job_exact', f'{{job="{manifestwork_name}"}}'),
+                ('job_name_exact', f'{{job_name="{manifestwork_name}"}}'),
+                ('session_id_regex', f'{{session_id=~"{session_id_prefix}.*"}}'),
+                ('session_id_alt_regex', f'{{session-id=~"{session_id_prefix}.*"}}'),
+                ('pod_regex', f'{{pod=~".*{session_id_prefix}.*"}}'),
+                ('job_name_regex', f'{{job_name=~".*{session_id_prefix}.*"}}'),
+            ]
+
+            for label_name, q in label_candidates:
+                try:
+                    params = {
+                        "query": q,
+                        "limit": 500,
+                        "direction": "backward",
+                        "start": start_ns,
+                        "end": now_ns,
+                    }
+                    logger.info(f"Querying Loki for ManifestWork {manifestwork_name} with label {label_name} query={q}")
+                    res = requests.get(loki_endpoint, params=params, timeout=15)
+                    logger.info(f"Loki response for label {label_name}: status={res.status_code}")
+                    
+                    if not res.ok:
+                        logger.debug(f"Loki query failed with status {res.status_code}")
+                        continue
+                    
+                    data = res.json().get("data", {})
+                    result_streams = data.get("result", [])
+                    
+                    if not result_streams:
+                        logger.debug(f"No streams found for label {label_name}")
+                        continue
+                    
+                    logs = []
+                    for stream in result_streams:
+                        for v in stream.get("values", []):
+                            logs.append(v[1])
+                    
+                    if logs:
+                        logs_str = "\n".join(reversed(logs))
+                        log_path = None
+                        for line in logs_str.split('\n'):
+                            if 'LOG_FILE_PATH:' in line:
+                                log_path = line.replace('LOG_FILE_PATH:', '').strip()
+                                break
+                        logger.info(f"Successfully retrieved {len(logs)} log lines from Loki using label {label_name}")
+                        return logs_str, log_path, None
+                except requests.exceptions.RequestException as e:
+                    logger.warning(f"Loki request failed for ManifestWork {manifestwork_name} label {label_name}: {e}")
+                    continue
+                except Exception as e:
+                    logger.warning(f"Loki attempt for ManifestWork {manifestwork_name} with label {label_name} failed: {e}")
+                    continue
+
+            return "No logs found in Loki", None, None
+        except Exception as e:
+            logger.error(f"Failed to get ManifestWork logs: {str(e)}")
             return f"Error fetching logs: {str(e)}", None, None
 
     def delete_job(self, job_name: str) -> None:

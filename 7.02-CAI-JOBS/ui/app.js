@@ -35,8 +35,14 @@ function showTab(tabName, el) {
 
 // Load Sessions
 async function loadSessions() {
+    const container = document.getElementById('sessions-list');
+    container.innerHTML = '<div class="loading">Loading sessions...</div>';
+    
     try {
         const response = await fetch(`${API_BASE}/api/sessions`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
         const sessions = await response.json();
 
         const container = document.getElementById('sessions-list');
@@ -66,8 +72,9 @@ async function loadSessions() {
                     </div>
                 </div>
                 <div class="session-actions">
-                    <button class="btn btn-primary btn-small" onclick="viewDetails('${session.id}', 'basic')">View Details</button>
+                    <button class="btn btn-primary btn-small" onclick="viewDetails('${session.id}', 'basic')">Details</button>
                     <button class="btn btn-secondary btn-small" onclick="viewLogs('${session.id}')">Logs</button>
+                    <button class="btn btn-secondary btn-small" onclick="viewResult('${session.id}', 'basic')">Result</button>
                     <button class="btn btn-danger btn-small" onclick="deleteSession('${session.id}', 'basic')">Delete</button>
                 </div>
             </div>
@@ -80,8 +87,14 @@ async function loadSessions() {
 
 // Load Advanced Sessions
 async function loadAdvancedSessions() {
+    const container = document.getElementById('advanced-sessions-list');
+    container.innerHTML = '<div class="loading">Loading advanced sessions...</div>';
+    
     try {
         const response = await fetch(`${API_BASE}/api/v2/sessions`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
         const sessions = await response.json();
 
         const container = document.getElementById('advanced-sessions-list');
@@ -126,7 +139,8 @@ async function loadAdvancedSessions() {
                         ` : ''}
                     </div>
                     <div class="session-actions">
-                        <button class="btn btn-primary btn-small" onclick="viewDetails('${session.id}', 'advanced')">View Details</button>
+                        <button class="btn btn-primary btn-small" onclick="viewDetails('${session.id}', 'advanced')">Details</button>
+                        <button class="btn btn-secondary btn-small" onclick="viewLogsEnhanced('${session.id}', true)">Logs</button>
                         <button class="btn btn-secondary btn-small" onclick="viewResults('${session.id}')">Results</button>
                         <button class="btn btn-danger btn-small" onclick="deleteSession('${session.id}', 'advanced')">Delete</button>
                     </div>
@@ -199,10 +213,18 @@ async function loadManifestWorks() {
 
 // Load Jobs
 async function loadJobs() {
-    console.log('loadJobs called');
+    const container = document.getElementById('jobs-list');
+    container.innerHTML = '<div class="loading">Loading jobs...</div>';
+    
     try {
-        console.log('Fetching:', `${API_BASE}/api/v2/sessions/jobs`);
-        const response = await fetch(`${API_BASE}/api/v2/sessions/jobs`);
+        let response = await fetch(`${API_BASE}/api/v2/sessions/jobs`);
+        // Fallback to legacy endpoint if advanced API not available
+        if (!response.ok) {
+            response = await fetch(`${API_BASE}/api/sessions/jobs`);
+        }
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
         const jobs = await response.json();
         console.log('Jobs response:', jobs);
 
@@ -273,11 +295,22 @@ async function loadAgents() {
 }
 
 // MCP Transport Toggle
-document.getElementById('mcp-transport')?.addEventListener('change', (e) => {
-    const isSSE = e.target.value === 'sse';
+function toggleMCPFields() {
+    const transport = document.getElementById('mcp-transport').value;
+    const isSSE = transport === 'sse';
     document.getElementById('url-group').style.display = isSSE ? 'block' : 'none';
     document.getElementById('command-group').style.display = isSSE ? 'none' : 'block';
-});
+}
+
+function toggleAdvancedMCPFields() {
+    const transport = document.getElementById('adv-mcp-transport').value;
+    const isSSE = transport === 'sse';
+    document.getElementById('adv-url-group').style.display = isSSE ? 'block' : 'none';
+    document.getElementById('adv-command-group').style.display = isSSE ? 'none' : 'block';
+}
+
+document.getElementById('mcp-transport')?.addEventListener('change', toggleMCPFields);
+document.getElementById('adv-mcp-transport')?.addEventListener('change', toggleAdvancedMCPFields);
 
 // Test MCP Connection
 async function testMCPConnection() {
@@ -364,11 +397,14 @@ document.getElementById('create-session-form')?.addEventListener('submit', async
         });
 
         if (response.ok) {
+            const session = await response.json();
             closeModal();
+            showSuccess(`Session "${session.name}" created successfully!`);
             loadSessions();
             e.target.reset();
         } else {
-            showError('Failed to create session');
+            const error = await response.json().catch(() => ({ detail: 'Failed to create session' }));
+            showError(error.detail || 'Failed to create session');
         }
     } catch (error) {
         console.error('Error creating session:', error);
@@ -428,11 +464,14 @@ document.getElementById('advanced-session-form')?.addEventListener('submit', asy
         });
 
         if (response.ok) {
+            const session = await response.json();
             closeAdvancedModal();
+            showSuccess(`Advanced session "${session.name || session.id}" created successfully!`);
             loadAdvancedSessions();
             e.target.reset();
         } else {
-            showError('Failed to create advanced session');
+            const error = await response.json().catch(() => ({ detail: 'Failed to create advanced session' }));
+            showError(error.detail || 'Failed to create advanced session');
         }
     } catch (error) {
         console.error('Error creating advanced session:', error);
@@ -508,21 +547,123 @@ async function viewJobDetails(name) {
     }
 }
 
+// View Logs Enhanced with real-time updates
+async function viewLogsEnhanced(sessionId, isAdvanced = false) {
+    const endpoint = isAdvanced ? `/api/v2/sessions/${sessionId}/logs` : `/api/sessions/${sessionId}/logs`;
+    
+    document.getElementById('details-title').textContent = 'Session Logs (Live)';
+    document.getElementById('details-content').innerHTML = `
+        <div class="logs-container" id="live-logs">
+            <div class="loading">Loading logs...</div>
+        </div>
+        <div style="margin-top: 10px;">
+            <button class="btn btn-secondary btn-small" onclick="refreshLogs('${sessionId}', ${isAdvanced})">Refresh</button>
+            <button class="btn btn-secondary btn-small" id="auto-refresh-btn" onclick="toggleAutoRefresh('${sessionId}', ${isAdvanced}, this)">Auto-refresh: OFF</button>
+        </div>
+    `;
+    document.getElementById('details-modal').style.display = 'block';
+    
+    await refreshLogs(sessionId, isAdvanced);
+}
+
 // View Logs
 async function viewLogs(sessionId) {
+    await viewLogsEnhanced(sessionId, false);
+}
+
+// Refresh logs function
+async function refreshLogs(sessionId, isAdvanced) {
     try {
-        const response = await fetch(`${API_BASE}/api/sessions/${sessionId}/logs`);
+        const endpoint = isAdvanced ? `/api/v2/sessions/${sessionId}/logs` : `/api/sessions/${sessionId}/logs`;
+        const response = await fetch(`${API_BASE}${endpoint}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const data = await response.json();
+        
+        const logsContainer = document.getElementById('live-logs');
+        if (data.logs) {
+            logsContainer.innerHTML = `<pre>${escapeHtml(data.logs)}</pre>`;
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        } else {
+            logsContainer.innerHTML = '<div class="empty-state">No logs available yet</div>';
+        }
+    } catch (error) {
+        const logsContainer = document.getElementById('live-logs');
+        if (logsContainer) {
+            logsContainer.innerHTML = `<div class="error">Error loading logs: ${escapeHtml(error.message)}</div>`;
+        }
+    }
+}
 
-        document.getElementById('details-title').textContent = 'Session Logs';
+// Toggle auto-refresh for logs
+let logRefreshIntervals = {};
+
+function toggleAutoRefresh(sessionId, isAdvanced, btnElement) {
+    const key = `${sessionId}-${isAdvanced}`;
+    if (logRefreshIntervals[key]) {
+        clearInterval(logRefreshIntervals[key]);
+        delete logRefreshIntervals[key];
+        btnElement.textContent = 'Auto-refresh: OFF';
+    } else {
+        logRefreshIntervals[key] = setInterval(() => {
+            refreshLogs(sessionId, isAdvanced);
+        }, 3000);
+        btnElement.textContent = 'Auto-refresh: ON';
+    }
+}
+
+// View Result for basic sessions
+async function viewResult(sessionId, type) {
+    try {
+        const endpoint = type === 'advanced' ? `/api/v2/sessions/${sessionId}/results` : `/api/sessions/${sessionId}/result`;
+        const response = await fetch(`${API_BASE}${endpoint}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        document.getElementById('details-title').textContent = 'Session Result';
         document.getElementById('details-content').innerHTML = `
-            <div class="logs-container">${data.logs || 'No logs available'}</div>
+            <div class="result-section">
+                <div class="result-summary">
+                    <div><strong>Status:</strong> ${escapeHtml(result.status || 'Unknown')}</div>
+                    ${result.log_path ? `<div><strong>Log Path:</strong> ${escapeHtml(result.log_path)}</div>` : ''}
+                    ${result.file_size ? `<div><strong>File Size:</strong> ${result.file_size} bytes</div>` : ''}
+                </div>
+                ${result.pod_logs ? `
+                    <div class="collapsible">
+                        <div class="collapsible-header" onclick="toggleCollapsible('pod-logs')">
+                            <span>Pod Logs</span>
+                            <span class="toggle-icon">▼</span>
+                        </div>
+                        <div id="pod-logs" class="collapsible-body">
+                            <pre class="logs-container">${escapeHtml(result.pod_logs)}</pre>
+                        </div>
+                    </div>
+                ` : ''}
+                ${result.file_content ? `
+                    <div class="collapsible">
+                        <div class="collapsible-header" onclick="toggleCollapsible('file-content')">
+                            <span>File Content</span>
+                            <span class="toggle-icon">▼</span>
+                        </div>
+                        <div id="file-content" class="collapsible-body">
+                            <pre class="logs-container">${escapeHtml(result.file_content)}</pre>
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
         `;
-
+        
         document.getElementById('details-modal').style.display = 'block';
     } catch (error) {
-        console.error('Error loading logs:', error);
-        showError('Failed to load logs');
+        console.error('Error loading result:', error);
+        showError(`Failed to load result: ${error.message}`);
     }
 }
 
@@ -809,9 +950,11 @@ async function deleteSession(sessionId, type) {
     try {
         const response = await fetch(`${API_BASE}${endpoint}`, { method: 'DELETE' });
         if (response.ok) {
+            showSuccess('Session deleted successfully');
             refreshAll();
         } else {
-            showError('Failed to delete session');
+            const error = await response.json().catch(() => ({ detail: 'Failed to delete session' }));
+            showError(error.detail || 'Failed to delete session');
         }
     } catch (error) {
         console.error('Error deleting session:', error);
@@ -825,7 +968,23 @@ function closeDetailsModal() {
 
 // Utility Functions
 function showError(message) {
-    alert(message); // Simple for now, can be improved with toast notifications
+    showToast(message, 'error');
+}
+
+function showSuccess(message) {
+    showToast(message, 'success');
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideIn 0.3s reverse';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 function refreshAll() {
@@ -843,15 +1002,18 @@ function refreshAll() {
     }
 }
 
-// Auto-refresh every 10 seconds
+// Auto-refresh: only when window has focus and relevant tab is active.
+// Reduced frequency to 60s to avoid frequent /api/sessions calls.
 setInterval(() => {
+    if (!document.hasFocus()) return; // don't poll when user is not looking
     const activeTab = document.querySelector('.tab-btn.active');
+    if (!activeTab) return;
     if (activeTab.textContent.includes('Sessions')) {
         loadSessions();
     } else if (activeTab.textContent.includes('Advanced')) {
         loadAdvancedSessions();
     }
-}, 10000);
+}, 600000);
 
 // Initial Load
 loadSessions();

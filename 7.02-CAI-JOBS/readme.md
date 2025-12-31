@@ -20,6 +20,21 @@ Fetch live pod logs for each session
 Check job status updates
 View last 100 log lines
 
+Loki-based Logs (optional)
+
+If you run Loki for log aggregation you can configure the backend to query Loki instead of reading pod logs directly.
+Set the environment variable `LOKI_URL` (e.g. `http://loki.local:3100`) before starting the server. When present the server will query Loki for logs for the session's pod (last 1 hour by default) and return them via the same `/api/sessions/{id}/logs` endpoint.
+
+Example:
+
+```bash
+export LOKI_URL="http://172.18.254.201"
+uvicorn main:app --host 0.0.0.0 --port 8000 --log-level debug
+
+# Then fetch logs (same API):
+curl -X GET http://localhost:8000/api/sessions/{session_id}/logs
+```
+
 
 API Endpoints
 

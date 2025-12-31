@@ -29,6 +29,8 @@ class Settings:
 
     # Webhook Configuration
     webhook_url: str = os.getenv("WEBHOOK_URL", "")
+    # Loki (logs) Configuration
+    loki_url: str = os.getenv("LOKI_URL", "")
 
     # Server Configuration
     host: str = "0.0.0.0"
@@ -104,6 +106,7 @@ class Settings:
             "cai_model": self.cai_model,
             "cai_stream": self.cai_stream,
             "cai_agent_type": self.cai_agent_type,
+            "loki_url": self.loki_url if self.loki_url else "not_set",
             "webhook_url": "***" if self.webhook_url else "not_set",
             "host": self.host,
             "port": self.port,

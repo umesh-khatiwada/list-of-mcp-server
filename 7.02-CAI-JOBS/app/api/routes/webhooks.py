@@ -4,7 +4,7 @@ import os
 
 from fastapi import APIRouter, HTTPException, Request
 
-from ...services.session_store import sessions_store
+from ...services.session_store import sessions_store, save_sessions
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -96,6 +96,7 @@ async def receive_webhook(session_id: str, request: Request):
                 "security_analysis": security_analysis,
                 "recommendations": recommendations,
             }
+            save_sessions()
 
         return {"status": "received", "session_id": session_id, "processed": True, "saved_to": save_path}
     except Exception as e:
@@ -109,7 +110,7 @@ from fastapi import Query
 async def get_webhook_result(session_id: str, raw_file: bool = Query(False, description="If true, return raw file content instead of parsed result")):
     """Show parsed result from saved webhook data for a session, surfacing scan results if present. Loads from disk if not in memory."""
     from fastapi.responses import JSONResponse
-    from ...services.session_store import sessions_store
+    from ...services.session_store import sessions_store, save_sessions
     import json
 
     save_path = f"/tmp/webhook_payload_{session_id}.json"

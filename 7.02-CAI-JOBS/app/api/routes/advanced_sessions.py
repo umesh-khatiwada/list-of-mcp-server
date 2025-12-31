@@ -8,9 +8,10 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 
 from ...config import settings
+from ...models import JobLogs
 from ...models.advanced import AdvancedSessionCreate, SessionMode, SessionStatus
 from ...services.advanced_kubernetes_service import AdvancedKubernetesService
-from ...services.session_store import sessions_store
+from ...services.session_store import sessions_store, save_sessions
 
 logger = logging.getLogger(__name__)
 
@@ -53,10 +54,10 @@ async def create_advanced_session(
             "outputs": {},
             "flags_found": [],
             "vulnerabilities": [],
-            "original_config": session_data.dict(),
         }
 
         sessions_store[session_id] = session
+        save_sessions()
 
         # Create response
         return SessionStatus(**session)
@@ -244,6 +245,7 @@ async def get_session_results(
             "outputs": results.get("outputs", {}),
         }
     )
+    save_sessions()
 
     return results
 
@@ -269,6 +271,7 @@ async def get_session_flags(
 
     # Update session store
     sessions_store[session_id]["flags_found"] = flags
+    save_sessions()
 
     return {"flags": flags, "count": len(flags)}
 
@@ -293,6 +296,7 @@ async def delete_advanced_session(
 
         # Remove session from store
         del sessions_store[session_id]
+        save_sessions()
 
         return {"message": "Advanced session deleted successfully"}
     except Exception as e:
@@ -322,8 +326,84 @@ async def get_session_vulnerabilities(
 
     # Update session store
     sessions_store[session_id]["vulnerabilities"] = vulnerabilities
+    save_sessions()
 
     return {"vulnerabilities": vulnerabilities, "count": len(vulnerabilities)}
+
+
+@router.get("/{session_id}/logs", response_model=JobLogs)
+async def get_advanced_session_logs(
+    session_id: str,
+    k8s_service: AdvancedKubernetesService = Depends(get_advanced_kubernetes_service),
+):
+    """Get logs for an advanced session, aggregating logs from all jobs."""
+    logger.info(f"Received request to get advanced session logs: {session_id}")
+    
+    if session_id not in sessions_store:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session = sessions_store[session_id]
+    
+    # Get job names from session
+    job_names = session.get("job_names", [])
+    if not job_names:
+        # Fallback: try to get from legacy jobName field
+        if "jobName" in session:
+            job_names = [session["jobName"]]
+        else:
+            raise HTTPException(status_code=404, detail="No jobs found for this session")
+
+    # Get status
+    if len(job_names) > 0:
+        # For multi-job sessions, determine status from progress
+        progress = k8s_service.get_session_progress(session_id)
+        status = _determine_session_status(progress)
+    else:
+        status = "Unknown"
+
+    # Fetch logs from all jobs
+    all_logs = []
+    for job_name in job_names:
+        try:
+            # Use get_manifestwork_logs for ManifestWork-based jobs
+            logs, log_path, log_content = k8s_service.get_manifestwork_logs(job_name)
+            if logs:
+                all_logs.append(f"=== Logs for {job_name} ===\n{logs}")
+            elif log_path:
+                all_logs.append(f"=== Logs for {job_name} ===\nLog path: {log_path}\n(Content not available)")
+        except Exception as e:
+            logger.warning(f"Failed to get logs for job {job_name}: {e}")
+            # Try fallback: get logs directly from pods
+            try:
+                pods = k8s_service.core_v1.list_namespaced_pod(
+                    namespace=k8s_service.namespace,
+                    label_selector=f"session-id={session_id}",
+                )
+                for pod in pods.items:
+                    if job_name in pod.metadata.name:
+                        pod_logs = k8s_service.core_v1.read_namespaced_pod_log(
+                            name=pod.metadata.name,
+                            namespace=k8s_service.namespace,
+                            tail_lines=200
+                        )
+                        all_logs.append(f"=== Logs for {job_name} (pod: {pod.metadata.name}) ===\n{pod_logs}")
+                        break
+            except Exception as e2:
+                logger.warning(f"Fallback log retrieval also failed for {job_name}: {e2}")
+                all_logs.append(f"=== Logs for {job_name} ===\nError retrieving logs: {str(e)}")
+
+    logs_str = "\n\n".join(all_logs) if all_logs else "No logs found"
+
+    # Send webhook if completed (similar to basic sessions)
+    if status == "Completed" and not session.get("webhook_sent"):
+        from ...services import send_webhook
+        await send_webhook(
+            session_id, job_names[0] if job_names else "", status, None, logs_str, None
+        )
+        sessions_store[session_id]["webhook_sent"] = True
+        save_sessions()
+
+    return {"logs": logs_str, "status": status}
 
 
 @router.get("/{session_id}/agent/{agent_alias}/logs")
@@ -387,6 +467,7 @@ async def stop_session(
         # Update session status
         sessions_store[session_id]["status"] = "Stopped"
         sessions_store[session_id]["current_step"] = "Stopped by user"
+        save_sessions()
 
         return {"message": "Session stopped successfully", "deleted_jobs": deleted_jobs}
 
@@ -417,6 +498,7 @@ async def delete_advanced_session(
 
         # Remove from store
         del sessions_store[session_id]
+        save_sessions()
 
         return {
             "message": "Advanced session deleted successfully",

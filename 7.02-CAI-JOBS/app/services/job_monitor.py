@@ -4,7 +4,7 @@ import logging
 
 from ..api.dependencies import get_kubernetes_service
 from ..services import send_webhook
-from ..services.session_store import sessions_store
+from ..services.session_store import sessions_store, save_sessions
 
 logger = logging.getLogger(__name__)
 
@@ -36,32 +36,59 @@ async def monitor_jobs():
                             all_completed = False
                     
                     # Update session status
+                    status_changed = False
                     if all(s == "Completed" for s in all_statuses):
-                        session["status"] = "Completed"
+                        if session.get("status") != "Completed":
+                            session["status"] = "Completed"
+                            status_changed = True
                     elif any(s == "Failed" for s in all_statuses):
-                        session["status"] = "Failed"
+                        if session.get("status") != "Failed":
+                            session["status"] = "Failed"
+                            status_changed = True
                     else:
-                        session["status"] = "Running"
+                        if session.get("status") != "Running":
+                            session["status"] = "Running"
+                            status_changed = True
+                    
+                    # Save if status changed
+                    if status_changed:
+                        save_sessions()
                     
                     # Send webhook when all jobs complete
                     if all_completed:
                         logger.info(
                             f"ManifestWork {job_names} completed with statuses: {all_statuses}"
                         )
+
+                        # Fetch logs for multi-job session
+                        all_logs = []
+                        for job_name in job_names:
+                            logs, log_path, log_content = k8s_service.get_manifestwork_logs(job_name)
+                            if logs:
+                                all_logs.append(f"=== Logs for {job_name} ===\n{logs}")
+
+                        combined_logs = "\n\n".join(all_logs) if all_logs else f"Multi-job session completed with statuses: {all_statuses}"
+
                         await send_webhook(
                             session_id,
                             job_names[0],
                             session["status"],
                             None,
-                            f"Multi-job session completed with statuses: {all_statuses}",
+                            combined_logs,
                             None,
                         )
                         sessions_store[session_id]["webhook_sent"] = True
+                        save_sessions()
                 
                 elif "jobName" in session:
                     # Legacy single-job session
                     status = k8s_service.get_job_status(session["jobName"])
+                    status_changed = session.get("status") != status
                     session["status"] = status
+                    
+                    # Save if status changed
+                    if status_changed:
+                        save_sessions()
 
                     # Send webhook when job completes
                     if status in ["Completed", "Failed"]:
@@ -80,6 +107,7 @@ async def monitor_jobs():
                             log_content,
                         )
                         sessions_store[session_id]["webhook_sent"] = True
+                        save_sessions()
 
         except Exception as e:
             logger.error(f"Error in job monitor: {str(e)}")

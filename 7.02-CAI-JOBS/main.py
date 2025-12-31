@@ -18,7 +18,7 @@ except ImportError:
 from app.api.dependencies import get_kubernetes_service
 from app.config import settings
 from app.services.job_monitor import monitor_jobs
-from app.services.session_store import sessions_store
+from app.services.session_store import sessions_store, load_sessions, save_sessions
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -30,6 +30,10 @@ async def lifespan(app: FastAPI):
     """Application lifespan handler."""
     # Startup
     logger.info("CAI Kubernetes Job Manager started")
+
+    # Load sessions from file
+    load_sessions()
+    logger.info(f"Loaded {len(sessions_store)} sessions from file")
 
     # Sync existing jobs on startup
     try:
@@ -49,6 +53,7 @@ async def lifespan(app: FastAPI):
                         "prompt": "Recovered from existing job",
                     }
         logger.info(f"Synced {len(sessions_store)} existing sessions")
+        save_sessions()
     except Exception as e:
         logger.error(f"Failed to sync existing jobs: {str(e)}")
 
@@ -65,6 +70,11 @@ async def lifespan(app: FastAPI):
         await monitor_task
     except asyncio.CancelledError:
         logger.info("Background job monitor stopped")
+    
+    # Save sessions before shutdown
+    logger.info("Saving sessions before shutdown...")
+    save_sessions()
+    logger.info(f"Saved {len(sessions_store)} sessions to disk")
 
 
 # Create FastAPI app
