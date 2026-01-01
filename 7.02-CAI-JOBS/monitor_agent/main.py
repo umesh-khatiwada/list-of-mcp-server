@@ -25,6 +25,7 @@ def collect_metrics():
     return {
         "cluster_name": CLUSTER_NAME,
         "cpu_usage": cpu_percent,
+        "cpu_count": psutil.cpu_count(),
         "memory_usage": memory.percent,
         "memory_total": memory.total,
         "memory_available": memory.available,

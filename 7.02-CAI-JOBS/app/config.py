@@ -12,7 +12,7 @@ class Settings:
 
     # Kubernetes Configuration
     namespace: str = os.getenv("NAMESPACE", "default")
-    managed_cluster_namespace: str = os.getenv("MANAGED_CLUSTER_NAMESPACE", "east")
+    managed_cluster_namespace: str = os.getenv("MANAGED_CLUSTER_NAMESPACE", "hub")
     cai_image: str = os.getenv("CAI_IMAGE", "neptune1212/kali-cai:amd64")
 
     # API Keys

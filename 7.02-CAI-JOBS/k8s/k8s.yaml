@@ -62,6 +62,16 @@ spec:
           value: "redteam_agent,blueteam_agent"
         - name: WEBHOOK_URL
           value: "http://172.18.254.202:8000/api/webhooks"
+        - name: TARGET
+          value: ""
+        - name: OUTPUT_DIR
+          value: "/app/storage"
+        - name: TIMESTAMP
+          value: "$(date +%Y%m%d_%H%M%S)"
+        - name: CAI_MODEL
+          value: "deepseek/deepseek-chat"
+        - name: LOKI_URL
+          value: "http://172.18.254.201" 
         ports:
         - containerPort: 8000
         volumeMounts:

@@ -33,16 +33,28 @@ def get_optimal_cluster() -> str:
         return "east"
         
     best_cluster = None
-    lowest_cpu = float('inf')
+    best_cluster = None
+    max_score = -1.0
     
     for name, metrics in cluster_metrics_store.items():
-        cpu = metrics.get('cpu_usage', 100)
-        if cpu < lowest_cpu:
-            lowest_cpu = cpu
+        cpu_usage_pct = metrics.get('cpu_usage', 100)
+        cpu_count = metrics.get('cpu_count', 1)
+        memory_available_bytes = metrics.get('memory_available', 0)
+        
+        # Calculate available resources
+        available_cpu = cpu_count * (1 - (cpu_usage_pct / 100.0))
+        available_memory_gb = memory_available_bytes / (1024**3)
+        
+        # Scoring: Product of CPU and Memory (favors balanced/large nodes)
+        # Using product ensures that if either is near-zero, the score is near-zero.
+        score = available_cpu * available_memory_gb
+        
+        if score > max_score:
+            max_score = score
             best_cluster = name
             
     if best_cluster:
-        logger.info(f"Selected optimal cluster: {best_cluster} with CPU: {lowest_cpu}%")
+        logger.info(f"Selected optimal cluster: {best_cluster} (Score: {max_score:.2f})")
         return best_cluster
     
     return "east"
