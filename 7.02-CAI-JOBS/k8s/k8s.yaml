@@ -1,3 +1,33 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cai-manager-sa
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cai-manager-role
+rules:
+  - apiGroups: ["", "batch", "apps"]
+    resources: ["jobs", "pods", "deployments", "services", "configmaps", "secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["work.open-cluster-management.io"]
+    resources: ["manifestworks"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cai-manager-binding
+subjects:
+  - kind: ServiceAccount
+    name: cai-manager-sa
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: cai-manager-role
+  apiGroup: rbac.authorization.k8s.io
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -15,8 +45,8 @@ spec:
       serviceAccountName: cai-manager-sa
       containers:
       - name: api
-        image: docker.io/umesh1212/cai-manager:v54
-        imagePullPolicy: IfNotPresent
+        image: cai-manager:latest
+        imagePullPolicy: Never
         env:
         - name: DEEPSEEK_API_KEY
           value: "sk-"
@@ -31,7 +61,7 @@ spec:
         - name: CAI_AGENTS
           value: "redteam_agent,blueteam_agent"
         - name: WEBHOOK_URL
-          value: "http://172.18.254.200:8000/api/webhooks"
+          value: "http://172.18.254.202:8000/api/webhooks"
         ports:
         - containerPort: 8000
         volumeMounts:
@@ -43,20 +73,6 @@ spec:
           claimName: cai-manager-pvc
 ---
 apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: cai-manager-pv
-spec:
-  capacity:
-    storage: 1Gi
-  accessModes:
-    - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Retain
-  storageClassName: local-storage
-  hostPath:
-    path: /mnt/data/cai-manager
----
-apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: cai-manager-pvc
@@ -66,4 +82,4 @@ spec:
   resources:
     requests:
       storage: 1Gi
-  storageClassName: local-storage
+  storageClassName: standard

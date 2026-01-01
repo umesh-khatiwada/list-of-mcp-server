@@ -13,6 +13,7 @@ from ..models.advanced import (
 from ..models.mcp import MCPServerConfig
 from ..utils import sanitize_label
 from .kubernetes_service import KubernetesService
+from .cluster_store import get_optimal_cluster
 
 logger = logging.getLogger(__name__)
 
@@ -63,10 +64,14 @@ class AdvancedKubernetesService(KubernetesService):
 
         # Build runtime map for $VALUE substitution
         if runtime_map is None:
+            optimal_cluster = get_optimal_cluster()
+            if optimal_cluster.endswith("-cluster"):
+                optimal_cluster = optimal_cluster.replace("-cluster", "")
+
             runtime_map = {
                 "SESSION_NAME": f"cai-session-{session_id[:8]}",
-                "HUB_NAMESPACE": settings.managed_cluster_namespace,
-                "TARGET_NAMESPACE": self.namespace,
+                "HUB_NAMESPACE": optimal_cluster, # Use optimal cluster as the namespace for ManifestWork
+                "TARGET_NAMESPACE": "default", # Job runs in default namespace on the spoke
                 "JOB_NAME": f"cai-job-{session_id[:8]}",
                 "AGENT_ALIAS": "default",
                 "SERVICE_ACCOUNT": "default",
@@ -94,10 +99,14 @@ class AdvancedKubernetesService(KubernetesService):
         from kubernetes.client import CustomObjectsApi
         custom_api = CustomObjectsApi()
         try:
+            manifest_namespace = manifestwork['metadata']['namespace']
+            logger.info(f"Attempting to create ManifestWork {manifestwork['metadata']['name']} in namespace {manifest_namespace}")
+            logger.debug(f"ManifestWork body: {manifestwork}")
+            
             result = custom_api.create_namespaced_custom_object(
                 group="work.open-cluster-management.io",
                 version="v1",
-                namespace=settings.managed_cluster_namespace,
+                namespace=manifest_namespace,
                 plural="manifestworks",
                 body=manifestwork
             )
@@ -120,7 +129,7 @@ class AdvancedKubernetesService(KubernetesService):
             runtime_map = {
                 "SESSION_NAME": f"cai-session-{session_id[:8]}-{i}",
                 "HUB_NAMESPACE": settings.managed_cluster_namespace,
-                "TARGET_NAMESPACE": self.namespace,
+                "TARGET_NAMESPACE": get_optimal_cluster(),
                 "JOB_NAME": job_name,
                 "AGENT_ALIAS": agent_config.alias or agent_config.name,
                 "SERVICE_ACCOUNT": "default",
@@ -197,7 +206,7 @@ fi
         runtime_map = {
             "SESSION_NAME": f"cai-session-{session_id[:8]}",
             "HUB_NAMESPACE": settings.managed_cluster_namespace,
-            "TARGET_NAMESPACE": self.namespace,
+            "TARGET_NAMESPACE": get_optimal_cluster(),
             "JOB_NAME": job_name,
             "AGENT_ALIAS": "default",
             "SERVICE_ACCOUNT": "default",
@@ -277,7 +286,7 @@ fi
         runtime_map = {
             "SESSION_NAME": f"cai-session-{session_id[:8]}",
             "HUB_NAMESPACE": settings.managed_cluster_namespace,
-            "TARGET_NAMESPACE": self.namespace,
+            "TARGET_NAMESPACE": get_optimal_cluster(),
             "JOB_NAME": job_name,
             "AGENT_ALIAS": "default",
             "SERVICE_ACCOUNT": "default",

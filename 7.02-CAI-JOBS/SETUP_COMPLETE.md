@@ -12,6 +12,7 @@ Your CAI-JOBS project now has pre-commit hooks configured and working properly.
    - `pyproject.toml` - Black and isort settings
 
 ## Active Hooks
+uvicorn main:app --host 0.0.0.0 --port 8000 --log-level debug
 
 ✅ **Trailing whitespace removal**
 ✅ **End-of-file fixing**

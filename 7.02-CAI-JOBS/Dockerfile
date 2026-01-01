@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY main.py .
 COPY app/ ./app
 COPY ui/ ./ui
+COPY manifest/ ./manifest
 RUN mkdir -p /app/storage
 RUN chmod -R 777 /app/storage
 RUN touch /app/storage/scans_results.json

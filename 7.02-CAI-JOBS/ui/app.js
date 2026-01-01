@@ -37,7 +37,7 @@ function showTab(tabName, el) {
 async function loadSessions() {
     const container = document.getElementById('sessions-list');
     container.innerHTML = '<div class="loading">Loading sessions...</div>';
-    
+
     try {
         const response = await fetch(`${API_BASE}/api/sessions`);
         if (!response.ok) {
@@ -74,7 +74,7 @@ async function loadSessions() {
                 <div class="session-actions">
                     <button class="btn btn-primary btn-small" onclick="viewDetails('${session.id}', 'basic')">Details</button>
                     <button class="btn btn-secondary btn-small" onclick="viewLogs('${session.id}')">Logs</button>
-                    <button class="btn btn-secondary btn-small" onclick="viewResult('${session.id}', 'basic')">Result</button>
+                    <button class="btn btn-secondary btn-small" onclick="viewResults('${session.id}')">Result</button>
                     <button class="btn btn-danger btn-small" onclick="deleteSession('${session.id}', 'basic')">Delete</button>
                 </div>
             </div>
@@ -89,7 +89,7 @@ async function loadSessions() {
 async function loadAdvancedSessions() {
     const container = document.getElementById('advanced-sessions-list');
     container.innerHTML = '<div class="loading">Loading advanced sessions...</div>';
-    
+
     try {
         const response = await fetch(`${API_BASE}/api/v2/sessions`);
         if (!response.ok) {
@@ -215,7 +215,7 @@ async function loadManifestWorks() {
 async function loadJobs() {
     const container = document.getElementById('jobs-list');
     container.innerHTML = '<div class="loading">Loading jobs...</div>';
-    
+
     try {
         let response = await fetch(`${API_BASE}/api/v2/sessions/jobs`);
         // Fallback to legacy endpoint if advanced API not available
@@ -256,7 +256,7 @@ async function loadJobs() {
                         ${job.labels && Object.keys(job.labels).length > 0 ? `
                         <div class="info-row">
                             <span class="info-label">Labels:</span>
-                            <span class="info-value">${Object.entries(job.labels).map(([k,v]) => `${k}=${v}`).join(', ')}</span>
+                            <span class="info-value">${Object.entries(job.labels).map(([k, v]) => `${k}=${v}`).join(', ')}</span>
                         </div>
                         ` : ''}
                     </div>
@@ -550,7 +550,7 @@ async function viewJobDetails(name) {
 // View Logs Enhanced with real-time updates
 async function viewLogsEnhanced(sessionId, isAdvanced = false) {
     const endpoint = isAdvanced ? `/api/v2/sessions/${sessionId}/logs` : `/api/sessions/${sessionId}/logs`;
-    
+
     document.getElementById('details-title').textContent = 'Session Logs (Live)';
     document.getElementById('details-content').innerHTML = `
         <div class="logs-container" id="live-logs">
@@ -562,7 +562,7 @@ async function viewLogsEnhanced(sessionId, isAdvanced = false) {
         </div>
     `;
     document.getElementById('details-modal').style.display = 'block';
-    
+
     await refreshLogs(sessionId, isAdvanced);
 }
 
@@ -576,13 +576,13 @@ async function refreshLogs(sessionId, isAdvanced) {
     try {
         const endpoint = isAdvanced ? `/api/v2/sessions/${sessionId}/logs` : `/api/sessions/${sessionId}/logs`;
         const response = await fetch(`${API_BASE}${endpoint}`);
-        
+
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
-        
+
         const logsContainer = document.getElementById('live-logs');
         if (data.logs) {
             logsContainer.innerHTML = `<pre>${escapeHtml(data.logs)}</pre>`;
@@ -620,13 +620,13 @@ async function viewResult(sessionId, type) {
     try {
         const endpoint = type === 'advanced' ? `/api/v2/sessions/${sessionId}/results` : `/api/sessions/${sessionId}/result`;
         const response = await fetch(`${API_BASE}${endpoint}`);
-        
+
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        
+
         const result = await response.json();
-        
+
         document.getElementById('details-title').textContent = 'Session Result';
         document.getElementById('details-content').innerHTML = `
             <div class="result-section">
@@ -659,7 +659,7 @@ async function viewResult(sessionId, type) {
                 ` : ''}
             </div>
         `;
-        
+
         document.getElementById('details-modal').style.display = 'block';
     } catch (error) {
         console.error('Error loading result:', error);
@@ -679,7 +679,31 @@ async function viewResults(sessionId) {
             response = await fetch(`${API_BASE}/api/v2/sessions/${sessionId}/results`);
             isWebhook = true;
         }
+        // Fallback for basic sessions if v2 also fails (e.g. 404 or 500)
+        if (!response.ok) {
+            console.log('v2 result failed, trying basic session result');
+            response = await fetch(`${API_BASE}/api/sessions/${sessionId}/result`);
+            isWebhook = false;
+        }
         results = await response.json();
+
+        // If fallback was used and we have raw file_content, try to parse it as JSON to populate scan_report/fields
+        if (results.file_content && typeof results.file_content === 'string') {
+            try {
+                const parsed = JSON.parse(results.file_content);
+                // If the parsed content looks like a scan report or webhook payload, merge it
+                if (parsed.scan_report || parsed.scan_summary || parsed.repository) {
+                    results = { ...results, ...parsed };
+                } else {
+                    // Maybe the root itself is the report
+                    if (parsed.summary && parsed.risk_level) {
+                        results.scan_report = parsed;
+                    }
+                }
+            } catch (e) {
+                // Not JSON, ignore
+            }
+        }
 
         window.lastResults = results;
         document.getElementById('details-title').textContent = 'Session Results';
@@ -690,50 +714,50 @@ async function viewResults(sessionId) {
         }
         document.getElementById('details-content').innerHTML = html;
         document.getElementById('details-modal').style.display = 'block';
-    // Show raw scan_report JSON in a modal
-    function showRawScanReport() {
-        try {
-            const detailsModal = document.getElementById('details-modal');
-            const detailsTitle = document.getElementById('details-title');
-            const detailsContent = document.getElementById('details-content');
-            let scanReport = null;
-            if (window.lastResults && window.lastResults.scan_report) {
-                scanReport = window.lastResults.scan_report;
-            }
-            if (!scanReport) {
-                showError('No scan report found');
-                return;
-            }
-            detailsTitle.textContent = 'Raw Scan Report JSON';
-            detailsContent.innerHTML = `
+        // Show raw scan_report JSON in a modal
+        function showRawScanReport() {
+            try {
+                const detailsModal = document.getElementById('details-modal');
+                const detailsTitle = document.getElementById('details-title');
+                const detailsContent = document.getElementById('details-content');
+                let scanReport = null;
+                if (window.lastResults && window.lastResults.scan_report) {
+                    scanReport = window.lastResults.scan_report;
+                }
+                if (!scanReport) {
+                    showError('No scan report found');
+                    return;
+                }
+                detailsTitle.textContent = 'Raw Scan Report JSON';
+                detailsContent.innerHTML = `
                 <div style="margin-bottom:1em;"><button class="btn btn-secondary btn-small" onclick="closeDetailsModal()">Close</button></div>
                 <pre style="background:#222;color:#fff;padding:1em;border-radius:6px;max-height:60vh;overflow:auto;">${escapeHtml(JSON.stringify(scanReport, null, 2))}</pre>
             `;
-            detailsModal.style.display = 'block';
-        } catch (e) {
-            showError('Failed to show raw scan report');
+                detailsModal.style.display = 'block';
+            } catch (e) {
+                showError('Failed to show raw scan report');
+            }
         }
-    }
     } catch (error) {
         console.error('Error loading results:', error);
         showError('Failed to load results');
     }
-// Show raw webhook result JSON in a modal
-async function viewWebhookRawResult(sessionId) {
-    try {
-        const response = await fetch(`${API_BASE}/api/webhooks/result/${sessionId}?raw_file=true`);
-        const data = await response.json();
-        document.getElementById('details-title').textContent = 'Raw Webhook Result JSON';
-        document.getElementById('details-content').innerHTML = `
+    // Show raw webhook result JSON in a modal
+    async function viewWebhookRawResult(sessionId) {
+        try {
+            const response = await fetch(`${API_BASE}/api/webhooks/result/${sessionId}?raw_file=true`);
+            const data = await response.json();
+            document.getElementById('details-title').textContent = 'Raw Webhook Result JSON';
+            document.getElementById('details-content').innerHTML = `
             <div style="margin-bottom:1em;"><button class="btn btn-secondary btn-small" onclick="closeDetailsModal()">Close</button></div>
             <pre style="background:#222;color:#fff;padding:1em;border-radius:6px;max-height:60vh;overflow:auto;">${escapeHtml(JSON.stringify(data, null, 2))}</pre>
         `;
-        document.getElementById('details-modal').style.display = 'block';
-    } catch (error) {
-        console.error('Error loading raw webhook result:', error);
-        showError('Failed to load raw webhook result');
+            document.getElementById('details-modal').style.display = 'block';
+        } catch (error) {
+            console.error('Error loading raw webhook result:', error);
+            showError('Failed to load raw webhook result');
+        }
     }
-}
 }
 
 // Render results with sections and collapsible outputs
@@ -919,7 +943,7 @@ function renderResults(results) {
         html += `</div>`;
     }
 
-    if (!flags.length && !vulns.length && agentKeys.length === 0) {
+    if (!flags.length && !vulns.length && agentKeys.length === 0 && !results.scan_report && !scan_summary) {
         html += `<div class="empty-state"><h3>No results yet</h3><p>Try again when jobs complete.</p></div>`;
     }
 
@@ -980,7 +1004,7 @@ function showToast(message, type = 'info') {
     toast.className = `toast ${type}`;
     toast.textContent = message;
     document.body.appendChild(toast);
-    
+
     setTimeout(() => {
         toast.style.animation = 'slideIn 0.3s reverse';
         setTimeout(() => toast.remove(), 300);

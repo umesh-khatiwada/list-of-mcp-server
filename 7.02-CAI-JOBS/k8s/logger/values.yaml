@@ -1,0 +1,209 @@
+# Loki Monolithic Deployment Configuration
+# Deploy with: helm install loki grafana/loki -f values.yaml -n loki --create-namespace
+
+loki:
+  # Authentication
+  auth_enabled: false
+  
+  # Common configuration
+  commonConfig:
+    replication_factor: 1
+  
+  # Storage configuration
+  storage:
+    type: filesystem
+    filesystem:
+      chunks_directory: /var/loki/chunks
+      rules_directory: /var/loki/rules
+    
+    # For production, use object storage like S3, GCS, or Azure
+    # bucketNames:
+    #   chunks: loki-chunks
+    #   ruler: loki-ruler
+    #   admin: loki-admin
+    # s3:
+    #   endpoint: s3.amazonaws.com
+    #   region: us-east-1
+    #   secretAccessKey: ${S3_SECRET_KEY}
+    #   accessKeyId: ${S3_ACCESS_KEY}
+    #   s3ForcePathStyle: false
+    #   insecure: false
+
+  # Schema configuration
+  schemaConfig:
+    configs:
+      - from: 2024-01-01
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: index_
+          period: 24h
+
+  # Limits configuration
+  limits_config:
+    retention_period: 744h  # 31 days
+    reject_old_samples: true
+    reject_old_samples_max_age: 168h
+    max_cache_freshness_per_query: 10m
+    split_queries_by_interval: 15m
+    ingestion_rate_mb: 10
+    ingestion_burst_size_mb: 20
+    per_stream_rate_limit: 5MB
+    per_stream_rate_limit_burst: 15MB
+    max_query_length: 721h
+    max_query_lookback: 0
+
+  # Compactor configuration (cleanup)
+  compactor:
+    working_directory: /var/loki/compactor
+    retention_enabled: true
+    retention_delete_delay: 2h
+    retention_delete_worker_count: 150
+    delete_request_store: filesystem
+    # Compact more frequently for better performance
+    compaction_interval: 10m
+
+  # Query configuration
+  query_scheduler:
+    max_outstanding_requests_per_tenant: 32000
+
+  querier:
+    max_concurrent: 4
+
+  # Server configuration
+  server:
+    http_listen_port: 3100
+    grpc_listen_port: 9095
+    log_level: info
+
+# Deployment mode
+deploymentMode: SingleBinary
+
+singleBinary:
+  replicas: 1
+  
+  # Resource limits
+  resources:
+    limits:
+      cpu: 2
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  
+  # Persistence - Essential for retaining logs after restart
+  persistence:
+    enabled: true
+    size: 20Gi
+    storageClass: "standard"  # Explicitly request standard class if available
+  
+  # Extra environment variables
+  extraEnv: []
+    # - name: S3_ACCESS_KEY
+    #   valueFrom:
+    #     secretKeyRef:
+    #       name: loki-s3-secret
+    #       key: access-key
+  
+  # Node selector
+  nodeSelector: {}
+  
+  # Tolerations
+  tolerations: []
+  
+  # Affinity
+  affinity: {}
+
+# Monitoring
+monitoring:
+  selfMonitoring:
+    enabled: false
+    grafanaAgent:
+      installOperator: false
+  
+  serviceMonitor:
+    enabled: false
+  
+  rules:
+    enabled: false
+    alerting: false
+
+# Disable ruler and sidecar
+ruler:
+  enabled: false
+
+# CRITICAL: Disable the problematic sidecar container
+sidecar:
+  rules:
+    enabled: false
+    searchNamespace: null
+  datasources:
+    enabled: false
+
+# Ensure no extra containers
+singleBinary:
+  extraContainers: []
+
+# Testing
+test:
+  enabled: false
+
+# Gateway (nginx) - optional, for production use
+gateway:
+  enabled: true
+  replicas: 1
+  image:
+    registry: docker.io
+    repository: nginxinc/nginx-unprivileged
+    tag: 1.25-alpine
+  
+  service:
+    type: ClusterIP
+    port: 80
+  
+  ingress:
+    enabled: false
+    # ingressClassName: nginx
+    # hosts:
+    #   - host: loki.example.com
+    #     paths:
+    #       - path: /
+    #         pathType: Prefix
+    # tls:
+    #   - secretName: loki-tls
+    #     hosts:
+    #       - loki.example.com
+
+# Backend (for read/write paths) - not needed in monolithic
+backend:
+  replicas: 0
+
+read:
+  replicas: 0
+
+write:
+  replicas: 0
+
+# Disable components not needed in monolithic mode
+chunksCache:
+  enabled: false
+
+resultsCache:
+  enabled: false
+
+# Loki Canary - optional log generator for testing
+lokiCanary:
+  enabled: false
+
+# Promtail (log shipper) - deploy separately if needed
+# This is just for reference, usually deployed as a separate chart
+promtail:
+  enabled: false
+
+# Fluent-bit (alternative log shipper)
+fluent-bit:
+  enabled: false
+
+# Log shippers configuration (if using separate deployment)
+# Deploy with: helm install promtail grafana/promtail -f promtail-values.yaml

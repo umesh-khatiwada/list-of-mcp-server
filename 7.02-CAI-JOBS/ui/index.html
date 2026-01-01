@@ -1,15 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CAI Kubernetes Job Manager</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <div class="container">
         <header>
-            <h1>🚀 CAI Kubernetes Job Manager</h1>
+            <h1>CAI Job Manager</h1>
+            <button id="refresh-btn" class="btn btn-primary">Refresh Data</button>
+        </header>
+
+        <!-- Cluster Status Section -->
+        <section id="cluster-status">
+            <h2 style="margin-bottom: 1rem; font-size: 1.25rem;">Cluster Health</h2>
+            <div id="cluster-grid" class="cluster-grid">
+                <!-- Cluster cards will be injected here -->
+                <div class="cluster-card">
+                    <div class="cluster-name">Loading clusters...</div>
+                </div>
+            </div>
+        </section>
+
+        <main>
             <div class="header-actions">
                 <div class="connection-status" id="connectionStatus">
                     <span class="status-indicator" id="statusIndicator"></span>
@@ -17,89 +34,90 @@
                 </div>
                 <button class="btn btn-primary" onclick="showCreateSession()">+ New Session</button>
             </div>
-        </header>
+            </header>
 
-        <div class="tabs">
-            <button class="tab-btn active" onclick="showTab('sessions', this)">Sessions</button>
-            <button class="tab-btn" onclick="showTab('advanced', this)">Advanced Sessions</button>
-            <button class="tab-btn" onclick="showTab('jobs', this)">Kubernetes Jobs</button>
-            <button class="tab-btn" onclick="showTab('mcp', this)">MCP Servers</button>
-            <button class="tab-btn" onclick="showTab('agents', this)">Agents</button>
-        </div>
-
-        <!-- Sessions Tab -->
-        <div id="sessions-tab" class="tab-content active">
-            <div class="tab-header">
-                <h2>Active Sessions</h2>
-                <button class="btn btn-secondary" onclick="loadSessions()">Refresh</button>
+            <div class="tabs">
+                <button class="tab-btn active" onclick="showTab('sessions', this)">Sessions</button>
+                <button class="tab-btn" onclick="showTab('advanced', this)">Advanced Sessions</button>
+                <button class="tab-btn" onclick="showTab('jobs', this)">Kubernetes Jobs</button>
+                <button class="tab-btn" onclick="showTab('mcp', this)">MCP Servers</button>
+                <button class="tab-btn" onclick="showTab('agents', this)">Agents</button>
             </div>
-            <div id="sessions-list" class="card-grid"></div>
-        </div>
 
-        <!-- Advanced Sessions Tab -->
-        <div id="advanced-tab" class="tab-content">
-            <div class="tab-header">
-                <h2>Advanced Sessions</h2>
-                <div>
-                    <button class="btn btn-secondary" onclick="loadAdvancedSessions()">Refresh</button>
-                    <button class="btn btn-primary" onclick="showAdvancedSessionModal()">+ New Advanced Session</button>
+            <!-- Sessions Tab -->
+            <div id="sessions-tab" class="tab-content active">
+                <div class="tab-header">
+                    <h2>Active Sessions</h2>
+                    <button class="btn btn-secondary" onclick="loadSessions()">Refresh</button>
+                </div>
+                <div id="sessions-list" class="card-grid"></div>
+            </div>
+
+            <!-- Advanced Sessions Tab -->
+            <div id="advanced-tab" class="tab-content">
+                <div class="tab-header">
+                    <h2>Advanced Sessions</h2>
+                    <div>
+                        <button class="btn btn-secondary" onclick="loadAdvancedSessions()">Refresh</button>
+                        <button class="btn btn-primary" onclick="showAdvancedSessionModal()">+ New Advanced
+                            Session</button>
+                    </div>
+                </div>
+                <div id="advanced-sessions-list" class="card-grid"></div>
+            </div>
+
+            <!-- Jobs Tab -->
+            <div id="jobs-tab" class="tab-content">
+                <div class="tab-header">
+                    <h2>Kubernetes Jobs</h2>
+                    <button class="btn btn-secondary" onclick="loadJobs()">Refresh</button>
+                </div>
+                <div id="jobs-list" class="card-grid"></div>
+            </div>
+
+            <!-- MCP Tab -->
+            <div id="mcp-tab" class="tab-content">
+                <div class="tab-header">
+                    <h2>MCP Server Testing</h2>
+                </div>
+                <div class="mcp-test-form">
+                    <div class="form-group">
+                        <label>Transport Type:</label>
+                        <select id="mcp-transport" onchange="toggleMCPFields()">
+                            <option value="sse">SSE (Server-Sent Events)</option>
+                            <option value="stdio">STDIO (Standard I/O)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="url-group">
+                        <label>Server URL:</label>
+                        <input type="text" id="mcp-url" placeholder="http://localhost:9876/sse">
+                    </div>
+                    <div class="form-group" id="command-group" style="display: none;">
+                        <label>Command:</label>
+                        <input type="text" id="mcp-command" placeholder="python mcp_server.py">
+                    </div>
+                    <div class="form-group">
+                        <label>Server Name:</label>
+                        <input type="text" id="mcp-name" placeholder="mcp-server">
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-inline">
+                            <input type="checkbox" id="mcp-insecure"> Allow insecure connections
+                        </label>
+                    </div>
+                    <button class="btn btn-primary" onclick="testMCPConnection()">Test Connection</button>
+                    <div id="mcp-results" class="mcp-results"></div>
                 </div>
             </div>
-            <div id="advanced-sessions-list" class="card-grid"></div>
-        </div>
 
-        <!-- Jobs Tab -->
-        <div id="jobs-tab" class="tab-content">
-            <div class="tab-header">
-                <h2>Kubernetes Jobs</h2>
-                <button class="btn btn-secondary" onclick="loadJobs()">Refresh</button>
+            <!-- Agents Tab -->
+            <div id="agents-tab" class="tab-content">
+                <div class="tab-header">
+                    <h2>Available Agents</h2>
+                    <button class="btn btn-secondary" onclick="loadAgents()">Refresh</button>
+                </div>
+                <div id="agents-list" class="agent-list"></div>
             </div>
-            <div id="jobs-list" class="card-grid"></div>
-        </div>
-
-        <!-- MCP Tab -->
-        <div id="mcp-tab" class="tab-content">
-            <div class="tab-header">
-                <h2>MCP Server Testing</h2>
-            </div>
-            <div class="mcp-test-form">
-                <div class="form-group">
-                    <label>Transport Type:</label>
-                    <select id="mcp-transport" onchange="toggleMCPFields()">
-                        <option value="sse">SSE (Server-Sent Events)</option>
-                        <option value="stdio">STDIO (Standard I/O)</option>
-                    </select>
-                </div>
-                <div class="form-group" id="url-group">
-                    <label>Server URL:</label>
-                    <input type="text" id="mcp-url" placeholder="http://localhost:9876/sse">
-                </div>
-                <div class="form-group" id="command-group" style="display: none;">
-                    <label>Command:</label>
-                    <input type="text" id="mcp-command" placeholder="python mcp_server.py">
-                </div>
-                <div class="form-group">
-                    <label>Server Name:</label>
-                    <input type="text" id="mcp-name" placeholder="mcp-server">
-                </div>
-                <div class="form-group">
-                    <label class="checkbox-inline">
-                        <input type="checkbox" id="mcp-insecure"> Allow insecure connections
-                    </label>
-                </div>
-                <button class="btn btn-primary" onclick="testMCPConnection()">Test Connection</button>
-                <div id="mcp-results" class="mcp-results"></div>
-            </div>
-        </div>
-
-        <!-- Agents Tab -->
-        <div id="agents-tab" class="tab-content">
-            <div class="tab-header">
-                <h2>Available Agents</h2>
-                <button class="btn btn-secondary" onclick="loadAgents()">Refresh</button>
-            </div>
-            <div id="agents-list" class="agent-list"></div>
-        </div>
     </div>
 
     <!-- Create Session Modal -->
@@ -200,6 +218,7 @@
         </div>
     </div>
 
+    <script src="cluster-status.js"></script>
     <script src="app.js"></script>
     <script>
         // Enhanced connection status monitoring
@@ -223,7 +242,7 @@
         function updateConnectionStatus(connected) {
             const indicator = document.getElementById('statusIndicator');
             const text = document.getElementById('statusText');
-            
+
             if (connected) {
                 indicator.className = 'status-indicator connected';
                 text.textContent = 'Connected';
@@ -252,7 +271,7 @@
             if (refreshIntervals[tabName]) {
                 clearInterval(refreshIntervals[tabName]);
             }
-            
+
             refreshIntervals[tabName] = setInterval(() => {
                 if (document.hasFocus()) {
                     if (tabName === 'sessions') loadSessions();
@@ -264,10 +283,11 @@
 
         // Override showTab to start auto-refresh
         const originalShowTab = showTab;
-        showTab = function(tabName, el) {
+        showTab = function (tabName, el) {
             originalShowTab(tabName, el);
             startAutoRefresh(tabName);
         };
     </script>
 </body>
+
 </html>

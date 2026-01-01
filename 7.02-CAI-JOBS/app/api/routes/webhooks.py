@@ -40,11 +40,27 @@ async def receive_webhook(session_id: str, request: Request):
             files = payload.get("files")
             security_analysis = payload.get("security_analysis")
             recommendations = payload.get("recommendations")
-            # Save the payload to disk
+            # Save the payload to disk, merging with existing data if present
             save_path = f"/tmp/webhook_payload_{session_id}.json"
+            
+            existing_data = {}
+            if os.path.exists(save_path):
+                try:
+                    with open(save_path, "r") as f:
+                        import json as _json
+                        existing_data = _json.load(f)
+                        if not isinstance(existing_data, dict):
+                            existing_data = {}
+                except Exception:
+                    existing_data = {}
+            
+            # Merge new payload into existing data
+            if isinstance(payload, dict):
+                existing_data.update(payload)
+                
             with open(save_path, "w") as f:
                 import json as _json
-                _json.dump(payload, f, indent=2)
+                _json.dump(existing_data, f, indent=2)
         except Exception:
             # If not a dict, treat as raw JSON file (string)
             file_content = await request.body()
@@ -57,10 +73,39 @@ async def receive_webhook(session_id: str, request: Request):
             files = None
             security_analysis = None
             recommendations = None
-            # Save the raw file_content to disk
+            
+            # Save the raw file_content to disk (merge if possible if it's JSON)
             save_path = f"/tmp/webhook_payload_{sid}.json"
-            with open(save_path, "w") as f:
-                f.write(file_content)
+            
+            existing_data = {}
+            if os.path.exists(save_path):
+                try:
+                    with open(save_path, "r") as f:
+                        import json as _json
+                        existing_data = _json.load(f)
+                except Exception:
+                    pass
+
+            # Try to parse new content as JSON to merge
+            import json
+            try:
+                parsed = json.loads(file_content)
+                if isinstance(parsed, dict):
+                    if isinstance(existing_data, dict):
+                        existing_data.update(parsed)
+                    else:
+                        existing_data = parsed
+                    
+                    with open(save_path, "w") as f:
+                        json.dump(existing_data, f, indent=2)
+                else:
+                    # Not a dict, just overwrite
+                    with open(save_path, "w") as f:
+                        f.write(file_content)
+            except Exception:
+                # Not JSON, overwrite
+                with open(save_path, "w") as f:
+                    f.write(file_content)
             # Optionally, try to extract session_id and scan fields if present in JSON
             import json
             try:

@@ -1,0 +1,49 @@
+# alloy/values-alloy.yaml
+
+alloy:
+  # Listen on all interfaces so external LB can reach it
+  listenAddr: "0.0.0.0"
+  listenPort: 12345
+
+  # Optional: enable HTTP server port (for UI / metrics)
+  enableHttpServerPort: true
+
+  # Optional: extra environment variables
+  extraEnv:
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+
+  # Optional: resource limits
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 200m
+
+# Controller (Deployment/DaemonSet/StatefulSet)
+controller:
+  type: deployment
+  replicas: 1
+  # Optional: node selector / tolerations if needed
+  # nodeSelector: {}
+  # tolerations: []
+
+# Service (expose as LoadBalancer)
+service:
+  enabled: true
+  type: LoadBalancer
+  port: 12345
+  targetPort: 12345
+  # Optional: static IP (cloud-specific)
+  # loadBalancerIP: "your-static-ip"
+  # Optional: annotations (e.g. AWS NLB, GCP internal LB, etc.)
+  annotations:
+    # Example: AWS NLB
+    # service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    # service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    # Example: GCP internal LB
+    # cloud.google.com/load-balancer-type: "Internal"

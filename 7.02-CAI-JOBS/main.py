@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import health, mcp, sessions, webhooks
+from app.api.routes import health, mcp, sessions, webhooks, monitoring
 
 try:
     from app.api.routes import advanced_sessions
@@ -96,6 +96,7 @@ if advanced_available:
 app.include_router(mcp.router)
 app.include_router(health.router)
 app.include_router(webhooks.router)
+app.include_router(monitoring.router)
 
 # Serve static files for UI
 app.mount("/", StaticFiles(directory="ui", html=True), name="ui")
