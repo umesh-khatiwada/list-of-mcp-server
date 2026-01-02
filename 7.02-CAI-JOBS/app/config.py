@@ -26,6 +26,7 @@ class Settings:
     )  # Default to alias1 for cybersecurity
     cai_stream: str = os.getenv("CAI_STEAM", "true")  # Disable streaming for K8s
     cai_agent_type: str = os.getenv("CAI_AGENT_TYPE", "redteam_agent")
+    cai_debug_level: int = int(os.getenv("CAI_DEBUG_LEVEL", "0"))
 
     # Webhook Configuration
     webhook_url: str = os.getenv("WEBHOOK_URL", "")
@@ -89,9 +90,10 @@ class Settings:
 
     def _setup_logging(self):
         """Setup secure logging configuration."""
+        level = logging.DEBUG if self.cai_debug_level > 0 else logging.INFO
         if self.enable_audit_logging:
             logging.basicConfig(
-                level=logging.INFO,
+                level=level,
                 format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             )
 

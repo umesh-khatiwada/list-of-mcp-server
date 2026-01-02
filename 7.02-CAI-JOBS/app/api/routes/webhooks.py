@@ -169,21 +169,55 @@ async def get_webhook_result(session_id: str, raw_file: bool = Query(False, desc
         with open(save_path, "r") as f:
             file_content = f.read()
         logger.debug(f"[DEBUG] Loaded file content for session {session_id} (first 500 chars): {file_content[:500]}")
+        
         if raw_file:
             from fastapi.responses import PlainTextResponse
             return PlainTextResponse(file_content)
-        import json
-        try:
-            parsed_json = json.loads(file_content)
-            logger.debug(f"[DEBUG] Parsed JSON for session {session_id}: {parsed_json}")
-            response = {"session_id": session_id, "parsed_file_content": parsed_json}
-            if isinstance(parsed_json, dict):
-                for key, value in parsed_json.items():
-                    if key != "session_id":
-                        response[key] = value
-            return response
-        except Exception:
-            return {"session_id": session_id, "parsed_file_content": file_content}
+
+        # Attempt to parse as JSONL (multiple lines of JSON)
+        merged_result = {
+            "session_id": session_id,
+            "flags_found": [],
+            "vulnerabilities": [],
+            "outputs": {}
+        }
+        
+        lines = file_content.strip().split('\n')
+        for line in lines:
+            try:
+                data = json.loads(line)
+                if isinstance(data, dict):
+                    # Merge top-level fields
+                    if "repository" in data: merged_result["repository"] = data["repository"]
+                    if "scan_summary" in data: merged_result["scan_summary"] = data["scan_summary"]
+                    if "scan_report" in data: merged_result["scan_report"] = data["scan_report"]
+                    if "security_analysis" in data: merged_result["security_analysis"] = data["security_analysis"]
+                    if "recommendations" in data: merged_result["recommendations"] = data["recommendations"]
+                    if "status" in data: merged_result["status"] = data["status"]
+                    
+                    # Accumulate lists
+                    if "flags_found" in data and isinstance(data["flags_found"], list):
+                        merged_result["flags_found"].extend(data["flags_found"])
+                    if "vulnerabilities" in data and isinstance(data["vulnerabilities"], list):
+                        merged_result["vulnerabilities"].extend(data["vulnerabilities"])
+                        
+                    # Merge outputs via agent type if available
+                    if "agent_type" in data and "output" in data:
+                        merged_result["outputs"][data["agent_type"]] = data["output"]
+                        
+            except Exception:
+                pass
+                
+        # If we found nothing structured, try parsing the whole file as a single JSON
+        if not merged_result.get("repository") and not merged_result["flags_found"]:
+             try:
+                parsed_json = json.loads(file_content)
+                logger.debug(f"[DEBUG] Parsed single JSON for session {session_id}")
+                return parsed_json
+             except Exception:
+                 pass
+
+        return merged_result
     except Exception as e:
         logger.debug(f"[DEBUG] Error loading or parsing file for session {session_id}: {e}")
         return JSONResponse(status_code=404, content={"error": f"No result found for this session. Error: {e}"})

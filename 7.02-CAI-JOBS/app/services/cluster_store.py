@@ -18,9 +18,12 @@ def get_cluster_metrics(cluster_name: str) -> Optional[Dict]:
     """Get metrics for a specific cluster."""
     return cluster_metrics_store.get(cluster_name)
 
-def get_all_clusters() -> Dict[str, Dict]:
-    """Get metrics for all clusters."""
-    return cluster_metrics_store
+def get_all_clusters() -> Dict[str, Any]:
+    """Get metrics for all clusters with current server timestamp."""
+    return {
+        "clusters": cluster_metrics_store,
+        "server_time": datetime.now().isoformat()
+    }
 
 def get_optimal_cluster() -> str:
     """
@@ -48,6 +51,8 @@ def get_optimal_cluster() -> str:
         # Scoring: Product of CPU and Memory (favors balanced/large nodes)
         # Using product ensures that if either is near-zero, the score is near-zero.
         score = available_cpu * available_memory_gb
+        
+        logger.debug(f"Cluster {name}: CPU={available_cpu:.2f}, Mem={available_memory_gb:.2f}GB, Score={score:.2f}")
         
         if score > max_score:
             max_score = score

@@ -9,8 +9,9 @@ async function loadClusterStatus() {
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
-        const clusters = await response.json();
-
+        const data = await response.json();
+        const clusters = data.clusters || {};
+        const serverTime = new Date(data.server_time || new Date());
         const clusterNames = Object.keys(clusters);
 
         if (clusterNames.length === 0) {
@@ -26,12 +27,20 @@ async function loadClusterStatus() {
         container.innerHTML = clusterNames.map(name => {
             const metrics = clusters[name];
             const lastUpdated = new Date(metrics.last_updated);
-            const now = new Date();
-            const diffSeconds = (now - lastUpdated) / 1000;
-            const isOnline = diffSeconds < 60; // Consider online if updated in last 60s
+            const diffSeconds = (serverTime - lastUpdated) / 1000;
+            const isOnline = diffSeconds < 600; // Consider online if updated in last 10 minutes
 
             const cpu = metrics.cpu_usage || 0;
             const mem = metrics.memory_usage || 0;
+
+            let timeAgoText = '';
+            if (diffSeconds < 60) {
+                timeAgoText = 'Just now';
+            } else if (diffSeconds < 3600) {
+                timeAgoText = `${Math.floor(diffSeconds / 60)}m ago`;
+            } else {
+                timeAgoText = `${Math.floor(diffSeconds / 3600)}h ago`;
+            }
 
             return `
                 <div class="cluster-card" style="border-left: 4px solid ${isOnline ? 'var(--success-color)' : 'var(--danger-color)'}">
@@ -59,7 +68,7 @@ async function loadClusterStatus() {
                     </div>
                     
                     <div style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-secondary); text-align: right;">
-                        Last updated: ${lastUpdated.toLocaleTimeString()}
+                        Last updated: ${timeAgoText} (${lastUpdated.toLocaleTimeString()})
                     </div>
                 </div>
             `;

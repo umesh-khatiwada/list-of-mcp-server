@@ -672,36 +672,22 @@ async function viewResults(sessionId) {
     try {
         // Try v2 endpoint first, fallback to webhook result endpoint if 404
         // let response = await fetch(`${API_BASE}/api/v2/sessions/${sessionId}/results`);
-        let response = await fetch(`${API_BASE}/api/webhooks/result/${sessionId}?raw_file=true`);
+        // Use standard webhook result endpoint which now handles JSONL parsing
+        let response = await fetch(`${API_BASE}/api/webhooks/result/${sessionId}`);
         let results;
         let isWebhook = false;
-        if (response.status === 404) {
-            response = await fetch(`${API_BASE}/api/v2/sessions/${sessionId}/results`);
-            isWebhook = true;
-        }
-        // Fallback for basic sessions if v2 also fails (e.g. 404 or 500)
-        if (!response.ok) {
-            console.log('v2 result failed, trying basic session result');
-            response = await fetch(`${API_BASE}/api/sessions/${sessionId}/result`);
-            isWebhook = false;
-        }
-        results = await response.json();
 
-        // If fallback was used and we have raw file_content, try to parse it as JSON to populate scan_report/fields
-        if (results.file_content && typeof results.file_content === 'string') {
-            try {
-                const parsed = JSON.parse(results.file_content);
-                // If the parsed content looks like a scan report or webhook payload, merge it
-                if (parsed.scan_report || parsed.scan_summary || parsed.repository) {
-                    results = { ...results, ...parsed };
-                } else {
-                    // Maybe the root itself is the report
-                    if (parsed.summary && parsed.risk_level) {
-                        results.scan_report = parsed;
-                    }
-                }
-            } catch (e) {
-                // Not JSON, ignore
+        if (response.ok) {
+            results = await response.json();
+            isWebhook = true;
+        } else {
+            // Fallback to legacy
+            response = await fetch(`${API_BASE}/api/sessions/${sessionId}/result`);
+            if (response.ok) {
+                results = await response.json();
+                isWebhook = false;
+            } else {
+                throw new Error('Failed to fetch results from any endpoint');
             }
         }
 
@@ -714,49 +700,51 @@ async function viewResults(sessionId) {
         }
         document.getElementById('details-content').innerHTML = html;
         document.getElementById('details-modal').style.display = 'block';
-        // Show raw scan_report JSON in a modal
-        function showRawScanReport() {
-            try {
-                const detailsModal = document.getElementById('details-modal');
-                const detailsTitle = document.getElementById('details-title');
-                const detailsContent = document.getElementById('details-content');
-                let scanReport = null;
-                if (window.lastResults && window.lastResults.scan_report) {
-                    scanReport = window.lastResults.scan_report;
-                }
-                if (!scanReport) {
-                    showError('No scan report found');
-                    return;
-                }
-                detailsTitle.textContent = 'Raw Scan Report JSON';
-                detailsContent.innerHTML = `
-                <div style="margin-bottom:1em;"><button class="btn btn-secondary btn-small" onclick="closeDetailsModal()">Close</button></div>
-                <pre style="background:#222;color:#fff;padding:1em;border-radius:6px;max-height:60vh;overflow:auto;">${escapeHtml(JSON.stringify(scanReport, null, 2))}</pre>
-            `;
-                detailsModal.style.display = 'block';
-            } catch (e) {
-                showError('Failed to show raw scan report');
-            }
-        }
     } catch (error) {
         console.error('Error loading results:', error);
         showError('Failed to load results');
     }
-    // Show raw webhook result JSON in a modal
-    async function viewWebhookRawResult(sessionId) {
-        try {
-            const response = await fetch(`${API_BASE}/api/webhooks/result/${sessionId}?raw_file=true`);
-            const data = await response.json();
-            document.getElementById('details-title').textContent = 'Raw Webhook Result JSON';
-            document.getElementById('details-content').innerHTML = `
-            <div style="margin-bottom:1em;"><button class="btn btn-secondary btn-small" onclick="closeDetailsModal()">Close</button></div>
-            <pre style="background:#222;color:#fff;padding:1em;border-radius:6px;max-height:60vh;overflow:auto;">${escapeHtml(JSON.stringify(data, null, 2))}</pre>
-        `;
-            document.getElementById('details-modal').style.display = 'block';
-        } catch (error) {
-            console.error('Error loading raw webhook result:', error);
-            showError('Failed to load raw webhook result');
+}
+
+// Show raw scan_report JSON in a modal
+function showRawScanReport() {
+    try {
+        const detailsModal = document.getElementById('details-modal');
+        const detailsTitle = document.getElementById('details-title');
+        const detailsContent = document.getElementById('details-content');
+        let scanReport = null;
+        if (window.lastResults && window.lastResults.scan_report) {
+            scanReport = window.lastResults.scan_report;
         }
+        if (!scanReport) {
+            showError('No scan report found');
+            return;
+        }
+        detailsTitle.textContent = 'Raw Scan Report JSON';
+        detailsContent.innerHTML = `
+        <div style="margin-bottom:1em;"><button class="btn btn-secondary btn-small" onclick="closeDetailsModal()">Close</button></div>
+        <pre style="background:#222;color:#fff;padding:1em;border-radius:6px;max-height:60vh;overflow:auto;">${escapeHtml(JSON.stringify(scanReport, null, 2))}</pre>
+    `;
+        detailsModal.style.display = 'block';
+    } catch (e) {
+        showError('Failed to show raw scan report');
+    }
+}
+
+// Show raw webhook result JSON in a modal
+async function viewWebhookRawResult(sessionId) {
+    try {
+        const response = await fetch(`${API_BASE}/api/webhooks/result/${sessionId}?raw_file=true`);
+        const data = await response.json();
+        document.getElementById('details-title').textContent = 'Raw Webhook Result JSON';
+        document.getElementById('details-content').innerHTML = `
+        <div style="margin-bottom:1em;"><button class="btn btn-secondary btn-small" onclick="closeDetailsModal()">Close</button></div>
+        <pre style="background:#222;color:#fff;padding:1em;border-radius:6px;max-height:60vh;overflow:auto;">${escapeHtml(JSON.stringify(data, null, 2))}</pre>
+    `;
+        document.getElementById('details-modal').style.display = 'block';
+    } catch (error) {
+        console.error('Error loading raw webhook result:', error);
+        showError('Failed to load raw webhook result');
     }
 }
 
@@ -913,7 +901,15 @@ function renderResults(results) {
         <div class="result-section">
             <h3>Vulnerabilities</h3>
             <ul class="result-list">
-                ${vulns.map(v => `<li>${escapeHtml(v)}</li>`).join('')}
+                ${vulns.map(v => {
+            if (typeof v === 'object' && v !== null) {
+                const title = v.title || v.name || 'Unknown Vulnerability';
+                const severity = v.severity || 'Unknown';
+                const desc = v.description || JSON.stringify(v);
+                return `<li><strong>[${escapeHtml(severity)}] ${escapeHtml(title)}</strong><br>${escapeHtml(desc)}</li>`;
+            }
+            return `<li>${escapeHtml(v)}</li>`;
+        }).join('')}
             </ul>
         </div>`;
     }

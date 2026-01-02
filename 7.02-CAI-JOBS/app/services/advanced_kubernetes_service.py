@@ -274,6 +274,9 @@ if [ -d /home/kali/logs ]; then
     # Extract flags
     grep -i "flag{{" "$LOGFILE" > /tmp/flags_found.txt || true
     cat "$LOGFILE" > /tmp/job_logs_content
+    echo "=== BEGIN LOG FILE CONTENT ==="
+    cat "$LOGFILE"
+    echo "=== END LOG FILE CONTENT ==="
   fi
 fi
 # Check if results file was created
@@ -355,8 +358,9 @@ fi
             command_parts.append(f"export CAI_MAX_INTERACTIONS={cost.max_interactions}")
 
         # Debug and tracing
-        if config.debug_level > 0:
-            command_parts.append(f"export CAI_DEBUG={config.debug_level}")
+        debug_level = config.debug_level if config.debug_level > 0 else settings.cai_debug_level
+        if debug_level > 0:
+            command_parts.append(f"export CAI_DEBUG={debug_level}")
 
         if config.tracing_enabled:
             command_parts.append("export CAI_TRACING=true")
@@ -415,6 +419,9 @@ fi
                 '  if [ -n "$LOGFILE" ]; then',
                 '    echo "LOG_FILE_PATH: $LOGFILE"',
                 '    cat "$LOGFILE" > /tmp/job_logs_content',
+                '    echo "=== BEGIN LOG FILE CONTENT ==="',
+                '    cat "$LOGFILE"',
+                '    echo "=== END LOG FILE CONTENT ==="',
                 "    # Extract specific patterns",
                 "    grep -i 'vulnerability\\|exploit\\|flag{' \"$LOGFILE\" > /tmp/findings.txt || true",
                 "  fi",

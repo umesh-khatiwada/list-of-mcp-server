@@ -103,7 +103,7 @@ class KubernetesService:
             client.V1EnvVar(name="OPENAI_API_KEY", value=settings.openai_api_key),
             client.V1EnvVar(name="CAI_STREAM", value=settings.cai_stream),
             client.V1EnvVar(name="CAI_AGENT_TYPE", value=settings.cai_agent_type),
-            client.V1EnvVar(name="CAI_DEBUG", value="0"),
+            client.V1EnvVar(name="CAI_DEBUG", value=str(settings.cai_debug_level)),
             client.V1EnvVar(name="CAI_BRIEF", value="true"),
             client.V1EnvVar(name="LITELLM_DISABLE_AUTH", value="true"),
             # Critical: Set non-interactive mode
@@ -178,8 +178,8 @@ source /home/kali/cai/bin/activate
 # Set environment variables for non-interactive mode
 export CAI_MODEL={settings.cai_model}
 export CAI_AGENT_TYPE={settings.cai_agent_type}
-export CAI_STREAM=false
-export CAI_DEBUG=0
+# export CAI_STREAM is handled by env var passed to container
+# export CAI_DEBUG is handled by env var passed to container
 export CAI_BRIEF=true
 export CAI_MAX_TURNS=50
 export CAI_PRICE_LIMIT=10.0
@@ -250,6 +250,9 @@ if [ -d /home/kali/logs ]; then
         cat "$LOGFILE" > /tmp/job_logs_content
         LINE_COUNT=$(wc -l < "$LOGFILE" 2>/dev/null || echo "0")
         echo "Log file captured: ${{LINE_COUNT}} lines"
+        echo "=== BEGIN LOG FILE CONTENT ==="
+        cat "$LOGFILE"
+        echo "=== END LOG FILE CONTENT ==="
     else
         echo "No JSONL log file found"
     fi
@@ -410,7 +413,7 @@ fi
                     try:
                         # Query Loki trying several common label keys to discover streams
                         now_ns = int(time.time() * 1e9)
-                        start_ns = now_ns - int(3600 * 1e9)  # last 1 hour
+                        start_ns = now_ns - int(86400 * 1e9)  # last 24 hours
                         loki_endpoint = f"{settings.loki_url.rstrip('/')}/loki/api/v1/query_range"
                         session_id_short = session_id[:8]
 
@@ -429,7 +432,7 @@ fi
                             try:
                                 params = {
                                     "query": q,
-                                    "limit": 500,
+                                    "limit": 5000,
                                     "direction": "backward",
                                     "start": start_ns,
                                     "end": now_ns,
@@ -483,7 +486,7 @@ fi
             if settings.loki_url:
                 try:
                     now_ns = int(time.time() * 1e9)
-                    start_ns = now_ns - int(3600 * 1e9)  # last 1 hour
+                    start_ns = now_ns - int(86400 * 1e9)  # last 24 hours
 
                     # Get labels from pod metadata
                     job_label = None
@@ -515,7 +518,7 @@ fi
                         try:
                             params = {
                                 "query": q,
-                                "limit": 500,
+                                "limit": 5000,
                                 "direction": "backward",
                                 "start": start_ns,
                                 "end": now_ns,
@@ -593,7 +596,7 @@ fi
 
             # Fallback to direct Kubernetes pod logs
             logs = self.core_v1.read_namespaced_pod_log(
-                name=pod_name, namespace=self.namespace, tail_lines=200
+                name=pod_name, namespace=self.namespace, tail_lines=5000
             )
 
             log_path = None
@@ -638,6 +641,19 @@ fi
                         pass
             except Exception:
                 pass
+
+            # If exec failed or log_content is still None, try to parse from logs
+            if not log_content and "=== BEGIN LOG FILE CONTENT ===" in logs:
+                try:
+                    parts = logs.split("=== BEGIN LOG FILE CONTENT ===")
+                    if len(parts) > 1:
+                         content_part = parts[1]
+                         if "=== END LOG FILE CONTENT ===" in content_part:
+                             log_content = content_part.split("=== END LOG FILE CONTENT ===")[0].strip()
+                         else:
+                             log_content = content_part.strip()
+                except Exception:
+                    pass
 
             return logs, log_path, log_content
         except Exception as e:
@@ -713,7 +729,7 @@ fi
                 session_id_prefix = manifestwork_name
 
             now_ns = int(time.time() * 1e9)
-            start_ns = now_ns - int(3600 * 1e9)  # last 1 hour
+            start_ns = now_ns - int(86400 * 1e9)  # last 24 hours
             loki_endpoint = f"{settings.loki_url.rstrip('/')}/loki/api/v1/query_range"
 
             # Try different label queries - improved matching
@@ -731,7 +747,7 @@ fi
                 try:
                     params = {
                         "query": q,
-                        "limit": 500,
+                        "limit": 5000,
                         "direction": "backward",
                         "start": start_ns,
                         "end": now_ns,
@@ -760,11 +776,24 @@ fi
                         logs_str = "\n".join(reversed(logs))
                         log_path = None
                         for line in logs_str.split('\n'):
-                            if 'LOG_FILE_PATH:' in line:
                                 log_path = line.replace('LOG_FILE_PATH:', '').strip()
                                 break
+                        
+                        log_content = None
+                        if "=== BEGIN LOG FILE CONTENT ===" in logs_str:
+                            try:
+                                parts = logs_str.split("=== BEGIN LOG FILE CONTENT ===")
+                                if len(parts) > 1:
+                                     content_part = parts[1]
+                                     if "=== END LOG FILE CONTENT ===" in content_part:
+                                         log_content = content_part.split("=== END LOG FILE CONTENT ===")[0].strip()
+                                     else:
+                                         log_content = content_part.strip()
+                            except Exception:
+                                pass
+                                
                         logger.info(f"Successfully retrieved {len(logs)} log lines from Loki using label {label_name}")
-                        return logs_str, log_path, None
+                        return logs_str, log_path, log_content
                 except requests.exceptions.RequestException as e:
                     logger.warning(f"Loki request failed for ManifestWork {manifestwork_name} label {label_name}: {e}")
                     continue
