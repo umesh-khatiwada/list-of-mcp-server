@@ -1,0 +1,10 @@
+#queue.yaml
+apiVersion: scheduling.volcano.sh/v1beta1
+kind: Queue
+metadata:
+  name: default
+spec:
+  weight: 1
+  reclaimable: false
+  capability:
+    cpu: 2

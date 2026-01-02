@@ -68,6 +68,13 @@ class AdvancedKubernetesService(KubernetesService):
             if optimal_cluster.endswith("-cluster"):
                 optimal_cluster = optimal_cluster.replace("-cluster", "")
 
+            # Extract Volcano config if present
+            volcano = getattr(config, "volcano_config", None)
+            min_available = volcano.min_available if volcano else 1
+            replicas = volcano.replicas if volcano else 1
+            queue_name = volcano.queue if volcano and volcano.queue else "default"
+            scheduler_name = volcano.scheduler_name if volcano and volcano.scheduler_name else "volcano"
+
             runtime_map = {
                 "SESSION_NAME": f"cai-session-{session_id[:8]}",
                 "HUB_NAMESPACE": optimal_cluster, # Use optimal cluster as the namespace for ManifestWork
@@ -83,6 +90,10 @@ class AdvancedKubernetesService(KubernetesService):
                 "WEBHOOK_URL": getattr(settings, "webhook_url", ""),
                 "CHARACTER_ID": getattr(config, "character_id", "") if hasattr(config, "character_id") else "",
                 "CAI_TOKEN": getattr(config, "token", "") if hasattr(config, "token") else "",
+                "MIN_AVAILABLE": min_available,
+                "REPLICAS": replicas,
+                "QUEUE_NAME": queue_name,
+                "SCHEDULER_NAME": scheduler_name,
                 "ARGS": self._build_cai_command(
                     config.prompt if hasattr(config, 'prompt') else "default prompt",
                     AgentType.REDTEAM if hasattr(config, 'agent_type') else AgentType.REDTEAM,
@@ -125,6 +136,13 @@ class AdvancedKubernetesService(KubernetesService):
         for i, agent_config in enumerate(config.parallel_agents):
             job_name = f"cai-parallel-{session_id[:8]}-{i}"
 
+            # Extract Volcano config if present
+            volcano = getattr(config, "volcano_config", None)
+            min_available = volcano.min_available if volcano else 1
+            replicas = volcano.replicas if volcano else 1
+            queue_name = volcano.queue if volcano and volcano.queue else "default"
+            scheduler_name = volcano.scheduler_name if volcano and volcano.scheduler_name else "volcano"
+
             # Build agent-specific runtime map
             runtime_map = {
                 "SESSION_NAME": f"cai-session-{session_id[:8]}-{i}",
@@ -141,6 +159,10 @@ class AdvancedKubernetesService(KubernetesService):
                 "WEBHOOK_URL": getattr(settings, "webhook_url", ""),
                 "CHARACTER_ID": getattr(config, "character_id", "") if hasattr(config, "character_id") else "",
                 "CAI_TOKEN": getattr(config, "token", "") if hasattr(config, "token") else "",
+                "MIN_AVAILABLE": min_available,
+                "REPLICAS": replicas,
+                "QUEUE_NAME": queue_name,
+                "SCHEDULER_NAME": scheduler_name,
                 "ARGS": self._build_cai_command(
                     agent_config.initial_prompt or config.prompt,
                     agent_config.agent_type,
@@ -202,6 +224,13 @@ if [ -f /tmp/queue_results.json ]; then
 fi
 """
 
+        # Extract Volcano config if present
+        volcano = getattr(config, "volcano_config", None)
+        min_available = str(volcano.min_available) if volcano else "1"
+        replicas = str(volcano.replicas) if volcano else "1"
+        queue_name = volcano.queue if volcano and volcano.queue else "default"
+        scheduler_name = volcano.scheduler_name if volcano and volcano.scheduler_name else "volcano"
+
         # Build runtime map for queue
         runtime_map = {
             "SESSION_NAME": f"cai-session-{session_id[:8]}",
@@ -218,6 +247,10 @@ fi
             "WEBHOOK_URL": getattr(settings, "webhook_url", ""),
             "CHARACTER_ID": getattr(config, "character_id", "") if hasattr(config, "character_id") else "",
             "CAI_TOKEN": getattr(config, "token", "") if hasattr(config, "token") else "",
+            "MIN_AVAILABLE": min_available,
+            "REPLICAS": replicas,
+            "QUEUE_NAME": queue_name,
+            "SCHEDULER_NAME": scheduler_name,
             "ARGS": queue_command,
         }
 
@@ -285,6 +318,13 @@ if [ -f /tmp/ctf_results.json ]; then
 fi
 """
 
+        # Extract Volcano config if present
+        volcano = getattr(config, "volcano_config", None)
+        min_available = str(volcano.min_available) if volcano else "1"
+        replicas = str(volcano.replicas) if volcano else "1"
+        queue_name = volcano.queue if volcano and volcano.queue else "default"
+        scheduler_name = volcano.scheduler_name if volcano and volcano.scheduler_name else "volcano"
+
         # Build runtime map for CTF
         runtime_map = {
             "SESSION_NAME": f"cai-session-{session_id[:8]}",
@@ -301,6 +341,10 @@ fi
             "WEBHOOK_URL": getattr(settings, "webhook_url", ""),
             "CHARACTER_ID": getattr(config, "character_id", "") if hasattr(config, "character_id") else "",
             "CAI_TOKEN": getattr(config, "token", "") if hasattr(config, "token") else "",
+            "MIN_AVAILABLE": min_available,
+            "REPLICAS": replicas,
+            "QUEUE_NAME": queue_name,
+            "SCHEDULER_NAME": scheduler_name,
             "ARGS": ctf_command,
         }
 

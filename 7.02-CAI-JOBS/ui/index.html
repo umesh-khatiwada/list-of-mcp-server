@@ -34,7 +34,6 @@
                 </div>
                 <button class="btn btn-primary" onclick="showCreateSession()">+ New Session</button>
             </div>
-            </header>
 
             <div class="tabs">
                 <button class="tab-btn active" onclick="showTab('sessions', this)">Sessions</button>
@@ -118,176 +117,199 @@
                 </div>
                 <div id="agents-list" class="agent-list"></div>
             </div>
-    </div>
+        </main>
 
-    <!-- Create Session Modal -->
-    <div id="create-modal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2>Create New Session</h2>
-            <form id="create-session-form">
-                <div class="form-group">
-                    <label>Session Name:</label>
-                    <input type="text" id="session-name" required placeholder="My Test Session">
-                </div>
-                <div class="form-group">
-                    <label>Prompt:</label>
-                    <textarea id="session-prompt" rows="5" required placeholder="Enter your prompt here..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Workspace Path (optional):</label>
-                    <input type="text" id="session-workspace" placeholder="/path/to/workspace">
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Create Session</button>
-                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Advanced Session Modal -->
-    <div id="advanced-modal" class="modal">
-        <div class="modal-content modal-large">
-            <span class="close" onclick="closeAdvancedModal()">&times;</span>
-            <h2>Create Advanced Session</h2>
-            <form id="advanced-session-form">
-                <div class="form-group">
-                    <label>Session Name:</label>
-                    <input type="text" id="adv-name" required>
-                </div>
-                <div class="form-group">
-                    <label>Prompt:</label>
-                    <textarea id="adv-prompt" rows="5" required></textarea>
-                </div>
-                <div class="inline-group">
+        <!-- Create Session Modal -->
+        <div id="create-modal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <h2>Create New Session</h2>
+                <form id="create-session-form">
                     <div class="form-group">
-                        <label>Agent Type:</label>
-                        <select id="adv-agent">
-                            <option value="redteam_agent">Red Team Agent</option>
-                            <option value="bug_bounter_agent">Bug Bounty Agent</option>
-                            <option value="blueteam_agent">Blue Team Agent</option>
-                        </select>
+                        <label>Session Name:</label>
+                        <input type="text" id="session-name" required placeholder="My Test Session">
                     </div>
                     <div class="form-group">
-                        <label>Model:</label>
-                        <select id="adv-model">
-                            <option value="deepseek/deepseek-chat">DeepSeek Chat</option>
-                            <option value="alias1">Alias1</option>
+                        <label>Prompt:</label>
+                        <textarea id="session-prompt" rows="5" required
+                            placeholder="Enter your prompt here..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Workspace Path (optional):</label>
+                        <input type="text" id="session-workspace" placeholder="/path/to/workspace">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Create Session</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Advanced Session Modal -->
+        <div id="advanced-modal" class="modal">
+            <div class="modal-content modal-large">
+                <span class="close" onclick="closeAdvancedModal()">&times;</span>
+                <h2>Create Advanced Session</h2>
+                <form id="advanced-session-form">
+                    <div class="form-group">
+                        <label>Session Name:</label>
+                        <input type="text" id="adv-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Prompt:</label>
+                        <textarea id="adv-prompt" rows="5" required></textarea>
+                    </div>
+                    <div class="inline-group">
+                        <div class="form-group">
+                            <label>Agent Type:</label>
+                            <select id="adv-agent">
+                                <option value="redteam_agent">Red Team Agent</option>
+                                <option value="bug_bounter_agent">Bug Bounty Agent</option>
+                                <option value="blueteam_agent">Blue Team Agent</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Model:</label>
+                            <select id="adv-model">
+                                <option value="deepseek/deepseek-chat">DeepSeek Chat</option>
+                                <option value="alias1">Alias1</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>MCP Transport:</label>
+                        <select id="adv-mcp-transport" onchange="toggleAdvancedMCPFields()">
+                            <option value="sse">SSE</option>
+                            <option value="stdio">STDIO</option>
                         </select>
                     </div>
-                </div>
-                <div class="form-group">
-                    <label>MCP Transport:</label>
-                    <select id="adv-mcp-transport" onchange="toggleAdvancedMCPFields()">
-                        <option value="sse">SSE</option>
-                        <option value="stdio">STDIO</option>
-                    </select>
-                </div>
-                <div class="form-group" id="adv-url-group">
-                    <label>MCP Server URL:</label>
-                    <input type="text" id="adv-mcp-url" placeholder="http://localhost:9876/sse">
-                </div>
-                <div class="form-group" id="adv-command-group" style="display: none;">
-                    <label>MCP Command:</label>
-                    <input type="text" id="adv-mcp-command" placeholder="python mcp_server.py">
-                </div>
-                <div class="form-group">
-                    <label>MCP Server Name:</label>
-                    <input type="text" id="adv-mcp-name" placeholder="mcp-server">
-                </div>
-                <div class="form-group">
-                    <label class="checkbox-inline">
-                        <input type="checkbox" id="adv-mcp-insecure"> Allow insecure connections
-                    </label>
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Create Advanced Session</button>
-                    <button type="button" class="btn btn-secondary" onclick="closeAdvancedModal()">Cancel</button>
-                </div>
-            </form>
+                    <div class="form-group" id="adv-url-group">
+                        <label>MCP Server URL:</label>
+                        <input type="text" id="adv-mcp-url" placeholder="http://localhost:9876/sse">
+                    </div>
+                    <div class="form-group" id="adv-command-group" style="display: none;">
+                        <label>MCP Command:</label>
+                        <input type="text" id="adv-mcp-command" placeholder="python mcp_server.py">
+                    </div>
+                    <div class="form-group">
+                        <label>MCP Server Name:</label>
+                        <input type="text" id="adv-mcp-name" placeholder="mcp-server">
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-inline">
+                            <input type="checkbox" id="adv-mcp-insecure"> Allow insecure connections
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-inline">
+                            <input type="checkbox" id="adv-volcano-enabled" onchange="toggleVolcanoFields()"> Enable
+                            Volcano
+                            Batch Scheduling
+                        </label>
+                    </div>
+                    <div id="volcano-fields"
+                        style="display: none; padding: 10px; border: 1px solid #ddd; margin-bottom: 15px; border-radius: 4px; background: #f9f9f9;">
+                        <div class="form-group">
+                            <label>Volcano Queue:</label>
+                            <input type="text" id="adv-volcano-queue" value="default" placeholder="default">
+                        </div>
+                        <div class="form-group">
+                            <label>Min Available Tasks:</label>
+                            <input type="number" id="adv-volcano-min" value="1" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Task Replicas:</label>
+                            <input type="number" id="adv-volcano-replicas" value="1" min="1">
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Create Advanced Session</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeAdvancedModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
         </div>
-    </div>
 
-    <!-- Details Modal -->
-    <div id="details-modal" class="modal">
-        <div class="modal-content modal-large">
-            <span class="close" onclick="closeDetailsModal()">&times;</span>
-            <h2 id="details-title">Session Details</h2>
-            <div id="details-content"></div>
+        <!-- Details Modal -->
+        <div id="details-modal" class="modal">
+            <div class="modal-content modal-large">
+                <span class="close" onclick="closeDetailsModal()">&times;</span>
+                <h2 id="details-title">Session Details</h2>
+                <div id="details-content"></div>
+            </div>
         </div>
-    </div>
 
-    <script src="cluster-status.js"></script>
-    <script src="app.js"></script>
-    <script>
-        // Enhanced connection status monitoring
-        let connectionCheckInterval;
-        let lastHealthCheck = Date.now();
+        <script src="cluster-status.js"></script>
+        <script src="app.js"></script>
+        <script>
+            // Enhanced connection status monitoring
+            let connectionCheckInterval;
+            let lastHealthCheck = Date.now();
 
-        async function checkConnection() {
-            try {
-                const response = await fetch(`${API_BASE}/api/health`);
-                if (response.ok) {
-                    updateConnectionStatus(true);
-                    lastHealthCheck = Date.now();
-                } else {
+            async function checkConnection() {
+                try {
+                    const response = await fetch(`${API_BASE}/api/health`);
+                    if (response.ok) {
+                        updateConnectionStatus(true);
+                        lastHealthCheck = Date.now();
+                    } else {
+                        updateConnectionStatus(false);
+                    }
+                } catch (error) {
                     updateConnectionStatus(false);
                 }
-            } catch (error) {
-                updateConnectionStatus(false);
-            }
-        }
-
-        function updateConnectionStatus(connected) {
-            const indicator = document.getElementById('statusIndicator');
-            const text = document.getElementById('statusText');
-
-            if (connected) {
-                indicator.className = 'status-indicator connected';
-                text.textContent = 'Connected';
-                text.style.color = '#28a745';
-            } else {
-                indicator.className = 'status-indicator disconnected';
-                text.textContent = 'Disconnected';
-                text.style.color = '#dc3545';
-            }
-        }
-
-        // Enhanced error handling
-        window.addEventListener('error', (event) => {
-            console.error('Global error:', event.error);
-            showError('An unexpected error occurred. Please check the console.');
-        });
-
-        // Initialize connection monitoring
-        checkConnection();
-        connectionCheckInterval = setInterval(checkConnection, 5000);
-
-        // Enhanced session refresh with loading states
-        let refreshIntervals = {};
-
-        function startAutoRefresh(tabName) {
-            if (refreshIntervals[tabName]) {
-                clearInterval(refreshIntervals[tabName]);
             }
 
-            refreshIntervals[tabName] = setInterval(() => {
-                if (document.hasFocus()) {
-                    if (tabName === 'sessions') loadSessions();
-                    else if (tabName === 'advanced') loadAdvancedSessions();
-                    else if (tabName === 'jobs') loadJobs();
+            function updateConnectionStatus(connected) {
+                const indicator = document.getElementById('statusIndicator');
+                const text = document.getElementById('statusText');
+
+                if (connected) {
+                    indicator.className = 'status-indicator connected';
+                    text.textContent = 'Connected';
+                    text.style.color = '#28a745';
+                } else {
+                    indicator.className = 'status-indicator disconnected';
+                    text.textContent = 'Disconnected';
+                    text.style.color = '#dc3545';
                 }
-            }, 10000); // Refresh every 10 seconds
-        }
+            }
 
-        // Override showTab to start auto-refresh
-        const originalShowTab = showTab;
-        showTab = function (tabName, el) {
-            originalShowTab(tabName, el);
-            startAutoRefresh(tabName);
-        };
-    </script>
+            // Enhanced error handling
+            window.addEventListener('error', (event) => {
+                console.error('Global error:', event.error);
+                showError('An unexpected error occurred. Please check the console.');
+            });
+
+            // Initialize connection monitoring
+            checkConnection();
+            connectionCheckInterval = setInterval(checkConnection, 5000);
+
+            // Enhanced session refresh with loading states
+            let refreshIntervals = {};
+
+            function startAutoRefresh(tabName) {
+                if (refreshIntervals[tabName]) {
+                    clearInterval(refreshIntervals[tabName]);
+                }
+
+                refreshIntervals[tabName] = setInterval(() => {
+                    if (document.hasFocus()) {
+                        if (tabName === 'sessions') loadSessions();
+                        else if (tabName === 'advanced') loadAdvancedSessions();
+                        else if (tabName === 'jobs') loadJobs();
+                    }
+                }, 10000); // Refresh every 10 seconds
+            }
+
+            // Override showTab to start auto-refresh
+            const originalShowTab = showTab;
+            showTab = function (tabName, el) {
+                originalShowTab(tabName, el);
+                startAutoRefresh(tabName);
+            };
+        </script>
 </body>
 
 </html>

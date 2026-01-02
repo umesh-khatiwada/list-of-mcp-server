@@ -76,6 +76,17 @@ class CTFConfig(BaseModel):
     time_limit_minutes: Optional[int] = None
 
 
+class VolcanoConfig(BaseModel):
+    """Volcano-specific configuration."""
+
+    enabled: bool = False
+    queue: str = "default"
+    min_available: int = 1
+    replicas: int = 1
+    scheduler_name: str = "volcano"
+    priority_class: Optional[str] = None
+
+
 class CostConstraints(BaseModel):
     """Cost management configuration."""
 
@@ -110,6 +121,9 @@ class AdvancedSessionCreate(BaseModel):
 
     # CTF mode
     ctf_config: Optional[CTFConfig] = None
+
+    # Volcano configuration
+    volcano_config: Optional[VolcanoConfig] = None
 
     # Memory management
     memory_type: MemoryType = MemoryType.NONE

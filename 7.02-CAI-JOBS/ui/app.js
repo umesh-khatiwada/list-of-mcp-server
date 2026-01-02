@@ -294,23 +294,35 @@ async function loadAgents() {
     }
 }
 
-// MCP Transport Toggle
+// UI Toggle Functions
 function toggleMCPFields() {
-    const transport = document.getElementById('mcp-transport').value;
+    const transport = document.getElementById('mcp-transport')?.value;
     const isSSE = transport === 'sse';
-    document.getElementById('url-group').style.display = isSSE ? 'block' : 'none';
-    document.getElementById('command-group').style.display = isSSE ? 'none' : 'block';
+    const urlGroup = document.getElementById('url-group');
+    const cmdGroup = document.getElementById('command-group');
+    if (urlGroup) urlGroup.style.display = isSSE ? 'block' : 'none';
+    if (cmdGroup) cmdGroup.style.display = isSSE ? 'none' : 'block';
 }
 
 function toggleAdvancedMCPFields() {
-    const transport = document.getElementById('adv-mcp-transport').value;
+    const transport = document.getElementById('adv-mcp-transport')?.value;
     const isSSE = transport === 'sse';
-    document.getElementById('adv-url-group').style.display = isSSE ? 'block' : 'none';
-    document.getElementById('adv-command-group').style.display = isSSE ? 'none' : 'block';
+    const urlGroup = document.getElementById('adv-url-group');
+    const cmdGroup = document.getElementById('adv-command-group');
+    if (urlGroup) urlGroup.style.display = isSSE ? 'block' : 'none';
+    if (cmdGroup) cmdGroup.style.display = isSSE ? 'none' : 'block';
 }
 
+function toggleVolcanoFields() {
+    const volcanoEnabled = document.getElementById('adv-volcano-enabled')?.checked;
+    const volcanoFields = document.getElementById('volcano-fields');
+    if (volcanoFields) volcanoFields.style.display = volcanoEnabled ? 'block' : 'none';
+}
+
+// Event Listeners
 document.getElementById('mcp-transport')?.addEventListener('change', toggleMCPFields);
 document.getElementById('adv-mcp-transport')?.addEventListener('change', toggleAdvancedMCPFields);
+document.getElementById('adv-volcano-enabled')?.addEventListener('change', toggleVolcanoFields);
 
 // Test MCP Connection
 async function testMCPConnection() {
@@ -413,27 +425,23 @@ document.getElementById('create-session-form')?.addEventListener('submit', async
 });
 
 // Advanced session form
-document.getElementById('adv-mcp-transport')?.addEventListener('change', (e) => {
-    const isSSE = e.target.value === 'sse';
-    document.getElementById('adv-url-group').style.display = isSSE ? 'block' : 'none';
-    document.getElementById('adv-command-group').style.display = isSSE ? 'none' : 'block';
-});
+// (Transport toggling is now handled by toggleAdvancedMCPFields via direct event listener)
 
 document.getElementById('advanced-session-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const agentType = document.getElementById('adv-agent').value;
-    const transport = document.getElementById('adv-mcp-transport').value;
+    const agentType = document.getElementById('adv-agent')?.value || 'redteam_agent';
+    const transport = document.getElementById('adv-mcp-transport')?.value || 'sse';
 
     const payload = {
-        name: document.getElementById('adv-name').value,
-        prompt: document.getElementById('adv-prompt').value,
+        name: document.getElementById('adv-name')?.value || '',
+        prompt: document.getElementById('adv-prompt')?.value || '',
         agent_type: agentType,
-        model: document.getElementById('adv-model').value,
+        model: document.getElementById('adv-model')?.value || 'deepseek/deepseek-chat',
     };
 
-    const mcpName = document.getElementById('adv-mcp-name').value.trim();
-    const allowInsecure = document.getElementById('adv-mcp-insecure').checked;
+    const mcpName = document.getElementById('adv-mcp-name')?.value.trim() || '';
+    const allowInsecure = document.getElementById('adv-mcp-insecure')?.checked || false;
     const mcpServer = {
         name: mcpName || agentType,
         transport,
@@ -441,9 +449,22 @@ document.getElementById('advanced-session-form')?.addEventListener('submit', asy
     };
 
     if (transport === 'sse') {
-        mcpServer.url = document.getElementById('adv-mcp-url').value.trim();
+        const urlInput = document.getElementById('adv-mcp-url');
+        mcpServer.url = urlInput ? urlInput.value.trim() : '';
     } else {
-        mcpServer.command = document.getElementById('adv-mcp-command').value.trim();
+        const cmdInput = document.getElementById('adv-mcp-command');
+        mcpServer.command = cmdInput ? cmdInput.value.trim() : '';
+    }
+
+    // Volcano configuration
+    const volcanoEnabled = document.getElementById('adv-volcano-enabled')?.checked;
+    if (volcanoEnabled) {
+        payload.volcano_config = {
+            enabled: true,
+            queue: document.getElementById('adv-volcano-queue')?.value || 'default',
+            min_available: parseInt(document.getElementById('adv-volcano-min')?.value) || 1,
+            replicas: parseInt(document.getElementById('adv-volcano-replicas')?.value) || 1
+        };
     }
 
     // Only include overrides if a target was provided
@@ -1037,3 +1058,4 @@ setInterval(() => {
 
 // Initial Load
 loadSessions();
+console.log('CAI Job Manager UI loaded successfully');
