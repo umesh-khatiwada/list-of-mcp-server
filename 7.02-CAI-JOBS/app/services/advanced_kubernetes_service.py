@@ -94,6 +94,8 @@ class AdvancedKubernetesService(KubernetesService):
                 "REPLICAS": replicas,
                 "QUEUE_NAME": queue_name,
                 "SCHEDULER_NAME": scheduler_name,
+                "PVC_NAME": "cai-manager-pvc",
+                "STORAGE_MOUNT_PATH": "/app/storage",
                 "ARGS": self._build_cai_command(
                     config.prompt if hasattr(config, 'prompt') else "default prompt",
                     AgentType.REDTEAM if hasattr(config, 'agent_type') else AgentType.REDTEAM,
@@ -170,6 +172,8 @@ class AdvancedKubernetesService(KubernetesService):
                     config,
                     f"{session_id}-{i}"
                 ),
+                "PVC_NAME": "cai-manager-pvc",
+                "STORAGE_MOUNT_PATH": "/app/storage",
             }
 
             manifestwork = self.create_manifestwork_for_session(session_id, config, runtime_map=runtime_map)
@@ -251,6 +255,8 @@ fi
             "REPLICAS": replicas,
             "QUEUE_NAME": queue_name,
             "SCHEDULER_NAME": scheduler_name,
+            "PVC_NAME": "cai-manager-pvc",
+            "STORAGE_MOUNT_PATH": "/app/storage",
             "ARGS": queue_command,
         }
 
@@ -345,6 +351,8 @@ fi
             "REPLICAS": replicas,
             "QUEUE_NAME": queue_name,
             "SCHEDULER_NAME": scheduler_name,
+            "PVC_NAME": "cai-manager-pvc",
+            "STORAGE_MOUNT_PATH": "/app/storage",
             "ARGS": ctf_command,
         }
 
@@ -594,6 +602,23 @@ fi
             logger.error(f"Failed to extract session results: {str(e)}")
             return {"error": str(e)}
 
+    def list_manifestworks(self) -> List[dict]:
+        """List all ManifestWork resources from all managed clusters."""
+        try:
+            from kubernetes.client import CustomObjectsApi
+            custom_api = CustomObjectsApi()
+            
+            manifestworks = custom_api.list_namespaced_custom_object(
+                group="work.open-cluster-management.io",
+                version="v1",
+                namespace=settings.managed_cluster_namespace,
+                plural="manifestworks"
+            )
+            return manifestworks.get('items', [])
+        except Exception as e:
+            logger.error(f"Failed to list ManifestWorks: {str(e)}")
+            return []
+
     def get_manifestwork_status(self, manifestwork_name: str) -> str:
         """Get the status of a ManifestWork.
 
@@ -608,32 +633,21 @@ fi
             custom_api = CustomObjectsApi()
             
             logger.info(f"Getting ManifestWork {manifestwork_name} in namespace {settings.managed_cluster_namespace}")
-            manifestwork = custom_api.get_namespaced_custom_object(
+            custom_api.get_namespaced_custom_object(
                 group="work.open-cluster-management.io",
                 version="v1",
                 namespace=settings.managed_cluster_namespace,
                 plural="manifestworks",
                 name=manifestwork_name
             )
-            
-            conditions = manifestwork.get('status', {}).get('conditions', [])
-            applied = any(c.get('type') == 'Applied' and c.get('status') == 'True' for c in conditions)
-            available = any(c.get('type') == 'Available' and c.get('status') == 'True' for c in conditions)
-            
-            logger.info(f"ManifestWork {manifestwork_name} applied: {applied}, available: {available}")
-            if available:
-                return "Completed"  # Assume completed when available
-            elif applied:
-                return "Running"
-            else:
-                return "Pending"
+            return "Running"
         except Exception as e:
             # Handle ApiException 404 (not found) as a deleted/expired ManifestWork
             try:
                 from kubernetes.client.rest import ApiException
                 if isinstance(e, ApiException) and getattr(e, 'status', None) == 404:
                     logger.info(f"ManifestWork {manifestwork_name} not found (deleted or not created)")
-                    return "Deleted"
+                    return "Completed"
             except Exception:
                 pass
 

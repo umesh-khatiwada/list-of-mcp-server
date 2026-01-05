@@ -4,10 +4,10 @@ import logging
 import os
 import uuid
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Optional
 
 import requests
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import PlainTextResponse
 
 from ...api.dependencies import get_kubernetes_service
@@ -16,6 +16,8 @@ from ...models import JobLogs, JobResult, Session, SessionCreate
 from ...services import send_webhook
 from ...services.kubernetes_service import KubernetesService
 from ...services.session_store import sessions_store, save_sessions
+import asyncio
+import websockets
 
 logger = logging.getLogger(__name__)
 
@@ -337,6 +339,110 @@ async def get_session_logs(
 
     else:
         raise HTTPException(status_code=404, detail="Session not found")
+
+
+@router.websocket("/{session_id}/logs/ws")
+async def get_session_logs_ws(
+    websocket: WebSocket,
+    session_id: str,
+    query: Optional[str] = None,
+    k8s_service: KubernetesService = Depends(get_kubernetes_service),
+):
+    """Stream logs for a specific session via WebSocket from Loki."""
+    await websocket.accept()
+    logger.info(f"WebSocket connection accepted for session: {session_id}")
+
+    if session_id not in sessions_store:
+        await websocket.send_json({"error": "Session not found"})
+        await websocket.close()
+        return
+
+    session = sessions_store[session_id]
+    job_name = session.get("jobName") or (session.get("job_names", [])[0] if session.get("job_names") else None)
+
+    if not job_name:
+        await websocket.send_json({"error": "No job associated with session"})
+        await websocket.close()
+        return
+
+    if not settings.loki_url:
+        await websocket.send_json({"error": "Loki not configured for live logs"})
+        await websocket.close()
+        return
+
+    # Construct Loki query if not provided
+    if not query:
+        session_id_short = session_id[:8]
+        # Query by pod regex (matches cai-job-XXXXXXXX-...)
+        query = f'{{pod=~".*{session_id_short}.*"}}'
+        logger.info(f"Defaulting to LogQL query: {query}")
+
+    loki_ws_url = f"{settings.loki_ws_url}?query={query}"
+
+    async def heartbeat():
+        """Send periodic status updates to keep connection alive and update UI."""
+        try:
+            while True:
+                await asyncio.sleep(15)
+                try:
+                    current_status = k8s_service.get_job_status(job_name) if "jobName" in session else k8s_service.get_manifestwork_status(job_name)
+                    await websocket.send_json({"heartbeat": True, "status": current_status, "timestamp": datetime.now().isoformat()})
+                except Exception as e:
+                    logger.debug(f"Heartbeat send failed: {e}")
+                    break
+        except asyncio.CancelledError:
+            pass
+
+    try:
+        current_status = k8s_service.get_job_status(job_name) if "jobName" in session else k8s_service.get_manifestwork_status(job_name)
+        await websocket.send_json({
+            "info": "Connected to logs proxy",
+            "status": current_status,
+            "session_id": session_id,
+            "job_name": job_name
+        })
+
+        async with websockets.connect(loki_ws_url) as loki_ws:
+            logger.info(f"Connected to Loki WebSocket: {loki_ws_url}")
+            
+            # Start heartbeat task
+            heartbeat_task = asyncio.create_task(heartbeat())
+            
+            try:
+                while True:
+                    # Receive from Loki
+                    loki_msg = await loki_ws.recv()
+                    data = json.loads(loki_msg)
+                    
+                    # Loki streams returns multiple lines sometimes
+                    if "streams" in data:
+                        for stream in data.get("streams", []):
+                            for ts, line in stream.get("values", []):
+                                current_status = k8s_service.get_job_status(job_name) if "jobName" in session else k8s_service.get_manifestwork_status(job_name)
+                                await websocket.send_json({
+                                    "timestamp": ts,
+                                    "line": line,
+                                    "status": current_status
+                                })
+                    else:
+                        # Raw stream message fallback
+                        await websocket.send_json(data)
+            except (WebSocketDisconnect, websockets.exceptions.ConnectionClosed):
+                logger.info("WebSocket connection closed")
+            finally:
+                heartbeat_task.cancel()
+                try:
+                    await heartbeat_task
+                except asyncio.CancelledError:
+                    pass
+    except Exception as e:
+        logger.error(f"Failed to connect to Loki WebSocket: {e}")
+        await websocket.send_json({"error": f"Failed to connect to Loki: {str(e)}"})
+    finally:
+        try:
+            await websocket.close()
+        except Exception:
+            pass
 
 
 @router.get("/{session_id}/result", response_model=JobResult)

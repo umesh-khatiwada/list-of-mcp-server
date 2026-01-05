@@ -35,27 +35,49 @@ async def lifespan(app: FastAPI):
     load_sessions()
     logger.info(f"Loaded {len(sessions_store)} sessions from file")
 
-    # Sync existing jobs on startup
+    # Sync existing jobs on startup (Legacy Sessions)
     try:
         k8s_service = get_kubernetes_service()
         jobs = k8s_service.list_jobs()
 
         for job in jobs:
-            if "session-id" in job.metadata.labels:
-                session_id = job.metadata.labels["session-id"]
-                if session_id not in sessions_store:
-                    sessions_store[session_id] = {
-                        "id": session_id,
-                        "name": job.metadata.labels.get("session-name", "Unknown"),
-                        "status": k8s_service.get_job_status(job.metadata.name),
-                        "created": job.metadata.creation_timestamp.isoformat(),
-                        "jobName": job.metadata.name,
-                        "prompt": "Recovered from existing job",
-                    }
-        logger.info(f"Synced {len(sessions_store)} existing sessions")
-        save_sessions()
+            session_id = job.metadata.labels.get("session-id") if job.metadata.labels else None
+            if session_id and session_id not in sessions_store:
+                sessions_store[session_id] = {
+                    "id": session_id,
+                    "name": job.metadata.labels.get("session-name", "Unknown"),
+                    "status": k8s_service.get_job_status(job.metadata.name),
+                    "created": job.metadata.creation_timestamp.isoformat() if job.metadata.creation_timestamp else datetime.now().isoformat(),
+                    "jobName": job.metadata.name,
+                    "prompt": "Recovered from existing job",
+                }
     except Exception as e:
-        logger.error(f"Failed to sync existing jobs: {str(e)}")
+        logger.error(f"Failed to sync legacy jobs: {str(e)}")
+
+    # Sync existing ManifestWorks (Advanced Sessions)
+    try:
+        from app.services.advanced_kubernetes_service import AdvancedKubernetesService
+        adv_k8s = AdvancedKubernetesService()
+        manifestworks = adv_k8s.list_manifestworks()
+
+        for mw in manifestworks:
+            mw_labels = mw.get('metadata', {}).get('labels', {})
+            session_id = mw_labels.get("session-id")
+            if session_id and session_id not in sessions_store:
+                sessions_store[session_id] = {
+                    "id": session_id,
+                    "name": mw_labels.get("session-name", "Recovered Advanced Session"),
+                    "status": adv_k8s.get_manifestwork_status(mw['metadata']['name']),
+                    "created": mw['metadata'].get('creationTimestamp', datetime.now().isoformat()),
+                    "job_names": [mw['metadata']['name']],
+                    "mode": "recovered",
+                    "prompt": "Recovered from existing ManifestWork",
+                }
+    except Exception as e:
+        logger.error(f"Failed to sync manifestworks: {str(e)}")
+
+    logger.info(f"Synced {len(sessions_store)} total sessions from cluster")
+    save_sessions()
 
     # Start background job monitor
     monitor_task = asyncio.create_task(monitor_jobs())

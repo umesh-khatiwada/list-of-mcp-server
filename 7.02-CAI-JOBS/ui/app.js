@@ -1,6 +1,7 @@
 // Get API_BASE from injected global variable, fallback to .env via server-side template, else use window location
 const API_BASE = window.API_BASE || document.body.getAttribute('data-api-base') || `${window.location.origin}`;
 console.log('API_BASE:', API_BASE);
+let logWebSocket = null;
 
 // Tab Management
 function showTab(tabName, el) {
@@ -31,6 +32,7 @@ function showTab(tabName, el) {
         loadJobs();
     }
     if (tabName === 'agents') loadAgents();
+    if (tabName === 'scans') loadScanHistory();
 }
 
 // Load Sessions
@@ -291,6 +293,82 @@ async function loadAgents() {
         `).join('');
     } catch (error) {
         console.error('Error loading agents:', error);
+    }
+}
+
+// Load Scan History
+async function loadScanHistory() {
+    const container = document.getElementById('scans-list');
+    container.innerHTML = '<div class="loading">Loading scan history...</div>';
+
+    try {
+        const response = await fetch(`${API_BASE}/api/scans/history`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const history = await response.json();
+
+        if (history.length === 0) {
+            container.innerHTML = '<div class="empty-state"><h3>No scan history found</h3><p>Previous scans will appear here</p></div>';
+            return;
+        }
+
+        container.innerHTML = history.map(scan => {
+            const date = new Date(scan.timestamp).toLocaleString();
+            const statusClass = scan.status ? scan.status.toLowerCase() : 'unknown';
+
+            return `
+                <div class="session-card">
+                    <div class="session-header">
+                        <div class="session-name">${scan.repository}</div>
+                        <span class="status-badge status-${statusClass}">${scan.status || 'Completed'}</span>
+                    </div>
+                    <div class="session-info">
+                        <div class="info-row">
+                            <span class="info-label">ID:</span>
+                            <span class="info-value text-muted">${scan.session_id.substring(0, 8)}...</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Date:</span>
+                            <span class="info-value">${date}</span>
+                        </div>
+                        ${scan.scan_summary ? `
+                        <div style="margin-top: 10px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color); padding-top: 5px;">
+                            <strong>Summary:</strong> ${scan.scan_summary.substring(0, 100)}${scan.scan_summary.length > 100 ? '...' : ''}
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="session-actions">
+                        <button class="btn btn-primary btn-small" onclick="viewResult('${scan.session_id}', 'basic')">Full Report</button>
+                        <button class="btn btn-secondary btn-small" onclick="viewLogs('${scan.session_id}')">Logs</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Error loading scan history:', error);
+        showError('Failed to load scan history');
+    }
+}
+
+async function clearScanHistory() {
+    if (!confirm('Are you sure you want to clear all scan history? This action cannot be undone.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/api/scans/history`, {
+            method: 'DELETE'
+        });
+        if (response.ok) {
+            showSuccess('Scan history cleared');
+            loadScanHistory();
+        } else {
+            showError('Failed to clear scan history');
+        }
+    } catch (error) {
+        console.error('Error clearing scan history:', error);
+        showError('Failed to clear scan history');
     }
 }
 
@@ -570,21 +648,131 @@ async function viewJobDetails(name) {
 
 // View Logs Enhanced with real-time updates
 async function viewLogsEnhanced(sessionId, isAdvanced = false) {
-    const endpoint = isAdvanced ? `/api/v2/sessions/${sessionId}/logs` : `/api/sessions/${sessionId}/logs`;
-
     document.getElementById('details-title').textContent = 'Session Logs (Live)';
     document.getElementById('details-content').innerHTML = `
+        <div style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center;">
+            <input type="text" id="custom-logql" class="form-control" style="flex: 1; padding: 5px;" placeholder="Custom LogQL (optional, e.g. {pod=~'cai-.*'})">
+            <button class="btn btn-secondary btn-small" onclick="updateLogStream('${sessionId}', ${isAdvanced})">Apply Query</button>
+        </div>
         <div class="logs-container" id="live-logs">
-            <div class="loading">Loading logs...</div>
+            <div class="loading">Connecting...</div>
         </div>
         <div style="margin-top: 10px;">
-            <button class="btn btn-secondary btn-small" onclick="refreshLogs('${sessionId}', ${isAdvanced})">Refresh</button>
-            <button class="btn btn-secondary btn-small" id="auto-refresh-btn" onclick="toggleAutoRefresh('${sessionId}', ${isAdvanced}, this)">Auto-refresh: OFF</button>
+            <button class="btn btn-secondary btn-small" onclick="refreshLogs('${sessionId}', ${isAdvanced})">Manual Refresh</button>
         </div>
     `;
     document.getElementById('details-modal').style.display = 'block';
 
-    await refreshLogs(sessionId, isAdvanced);
+    await setupLogWebSocket(sessionId, isAdvanced);
+}
+
+async function updateLogStream(sessionId, isAdvanced) {
+    const query = document.getElementById('custom-logql').value;
+    await setupLogWebSocket(sessionId, isAdvanced, query);
+}
+
+// WebSocket setup for logs
+async function setupLogWebSocket(sessionId, isAdvanced, customQuery = null) {
+    if (logWebSocket) {
+        logWebSocket.close();
+        logWebSocket = null;
+    }
+
+    const logsContainer = document.getElementById('live-logs');
+    if (!logsContainer) return;
+
+    logsContainer.innerHTML = '<div class="loading">Connecting...</div>';
+
+    // Use ws:// or wss:// based on current protocol
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+
+    // Calculate host from API_BASE
+    let host = API_BASE;
+    if (host.startsWith('http')) {
+        host = host.split('//')[1];
+    } else if (host.startsWith('/')) {
+        // Relative path, use window.location.host
+        host = window.location.host + host;
+    }
+
+    let wsUrl = `${protocol}//${host}/api/sessions/${sessionId}/logs/ws`.replace(/\/+/g, '/').replace('ws:/', 'ws://').replace('wss:/', 'wss://');
+
+    if (customQuery) {
+        wsUrl += `?query=${encodeURIComponent(customQuery)}`;
+    }
+
+    console.log('Connecting to logs WebSocket:', wsUrl);
+
+    try {
+        logWebSocket = new WebSocket(wsUrl);
+
+        logWebSocket.onopen = () => {
+            console.log('Successfully connected to logs WebSocket:', wsUrl);
+            logsContainer.innerHTML = '<pre style="margin:0; white-space:pre-wrap; font-family:monospace;"></pre>';
+            const pre = logsContainer.querySelector('pre');
+            pre.textContent = '--- Connected to live log stream ---\n';
+        };
+
+        logWebSocket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.error) {
+                logsContainer.innerHTML += `<div class="error-line" style="color:#f44336; margin:5px 0;">Error: ${escapeHtml(data.error)}</div>`;
+                return;
+            }
+
+            if (data.status) {
+                // Update status badge in the UI list if found
+                const statusBadges = document.querySelectorAll('.status-badge');
+                statusBadges.forEach(badge => {
+                    const card = badge.closest('.session-card');
+                    if (card) {
+                        const idEl = card.querySelector('.info-value');
+                        if (idEl && sessionId.startsWith(idEl.textContent.replace('...', ''))) {
+                            badge.textContent = data.status;
+                            badge.className = `status-badge status-${data.status.toLowerCase()}`;
+                        }
+                    }
+                });
+            }
+
+            if (data.line) {
+                const pre = logsContainer.querySelector('pre');
+                if (pre) {
+                    if (pre.textContent.includes('--- Connected to live log stream ---')) {
+                        pre.textContent = pre.textContent.replace('--- Connected to live log stream ---\n', '');
+                        window.hasLogsReceived = true;
+                    }
+                    pre.textContent += data.line + '\n';
+                    logsContainer.scrollTop = logsContainer.scrollHeight;
+                }
+            }
+        };
+
+        logWebSocket.onclose = (event) => {
+            console.log('WebSocket closed:', event.code);
+            if (!window.hasLogsReceived) {
+                console.log('No live logs received, fetching static logs...');
+                refreshLogs(sessionId, isAdvanced);
+            }
+            if (event.code !== 1000 && logsContainer) {
+                const info = document.createElement('div');
+                info.style.color = '#888';
+                info.style.fontSize = '0.85rem';
+                info.style.marginTop = '10px';
+                info.textContent = 'Live stream closed. Use Manual Refresh for latest updates.';
+                logsContainer.appendChild(info);
+            }
+        };
+
+        logWebSocket.onerror = (err) => {
+            console.error('WebSocket error event:', err);
+            logsContainer.innerHTML = '<div class="error">Failed to connect to live stream. Falling back to static logs. See console for details.</div>';
+            refreshLogs(sessionId, isAdvanced);
+        };
+    } catch (e) {
+        console.error('Error initializing WebSocket:', e);
+        refreshLogs(sessionId, isAdvanced);
+    }
 }
 
 // View Logs
@@ -1005,6 +1193,10 @@ async function deleteSession(sessionId, type) {
 
 function closeDetailsModal() {
     document.getElementById('details-modal').style.display = 'none';
+    if (logWebSocket) {
+        logWebSocket.close();
+        logWebSocket = null;
+    }
 }
 
 // Utility Functions

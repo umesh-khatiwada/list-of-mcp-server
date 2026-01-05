@@ -30,8 +30,18 @@ class Settings:
 
     # Webhook Configuration
     webhook_url: str = os.getenv("WEBHOOK_URL", "")
+    output_dir: str = os.getenv("OUTPUT_DIR", "/tmp")
     # Loki (logs) Configuration
     loki_url: str = os.getenv("LOKI_URL", "")
+
+    @property
+    def loki_ws_url(self) -> str:
+        """Derived Loki WebSocket URL."""
+        if not self.loki_url:
+            return ""
+        # Convert http(s):// to ws(s):// and add path
+        ws_url = self.loki_url.replace("http://", "ws://").replace("https://", "wss://").rstrip("/")
+        return f"{ws_url}/loki/api/v1/tail"
 
     # Server Configuration
     host: str = "0.0.0.0"
@@ -55,6 +65,9 @@ class Settings:
         """Validate configuration on initialization."""
         self._validate_configuration()
         self._setup_logging()
+        # Ensure output directory exists
+        if self.output_dir:
+            os.makedirs(self.output_dir, exist_ok=True)
 
     def _validate_configuration(self):
         """Validate security configuration."""
@@ -109,7 +122,9 @@ class Settings:
             "cai_stream": self.cai_stream,
             "cai_agent_type": self.cai_agent_type,
             "loki_url": self.loki_url if self.loki_url else "not_set",
+            "loki_ws_url": self.loki_ws_url if self.loki_ws_url else "not_set",
             "webhook_url": "***" if self.webhook_url else "not_set",
+            "output_dir": self.output_dir,
             "host": self.host,
             "port": self.port,
             "enable_audit_logging": self.enable_audit_logging,

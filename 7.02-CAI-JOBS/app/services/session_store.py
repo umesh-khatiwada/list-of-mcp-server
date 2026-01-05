@@ -6,7 +6,9 @@ import atexit
 from typing import Any, Dict
 
 # File for persistence
-SESSIONS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "sessions.json")
+SESSIONS_FILE = os.environ.get("SESSIONS_FILE", os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "sessions.json"))
+if os.environ.get("OUTPUT_DIR"):
+    SESSIONS_FILE = os.path.join(os.environ.get("OUTPUT_DIR"), "sessions.json")
 logger = logging.getLogger(__name__)
 
 # In-memory session store

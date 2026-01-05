@@ -4,3 +4,4 @@ kubernetes==28.1.0
 pydantic==2.5.0
 requests
 psutil
+websockets

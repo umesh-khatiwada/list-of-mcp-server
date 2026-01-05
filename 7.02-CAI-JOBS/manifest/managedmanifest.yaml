@@ -62,7 +62,12 @@ spec:
                       volumeMounts:
                         - mountPath: /config
                           name: agents-config
+                        - mountPath: $STORAGE_MOUNT_PATH
+                          name: file-storage
                   volumes:
                     - name: agents-config
                       configMap:
                         name: cai-agents-config
+                    - name: file-storage
+                      persistentVolumeClaim:
+                        claimName: $PVC_NAME

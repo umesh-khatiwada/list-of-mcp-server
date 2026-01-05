@@ -50,8 +50,16 @@ def _send_webhook_sync(
             "file_content": file_content,
         }
 
-        response = requests.post(settings.webhook_url, json=payload, timeout=30)
-        logger.info(f"Webhook sent for session {session_id}: {response.status_code}")
+        # Append session_id to URL if not already present
+        webhook_url = settings.webhook_url
+        if session_id and session_id not in webhook_url:
+            if not webhook_url.endswith("/"):
+                webhook_url = f"{webhook_url}/{session_id}"
+            else:
+                webhook_url = f"{webhook_url}{session_id}"
+
+        response = requests.post(webhook_url, json=payload, timeout=30)
+        logger.info(f"Webhook sent to {webhook_url} for session {session_id}: {response.status_code}")
     except Exception as e:
         logger.error(f"Failed to send webhook for session {session_id}: {str(e)}")
 

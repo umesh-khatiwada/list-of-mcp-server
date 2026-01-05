@@ -5,6 +5,7 @@ import os
 from fastapi import APIRouter, HTTPException, Request
 
 from ...services.session_store import sessions_store, save_sessions
+from ...config import settings
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -41,7 +42,7 @@ async def receive_webhook(session_id: str, request: Request):
             security_analysis = payload.get("security_analysis")
             recommendations = payload.get("recommendations")
             # Save the payload to disk, merging with existing data if present
-            save_path = f"/tmp/webhook_payload_{session_id}.json"
+            save_path = os.path.join(settings.output_dir, f"webhook_payload_{session_id}.json")
             
             existing_data = {}
             if os.path.exists(save_path):
@@ -75,7 +76,7 @@ async def receive_webhook(session_id: str, request: Request):
             recommendations = None
             
             # Save the raw file_content to disk (merge if possible if it's JSON)
-            save_path = f"/tmp/webhook_payload_{sid}.json"
+            save_path = os.path.join(settings.output_dir, f"webhook_payload_{sid}.json")
             
             existing_data = {}
             if os.path.exists(save_path):
@@ -142,6 +143,25 @@ async def receive_webhook(session_id: str, request: Request):
                 "recommendations": recommendations,
             }
             save_sessions()
+            
+            # Persistent Scan History: Save to scans_results.json if it's a scan
+            if scan_summary or repository:
+                scan_history_path = os.path.join(settings.output_dir, "scans_results.json")
+                from datetime import datetime
+                history_entry = {
+                    "session_id": session_id,
+                    "repository": repository or "Unknown",
+                    "scan_summary": scan_summary,
+                    "timestamp": datetime.now().isoformat(),
+                    "status": status or "Completed"
+                }
+                try:
+                    with open(scan_history_path, "a") as f:
+                        import json as _json
+                        f.write(_json.dumps(history_entry) + "\n")
+                    logger.info(f"Scan history appended for session {session_id}")
+                except Exception as e:
+                    logger.error(f"Failed to save scan history: {e}")
 
         return {"status": "received", "session_id": session_id, "processed": True, "saved_to": save_path}
     except Exception as e:
@@ -158,7 +178,7 @@ async def get_webhook_result(session_id: str, raw_file: bool = Query(False, desc
     from ...services.session_store import sessions_store, save_sessions
     import json
 
-    save_path = f"/tmp/webhook_payload_{session_id}.json"
+    save_path = os.path.join(settings.output_dir, f"webhook_payload_{session_id}.json")
     logger.debug(f"[DEBUG] Checking for file: {save_path}")
     if not os.path.exists(save_path):
         logger.debug(f"[DEBUG] No file found for session {session_id} at {save_path}")
@@ -221,3 +241,35 @@ async def get_webhook_result(session_id: str, raw_file: bool = Query(False, desc
     except Exception as e:
         logger.debug(f"[DEBUG] Error loading or parsing file for session {session_id}: {e}")
         return JSONResponse(status_code=404, content={"error": f"No result found for this session. Error: {e}"})
+
+
+@router.get("/scans/history")
+async def get_scans_history():
+    """Returns a list of all performed scans from scans_results.json."""
+    import json
+    scan_history_path = os.path.join(settings.output_dir, "scans_results.json")
+    if not os.path.exists(scan_history_path):
+        return []
+    
+    history = []
+    try:
+        with open(scan_history_path, "r") as f:
+            for line in f:
+                if line.strip():
+                    try:
+                        history.append(json.loads(line))
+                    except:
+                        continue
+        # Return reversed to show latest first
+        return history[::-1]
+    except Exception as e:
+        logger.error(f"Error reading scan history: {e}")
+        return []
+
+@router.delete("/scans/history")
+async def clear_scans_history():
+    """Clears the scan history log."""
+    scan_history_path = os.path.join(settings.output_dir, "scans_results.json")
+    if os.path.exists(scan_history_path):
+        os.remove(scan_history_path)
+    return {"status": "History cleared"}

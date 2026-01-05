@@ -280,7 +280,8 @@ fi
 """
             ],
             volume_mounts=[
-                client.V1VolumeMount(name="agents-config", mount_path="/config")
+                client.V1VolumeMount(name="agents-config", mount_path="/config"),
+                client.V1VolumeMount(name="file-storage", mount_path="/app/storage")
             ],
         )
 
@@ -298,7 +299,13 @@ fi
                         config_map=client.V1ConfigMapVolumeSource(
                             name="cai-agents-config"
                         ),
-                    )
+                    ),
+                    client.V1Volume(
+                        name="file-storage",
+                        persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(
+                            claim_name="cai-manager-pvc"
+                        ),
+                    ),
                 ],
             ),
         )
@@ -340,22 +347,14 @@ fi
             The job status string
         """
         try:
-            job = self.batch_v1.read_namespaced_job(
+            self.batch_v1.read_namespaced_job(
                 name=job_name, namespace=self.namespace
             )
-
-            if job.status.succeeded:
-                return "Completed"
-            elif job.status.failed:
-                return "Failed"
-            elif job.status.active:
-                return "Running"
-            else:
-                return "Pending"
+            return "Running"
         except client.ApiException as e:
             if e.status == 404:
                 logger.info(f"Job {job_name} not found (deleted or expired)")
-                return "Deleted"
+                return "Completed"
             logger.error(f"Failed to get job status: {str(e)}")
             return "Unknown"
         except Exception as e:

@@ -41,6 +41,7 @@
                 <button class="tab-btn" onclick="showTab('jobs', this)">Kubernetes Jobs</button>
                 <button class="tab-btn" onclick="showTab('mcp', this)">MCP Servers</button>
                 <button class="tab-btn" onclick="showTab('agents', this)">Agents</button>
+                <button class="tab-btn" onclick="showTab('scans', this)">Scan History</button>
             </div>
 
             <!-- Sessions Tab -->
@@ -116,6 +117,18 @@
                     <button class="btn btn-secondary" onclick="loadAgents()">Refresh</button>
                 </div>
                 <div id="agents-list" class="agent-list"></div>
+            </div>
+
+            <!-- Scan History Tab -->
+            <div id="scans-tab" class="tab-content">
+                <div class="tab-header">
+                    <h2>Scan History</h2>
+                    <div>
+                        <button class="btn btn-danger" onclick="clearScanHistory()">Clear History</button>
+                        <button class="btn btn-secondary" onclick="loadScanHistory()">Refresh</button>
+                    </div>
+                </div>
+                <div id="scans-list" class="card-grid"></div>
             </div>
         </main>
 
