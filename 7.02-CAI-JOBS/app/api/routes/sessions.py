@@ -120,15 +120,39 @@ async def get_session_logs(
     """Get logs for a specific session from Loki and trigger webhook on completion."""
     logger.info(f"Received request to get session logs: {session_id}")
     logger.info(f"Sessions in store: {list(sessions_store.keys())}")
-    if session_id not in sessions_store:
-        raise HTTPException(status_code=404, detail="Session not found")
+    # Try to finding session in store, or reconstruct minimal info from disk
+    session = sessions_store.get(session_id)
+    job_name = None
+    
+    if session:
+        job_name = session.get("jobName")
+    else:
+        # Try to find from persistent payload
+        payload_path = os.path.join(settings.output_dir, f"webhook_payload_{session_id}.json")
+        if os.path.exists(payload_path):
+             try:
+                 with open(payload_path, "r") as f:
+                     saved_data = json.load(f)
+                     # Check if we have logs saved directly
+                     if saved_data.get("pod_logs"):
+                         return {"logs": saved_data.get("pod_logs"), "status": saved_data.get("status", "Completed")}
+                     # Try to get job name to query Loki
+                     # If not saved, guess it
+             except:
+                 pass
+        
+        # If still no session, assume default naming convention for legacy jobs
+        # This allows Loki querying even if we don't have the session object
+        job_name = f"cai-job-{session_id[:8]}"
+        logger.info(f"Session not in store, inferring job_name: {job_name} for Loki query")
 
-    session = sessions_store[session_id]
-    if "jobName" in session:
-        status = k8s_service.get_job_status(session["jobName"])
+    # If we have a job_name (real or inferred), proceed to query Loki
+    if job_name:
+        status = "Unknown" 
+        if session:
+             status = k8s_service.get_job_status(job_name)
 
         # Fetch logs from Loki if configured
-        job_name = session["jobName"]
         logs_str = ""
 
         # Only query Loki if configured
@@ -261,7 +285,8 @@ async def get_session_logs(
                 break
 
         # Send webhook if job completed and not yet notified
-        if status == "Completed" and not session.get("webhook_sent"):
+        # Only if we have a valid session object to update
+        if session and status == "Completed" and not session.get("webhook_sent"):
             await send_webhook(
                 session_id, job_name, status, log_path, logs_str, log_content
             )
@@ -270,7 +295,7 @@ async def get_session_logs(
 
         return {"logs": logs_str, "status": status}
 
-    elif "job_names" in session:
+    elif session and "job_names" in session:
         # Advanced session with multiple jobs - handle similar to advanced sessions route
         job_names = session.get("job_names", [])
         if not job_names:
@@ -338,6 +363,11 @@ async def get_session_logs(
         return {"logs": logs_str, "status": status}
 
     else:
+        # If session is None but we haven't returned yet, it means we failed to infer job_name or logs
+        # However, for legacy/basic sessions we might have fallen through if we inferred job_name but failed to get logs
+        if job_name:
+             return {"logs": "No logs found in Loki or Kubernetes", "status": "Unknown"}
+             
         raise HTTPException(status_code=404, detail="Session not found")
 
 
@@ -451,30 +481,51 @@ async def get_session_result(
 ):
     """Get complete job result including file content."""
     logger.info(f"Received request to get session result: {session_id}")
-    if session_id not in sessions_store:
+    session = sessions_store.get(session_id)
+    
+    # 1. Check persistent storage (PVC) first - definitive source for results
+    payload_path = os.path.join(settings.output_dir, f"webhook_payload_{session_id}.json")
+    if os.path.exists(payload_path):
+        try:
+            with open(payload_path, "r") as f:
+                saved_data = json.load(f)
+            
+            # Extract fields from saved payload
+            file_content = saved_data.get("file_content")
+            if not file_content:
+                file_content = json.dumps(saved_data, indent=2)
+            
+            # Determine status
+            status = saved_data.get("status")
+            if not status and session:
+                 # Fallback to session/job status if payload lacks it
+                 job_name = session.get("jobName") or (session.get("job_names", [])[0] if session.get("job_names") else None)
+                 if job_name:
+                     status = k8s_service.get_job_status(job_name)
+            
+            return {
+                "session_id": session_id,
+                "status": status or "Completed",
+                "log_path": saved_data.get("log_path"),
+                "pod_logs": saved_data.get("pod_logs"),
+                "file_content": file_content,
+                "file_size": len(file_content) if file_content else 0,
+            }
+        except Exception as e:
+            logger.warning(f"Failed to read persistent payload for {session_id}: {e}")
+
+    # 2. If not on disk, check session store + K8s logs (for running/recent jobs)
+    if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    session = sessions_store[session_id]
-    logger.info(f"Session: {session}")
     job_name = session.get("jobName")
     if not job_name and session.get("job_names"):
-        # Advanced session, job name is cai-job-{session_id[:8]}
-        job_name = f"cai-job-{session_id[:8]}"
+         job_name = f"cai-job-{session_id[:8]}"
+    
     if not job_name:
-        raise HTTPException(status_code=404, detail="Session not found")
+         raise HTTPException(status_code=404, detail="Session not found")
 
     status = k8s_service.get_job_status(job_name)
-
-    # Try to get from stored result first
-    if "result" in session and session["result"].get("file_content"):
-        return {
-            "session_id": session_id,
-            "status": status,
-            "log_path": session["result"].get("log_path"),
-            "pod_logs": session["result"].get("pod_logs"),
-            "file_content": session["result"].get("file_content"),
-            "file_size": len(session["result"].get("file_content", "")),
-        }
 
     # Fetch fresh logs
     logs, log_path, log_content = k8s_service.get_pod_logs_with_path(session_id)

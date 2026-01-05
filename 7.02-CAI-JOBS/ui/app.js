@@ -317,10 +317,24 @@ async function loadScanHistory() {
             const date = new Date(scan.timestamp).toLocaleString();
             const statusClass = scan.status ? scan.status.toLowerCase() : 'unknown';
 
+            let summaryText = '';
+            if (scan.scan_summary) {
+                if (typeof scan.scan_summary === 'string') {
+                    summaryText = scan.scan_summary;
+                } else if (typeof scan.scan_summary === 'object') {
+                    // Try to extract meaningful info or stringify
+                    if (scan.scan_summary.total_vulnerabilities !== undefined) {
+                        summaryText = `Found ${scan.scan_summary.total_vulnerabilities} vulnerabilities`;
+                    } else {
+                        summaryText = JSON.stringify(scan.scan_summary);
+                    }
+                }
+            }
+
             return `
                 <div class="session-card">
                     <div class="session-header">
-                        <div class="session-name">${scan.repository}</div>
+                        <div class="session-name">${scan.repository || 'Unknown Repository'}</div>
                         <span class="status-badge status-${statusClass}">${scan.status || 'Completed'}</span>
                     </div>
                     <div class="session-info">
@@ -332,9 +346,9 @@ async function loadScanHistory() {
                             <span class="info-label">Date:</span>
                             <span class="info-value">${date}</span>
                         </div>
-                        ${scan.scan_summary ? `
+                        ${summaryText ? `
                         <div style="margin-top: 10px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color); padding-top: 5px;">
-                            <strong>Summary:</strong> ${scan.scan_summary.substring(0, 100)}${scan.scan_summary.length > 100 ? '...' : ''}
+                            <strong>Summary:</strong> ${summaryText.substring(0, 100)}${summaryText.length > 100 ? '...' : ''}
                         </div>
                         ` : ''}
                     </div>

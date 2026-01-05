@@ -59,9 +59,11 @@ async def receive_webhook(session_id: str, request: Request):
             if isinstance(payload, dict):
                 existing_data.update(payload)
                 
-            with open(save_path, "w") as f:
-                import json as _json
-                _json.dump(existing_data, f, indent=2)
+            from ...utils.file_lock import FileLock
+            with FileLock(save_path):
+                with open(save_path, "w") as f:
+                    import json as _json
+                    _json.dump(existing_data, f, indent=2)
         except Exception:
             # If not a dict, treat as raw JSON file (string)
             file_content = await request.body()
@@ -97,16 +99,22 @@ async def receive_webhook(session_id: str, request: Request):
                     else:
                         existing_data = parsed
                     
-                    with open(save_path, "w") as f:
-                        json.dump(existing_data, f, indent=2)
+                    from ...utils.file_lock import FileLock
+                    with FileLock(save_path):
+                        with open(save_path, "w") as f:
+                            json.dump(existing_data, f, indent=2)
                 else:
                     # Not a dict, just overwrite
-                    with open(save_path, "w") as f:
-                        f.write(file_content)
+                    from ...utils.file_lock import FileLock
+                    with FileLock(save_path):
+                        with open(save_path, "w") as f:
+                            f.write(file_content)
             except Exception:
                 # Not JSON, overwrite
-                with open(save_path, "w") as f:
-                    f.write(file_content)
+                from ...utils.file_lock import FileLock
+                with FileLock(save_path):
+                    with open(save_path, "w") as f:
+                        f.write(file_content)
             # Optionally, try to extract session_id and scan fields if present in JSON
             import json
             try:
@@ -148,6 +156,8 @@ async def receive_webhook(session_id: str, request: Request):
             if scan_summary or repository:
                 scan_history_path = os.path.join(settings.output_dir, "scans_results.json")
                 from datetime import datetime
+                from ...utils.file_lock import FileLock
+                
                 history_entry = {
                     "session_id": session_id,
                     "repository": repository or "Unknown",
@@ -156,9 +166,10 @@ async def receive_webhook(session_id: str, request: Request):
                     "status": status or "Completed"
                 }
                 try:
-                    with open(scan_history_path, "a") as f:
-                        import json as _json
-                        f.write(_json.dumps(history_entry) + "\n")
+                    with FileLock(scan_history_path):
+                        with open(scan_history_path, "a") as f:
+                            import json as _json
+                            f.write(_json.dumps(history_entry) + "\n")
                     logger.info(f"Scan history appended for session {session_id}")
                 except Exception as e:
                     logger.error(f"Failed to save scan history: {e}")
