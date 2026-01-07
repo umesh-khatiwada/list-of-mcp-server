@@ -654,31 +654,4 @@ fi
             logger.error(f"Failed to get ManifestWork status: {str(e)}")
             return "Unknown"
 
-    def _extract_flags_from_logs(self, logs: str) -> List[str]:
-        """Extract CTF flags from logs."""
-        import re
 
-        flag_pattern = r"flag\{[^}]+\}"
-        flags = re.findall(flag_pattern, logs, re.IGNORECASE)
-        return list(set(flags))  # Remove duplicates
-
-    def _extract_vulnerabilities_from_logs(self, logs: str) -> List[str]:
-        """Extract vulnerability findings from logs."""
-        import re
-
-        vuln_patterns = [
-            r"vulnerability.*found",
-            r"exploit.*successful",
-            r"CVE-\d{4}-\d+",
-            r"SQL injection",
-            r"XSS.*detected",
-            r"buffer overflow",
-            r"privilege escalation",
-        ]
-
-        vulnerabilities = []
-        for pattern in vuln_patterns:
-            matches = re.findall(pattern, logs, re.IGNORECASE)
-            vulnerabilities.extend(matches)
-
-        return list(set(vulnerabilities))  # Remove duplicates

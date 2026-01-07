@@ -14,9 +14,7 @@ def update_cluster_metrics(cluster_name: str, metrics: Dict):
     cluster_metrics_store[cluster_name] = metrics
     logger.info(f"Updated metrics for cluster: {cluster_name}")
 
-def get_cluster_metrics(cluster_name: str) -> Optional[Dict]:
-    """Get metrics for a specific cluster."""
-    return cluster_metrics_store.get(cluster_name)
+
 
 def get_all_clusters() -> Dict[str, Any]:
     """Get metrics for all clusters with current server timestamp."""
