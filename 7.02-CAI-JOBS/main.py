@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import health, mcp, sessions, webhooks, monitoring
+from app.api.routes import health, mcp, monitoring, sessions, webhooks
 
 try:
     from app.api.routes import advanced_sessions
@@ -18,7 +18,7 @@ except ImportError:
 from app.api.dependencies import get_kubernetes_service
 from app.config import settings
 from app.services.job_monitor import monitor_jobs
-from app.services.session_store import sessions_store, load_sessions, save_sessions
+from app.services.session_store import load_sessions, save_sessions, sessions_store
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -41,13 +41,17 @@ async def lifespan(app: FastAPI):
         jobs = k8s_service.list_jobs()
 
         for job in jobs:
-            session_id = job.metadata.labels.get("session-id") if job.metadata.labels else None
+            session_id = (
+                job.metadata.labels.get("session-id") if job.metadata.labels else None
+            )
             if session_id and session_id not in sessions_store:
                 sessions_store[session_id] = {
                     "id": session_id,
                     "name": job.metadata.labels.get("session-name", "Unknown"),
                     "status": k8s_service.get_job_status(job.metadata.name),
-                    "created": job.metadata.creation_timestamp.isoformat() if job.metadata.creation_timestamp else datetime.now().isoformat(),
+                    "created": job.metadata.creation_timestamp.isoformat()
+                    if job.metadata.creation_timestamp
+                    else datetime.now().isoformat(),
                     "jobName": job.metadata.name,
                     "prompt": "Recovered from existing job",
                 }
@@ -57,19 +61,22 @@ async def lifespan(app: FastAPI):
     # Sync existing ManifestWorks (Advanced Sessions)
     try:
         from app.services.advanced_kubernetes_service import AdvancedKubernetesService
+
         adv_k8s = AdvancedKubernetesService()
         manifestworks = adv_k8s.list_manifestworks()
 
         for mw in manifestworks:
-            mw_labels = mw.get('metadata', {}).get('labels', {})
+            mw_labels = mw.get("metadata", {}).get("labels", {})
             session_id = mw_labels.get("session-id")
             if session_id and session_id not in sessions_store:
                 sessions_store[session_id] = {
                     "id": session_id,
                     "name": mw_labels.get("session-name", "Recovered Advanced Session"),
-                    "status": adv_k8s.get_manifestwork_status(mw['metadata']['name']),
-                    "created": mw['metadata'].get('creationTimestamp', datetime.now().isoformat()),
-                    "job_names": [mw['metadata']['name']],
+                    "status": adv_k8s.get_manifestwork_status(mw["metadata"]["name"]),
+                    "created": mw["metadata"].get(
+                        "creationTimestamp", datetime.now().isoformat()
+                    ),
+                    "job_names": [mw["metadata"]["name"]],
                     "mode": "recovered",
                     "prompt": "Recovered from existing ManifestWork",
                 }
@@ -92,7 +99,7 @@ async def lifespan(app: FastAPI):
         await monitor_task
     except asyncio.CancelledError:
         logger.info("Background job monitor stopped")
-    
+
     # Save sessions before shutdown
     logger.info("Saving sessions before shutdown...")
     save_sessions()
