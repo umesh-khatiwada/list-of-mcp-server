@@ -7,6 +7,29 @@ Each session creates a dedicated Kubernetes Job
 Track session status (Pending, Running, Completed, Failed)
 
 
+Development
+-----------
+
+The project uses a multi-stage `Dockerfile` for both development and production.
+
+### Running with Docker Compose
+
+**Development Mode (Hot Reload):**
+```bash
+docker-compose up --build
+```
+
+**Production Mode:**
+```bash
+docker-compose -f docker-compose.prod.yml up --build
+```
+
+### Configuration Files
+
+- **Kubernetes Manifests**: Located in `k8s/`
+- **Volcano Configuration**: `vc.yaml` is located in `k8s/valcano/`
+
+
 Job Operations
 
 Automatically creates K8s Jobs with the CAI Docker image
