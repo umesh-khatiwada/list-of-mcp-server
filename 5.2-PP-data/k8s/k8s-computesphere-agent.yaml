@@ -26,9 +26,9 @@ spec:
             - name: PYTHONDONTWRITEBYTECODE
               value: "1"
             - name: REDIS_URL
-              value: "redis://default:PLv1OZClyTpwBQZPOWANzYM@redis-12825.c302.asia-northeast1-1.gce.cloud.redislabs.com:12825"
+              value: "redis://default:sdds@redis-12825.c302.asia-northeast1-1.gce.cloud.redislabs.com:12825"
             - name: GOOGLE_API_KEY
-              value: "AIzaSyDCcZ0Akpzd7ReDoEgFrdQjAqx"
+              value: "jkjkhjk"
 ---
 apiVersion: v1
 kind: Service
