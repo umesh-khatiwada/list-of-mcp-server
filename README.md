@@ -2,6 +2,16 @@
 
 A curated collection of Model Context Protocol (MCP) servers that enable AI assistants like Claude, Cursor, and Windsurf to interact with various services and APIs.
 
+## Table of Contents
+
+- [Available MCP Servers](#-available-mcp-servers)
+- [All Directories](#all-directories)
+- [Quick Start](#-quick-start)
+- [Documentation](#-documentation)
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Author](#author)
+
 ## 🚀 Available MCP Servers
 
 ### 1. Kubectl MCP Server
@@ -142,6 +152,33 @@ pip install -r requirements.txt
 }
 ```
 
+## All Directories
+
+The repo also holds numbered, step-by-step examples. Descriptions come from each directory's own README or file names; see the linked folder for details.
+
+| Directory | What it contains |
+|-----------|------------------|
+| [3-simple-server-setup](./3-simple-server-setup/) | Simple MCP server with the Python SDK, plus stdio, SSE and streamable-HTTP clients |
+| [4-geminiai-integration](./4-geminiai-integration/) | Server and client examples for Gemini integration (has `.env.example`) |
+| [4.1-openai-integration](./4.1-openai-integration/) | Server and client examples for OpenAI integration (has `.env.example`) |
+| [5-PP-data](./5-PP-data/) | MCP server with Docker (simple calculator tool) |
+| [5.1-PP-data](./5.1-PP-data/), [5.2-PP-data](./5.2-PP-data/), [5.3-PP-data](./5.3-PP-data/) | MCP server for API integration (OpenAPI based) |
+| [5.2-PP-data-fastapi-UI](./5.2-PP-data-fastapi-UI/) | FastAPI UI variant with Dockerfile, k8s and monitoring folders |
+| [6.0-bedrock](./6.0-bedrock/), [6.01-open-api](./6.01-open-api/) | Agent examples (6.01 uses `strands-agents`) |
+| [6.02-A2A-MCP-server](./6.02-A2A-MCP-server/) | Multi-agent system using A2A and MCP (math, research, orchestrator agents) |
+| [6.03-Agent-core-agentRuntime](./6.03-Agent-core-agentRuntime/) | Agent runtime app with Dockerfile, k8s and Lambda functions (no README; TODO) |
+| [7.0.1-cai-cybersecurity-agent](./7.0.1-cai-cybersecurity-agent/) | CAI cybersecurity multi-agent orchestration system |
+| [7.02-CAI-JOBS](./7.02-CAI-JOBS/) | CAI jobs/session manager app with Docker and k8s files |
+| [google-mcp-server](./google-mcp-server/) | Google OAuth MCP server with FastMCP |
+| [mcp-client-server-chat](./mcp-client-server-chat/) | FastMCP server and chat client |
+| [mail](./mail/) | Mail MCP server scripts (no README; TODO) |
+
+`kubectl-mcp-server/` appears to be a copy of the third-party project https://github.com/rohitg00/kubectl-mcp-server (MIT, Copyright (c) 2024 Rohit Ghumare; see its own `LICENSE`).
+
+## Configuration and secrets
+
+Several examples ship a `.env.example`. Copy it to `.env`, fill in your own keys locally, and never commit real values.
+
 ## 🔧 Quick Start
 
 1. **Choose an MCP server** from the list above
@@ -168,4 +205,8 @@ Feel free to contribute by:
 
 ## 📝 License
 
-Each MCP server may have its own license. Please check individual project directories for specific licensing information.
+No top-level license has been declared yet (TODO). `kubectl-mcp-server/` is third-party code under its own MIT license (see `kubectl-mcp-server/LICENSE`). Check individual directories for other licensing information.
+
+## Author
+
+Umesh Khatiwada - [@umesh-khatiwada](https://github.com/umesh-khatiwada)
